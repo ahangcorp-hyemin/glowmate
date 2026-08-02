@@ -12,7 +12,13 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main]
+    branches:
+      - main
+      # REQ-5 (2) 는 픽스처 트리를 **실제 Actions 런**으로 검증할 것을 요구한다.
+      # PR 을 8개 만들지 않고 런을 발생시키기 위한 트리거다.
+      # 픽스처 브랜치는 tools/ci-meta/fixtures-run.mjs 가 PR HEAD 에서 생성하므로
+      # 워크플로 파일 sha 가 일치한다(신선도 검사 통과 조건).
+      - 'ci-fixture/**'
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

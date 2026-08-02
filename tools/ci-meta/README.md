@@ -52,18 +52,20 @@
 3. 관례 브랜치 `ci-fixture/<job>`
 
 ```jsonc
-// .github/ci-fixtures/<job>/fixture.json   ← 오버레이 대상이 아니다 (드라이버 메타데이터)
+// .github/ci-fixtures/<name>/fixture.json   ← 오버레이 대상이 아니다 (드라이버 메타데이터)
 {
-  "branch": "ci-fixture/boundary",
-  "run_id": 1234567890,           // 선택. 있으면 이 런을 직접 조회한다
+  "job": "boundary",
   "expect": ["REQ-3", "FORBID-1"],// 선택. 생략 시 fixture-rules.mjs 의 기본 기대 토큰 사용
-  "pr_task": "D1a-PROTOCOL"       // 선택. 픽스처가 F1 touches 밖 경로를 건드릴 때 필수
+  "branch": "ci-fixture/boundary",
+  "overlay": "overlay/",          // 이 디렉터리 이하가 리포 루트에 덮어쓰기된다
+  "run_id": 1234567890            // 선택. 있으면 이 런을 직접 조회한다
 }
 ```
 
-`pr_task` 가 필요한 이유: 픽스처 ⑦ 은 `scripts/discovery/validate_d*.py` 를 만드는데 그 경로는 F1 touches
-밖이다. 오버레이 브랜치의 `.github/pr-task` 를 그 경로를 touches 로 갖는 계약(`D1a-PROTOCOL`)으로 바꾸지
-않으면 같은 런에서 **path-guard 도 red** 가 되어 "대응 job 만 red · 나머지 7 green" 이 깨진다.
+**`.github/pr-task` 교체가 필요한 픽스처는 그 파일을 오버레이 트리 안에 둔다** —
+예: `.github/ci-fixtures/discovery/overlay/.github/pr-task` = `D1a-PROTOCOL`.
+픽스처 ⑦ 은 `scripts/discovery/validate_d*.py` 를 만드는데 그 경로는 F1 touches 밖이므로,
+pr-task 를 바꾸지 않으면 같은 런에서 **path-guard 도 red** 가 되어 "대응 job 만 red · 나머지 7 green" 이 깨진다.
 
 **신선도**: 런의 `head_sha` 시점 `.github/workflows/ci.yml` 의 blob sha 가 현재 PR 의 blob sha 와
 같아야만 유효한 런으로 인정한다(과거 red 런 재사용 금지). 어느 경로로도 신선한 런을 찾지 못하면 CI 에서 exit 1.
@@ -85,9 +87,12 @@ node tools/ci-meta/fixtures-run.mjs --push             # 실제로 브랜치 생
 node tools/ci-meta/fixtures-run.mjs --push --collect   # push 후 런 URL·신선도 수집, fixture.json 에 넣을 run_id 출력
 ```
 
-- 픽스처 트리는 리포 루트에 **덮어쓰기**되는 부분 트리. 브랜치는 `ci-fixture/<job>`, base 는 현재 PR 의 HEAD.
+- `fixture.json` 의 `overlay` 이하가 리포 루트에 **덮어쓰기**된다. 브랜치는 `branch` 필드(기본 `ci-fixture/<name>`),
+  base 는 현재 PR 의 HEAD.
+- REQ-5 필수 8종 + `.github/ci-fixtures/` 에서 발견된 **추가 픽스처**(REQ-3 의 `boundary-prisma` 등)를 모두 구동한다.
 - `--push` 는 워킹트리가 깨끗할 때만 진행하고, 끝나면 원래 브랜치로 복귀한다.
-- 트리가 하나라도 없거나 오버레이할 파일이 0건이면 **exit 1** (검사 대상 0건 통과 금지).
+- 필수 트리가 하나라도 없거나 오버레이할 파일이 0건이면 **exit 1** (검사 대상 0건 통과 금지).
+- `--collect` 는 각 브랜치 최신 런의 신선도를 확인하고 `fixture.json` 에 넣을 `run_id` 를 출력한다.
 
 ## FORBID-2 스캔 범위
 
@@ -127,3 +132,27 @@ Discovery 계약 저자에게: 인자 검증(미지의 `--check` 는 non-zero)�
 계약에 원천이 미정의다(감사 f1-gate2 §4-3). 새 정본 파일을 만들지 않고
 **PR 작성자 ∪ 환경변수 `GLOWMATE_IMPLEMENTER_ACCOUNTS`(콤마 구분)** 의 합집합으로 판정한다.
 두 원천이 모두 비어 교집합 검사가 공허해지면 그 사실을 CI 에서 FAIL 로 드러낸다.
+
+## `single_maintainer` 대체 규약 (REQ-7 개정본 · FORBID-5)
+
+push 권한 보유 collaborator 가 **1명이면** 타인 승인이 물리적으로 불가능하다. 이때 (c) 대신
+아래 3건을 **전부** assert 하고, 상태를 `SINGLE_MAINTAINER` 토큰으로 CI 로그에 명시 기록한다.
+
+| 항목 | 요구 | 판정 원천 |
+|---|---|---|
+| (c-1) | `.github/CODEOWNERS` 헤더에 `single-maintainer-until: <YYYY-MM-DD>` 가 있고 **오늘 ≤ 그 날짜** | 헤더 파싱. 초과 시 exit 1 — **완화가 스스로 만료한다** |
+| (c-2) | 그 날짜가 CODEOWNERS 최초 도입일로부터 **90일 이내** | `git log --diff-filter=A --date=format:%Y-%m-%d -- .github/CODEOWNERS`. 도입 PR 에서는 현재 커밋 날짜 |
+| (c-3) | 승인 대체 대상 파일의 변경은 **그 파일 하나만 포함하는 독립 PR** | `git diff --name-only <merge-base>` |
+
+- collaborator 수를 확정하지 못하면(로컬 등) **원 요구 (c) 와 대체 규약을 둘 다 돌려** 정보량을 남기고,
+  체제 미확정 사실을 `SKIPPED(local)` 로 명시한다. CI 에서 확정 불가면 FAIL 이다.
+- 날짜는 **작성자 로컬 캘린더**로 비교한다. `%aI` 를 UTC 캘린더로 바꾸면 KST 새벽 커밋이 전날로 밀려
+  90일 판정이 1일 어긋난다(실제로 91일 오판이 났다). "오늘"은 실행 환경 로컬 캘린더 —
+  만료 판정이 관대한 쪽으로 틀리지 않게 한다.
+- (c-3) 대상: `packages/config/db-driver-exceptions.json` · `.github/ci-budget.json`(기존 항목 상향).
+  `packages/config/dependency-classes.json` 은 계약이 "**승인 대상 diff 인 경우**"로 한정하며 그 판정은
+  REQ-3 / `tools/dep-graph` 소관이다. 여기서 무조건 독립 PR 을 요구하면 감사 B-3b′ 의 DS1·DS3
+  데드락이 되살아나므로, **소관 표기와 함께 명시 출력만** 하고 판정은 넘긴다.
+- **최초 도입(base 에 파일 없음)은 (c-3) 대상 제외** — 아니면 F1 자기 PR 이 차단된다(규격 §3.4).
+- `.github/pr-task` 는 "다른 변경"으로 세지 않는다 — FORBID-4 의 전 계약 공통 허용 경로이며,
+  그것을 갱신 못 하면 (c-3) 을 만족하는 PR 이 path-guard 에서 반드시 red 가 되어 합법 경로가 0개가 된다.
