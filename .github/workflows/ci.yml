@@ -104,7 +104,13 @@ jobs:
       - run: pnpm test:workspace
       - run: pnpm test
       - name: 'REQ-8 / FORBID-3 — next build 라우트 요약'
-        run: pnpm --filter @glowmate/web exec next build
+        run: |
+          set -euo pipefail
+          pnpm --filter @glowmate/web exec next build | tee /tmp/next-build.log
+      - name: 'REQ-8 / FORBID-3 — 요약 파싱 + 페이지 라우트 토큰 grep'
+        # 빌드가 성공하는 것과 렌더링 기본값이 정적인 것은 다르다.
+        # 이 스텝이 없으면 force-dynamic 을 넣어도 test job 이 green 이다.
+        run: pnpm test:routes /tmp/next-build.log
 
   python:
     name: python
