@@ -17,6 +17,24 @@ export class GitHubError extends Error {
   }
 }
 
+export const PLAN_LIMITED_TOKEN = 'PLAN_LIMITED';
+
+/**
+ * 플랜 제약으로 **기능 자체가 존재하지 않는** 경우인가.
+ *
+ * private + free 플랜 리포에서는 브랜치 보호·룰셋 API 가 403 과 함께
+ * "Upgrade to GitHub Pro or make this repository public" 를 반환한다.
+ * 이것은 "일시적 조회 실패"와 성질이 다르다 — 설정 자체가 불가능하다.
+ * ⚠ 구분만 할 뿐 **통과로 바꾸지 않는다.** 계약 요구를 못 지키는 상태이므로 판정은 FAIL 그대로다.
+ */
+export function isPlanLimited(err) {
+  if (!(err instanceof GitHubError) || err.status !== 403) return false;
+  const body = String(err.body ?? '');
+  return /Upgrade to GitHub Pro|make this repository public|available for repositories in the .* plan/i.test(
+    body,
+  );
+}
+
 class GitHubClient {
   constructor({ token, owner, repo }) {
     this.token = token;

@@ -53,7 +53,7 @@ export function repoRoot() {
   return r.stdout.trim();
 }
 
-const LEVEL_ORDER = { FAIL: 0, SKIP: 1, PASS: 2, INFO: 3 };
+const LEVEL_ORDER = { FAIL: 0, SKIP: 1, EXMP: 2, PASS: 3, INFO: 4 };
 
 /**
  * 검사 결과 수집기.
@@ -100,6 +100,34 @@ export class Report {
     this.#push('SKIP', ruleId, `SKIPPED(local) ${message}`, reason);
   }
 
+  /**
+   * 픽스처 브랜치 전용 면제. **CI 에서도 FAIL 로 승격되지 않는 유일한 경로**다.
+   *
+   * skip() 과 별도 레벨로 둔 이유: skip() 은 "판정 근거를 못 구했다"이고 CI 에서는 실패다.
+   * 면제는 "이 브랜치에서는 애초에 검사 대상이 아니다"라는 다른 성질이며, 그 구분이 흐려지면
+   * 미탐이 통과로 둔갑한다. 그래서 호출부는 반드시 면제 근거(브랜치명)를 넘겨야 하고,
+   * 근거가 픽스처 브랜치가 아니면 FAIL 로 되돌린다.
+   *
+   * @param {boolean} allowed 면제 조건 충족 여부 (호출부가 isFixtureBranch 로 판정)
+   * @param {string} branch   면제 근거가 된 브랜치명 (로그에 남긴다)
+   */
+  exempt(ruleId, message, { allowed, branch, why }) {
+    if (!allowed) {
+      this.fail(
+        ruleId,
+        `${message} — 면제 조건이 충족되지 않았는데 면제가 요청됐다 (브랜치 ${branch ?? 'unknown'})`,
+        '면제는 픽스처 브랜치에서만 허용된다. 이 경로로 검사가 무력화되지 않도록 실패로 되돌린다',
+      );
+      return;
+    }
+    this.#push(
+      'EXMP',
+      ruleId,
+      `SKIPPED(fixture-branch) ${message}`,
+      `브랜치 ${branch} — ${why}`,
+    );
+  }
+
   get failures() {
     return this.entries.filter((e) => e.level === 'FAIL');
   }
@@ -113,7 +141,7 @@ export class Report {
     const sorted = [...this.entries].sort(
       (a, b) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level],
     );
-    const counts = { FAIL: 0, SKIP: 0, PASS: 0, INFO: 0 };
+    const counts = { FAIL: 0, SKIP: 0, EXMP: 0, PASS: 0, INFO: 0 };
     for (const e of this.entries) counts[e.level] += 1;
 
     process.stdout.write(`\n=== ${this.entryName} ===\n`);
@@ -126,7 +154,7 @@ export class Report {
       }
     }
     process.stdout.write(
-      `--- ${this.entryName}: FAIL=${counts.FAIL} SKIP=${counts.SKIP} PASS=${counts.PASS}\n`,
+      `--- ${this.entryName}: FAIL=${counts.FAIL} SKIP=${counts.SKIP} EXEMPT=${counts.EXMP} PASS=${counts.PASS}\n`,
     );
     return this.failed ? 1 : 0;
   }

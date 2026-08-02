@@ -15,7 +15,12 @@ import {
 } from '../lib/codeowners.mjs';
 import { fmtSet } from '../lib/util.mjs';
 import { changedFiles, showBlob } from '../lib/git.mjs';
-import { baseBranchName, currentPullAuthor } from '../lib/github.mjs';
+import {
+  baseBranchName,
+  currentPullAuthor,
+  isPlanLimited,
+  PLAN_LIMITED_TOKEN,
+} from '../lib/github.mjs';
 import {
   detectMaintainerMode,
   checkRelaxationWindow,
@@ -145,6 +150,16 @@ export async function checkReq7(report, ctx) {
   try {
     protection = await gh.client.branchProtection(branch);
   } catch (err) {
+    if (isPlanLimited(err)) {
+      report.fail(
+        RULE,
+        `(b) ${PLAN_LIMITED_TOKEN} — 이 리포지토리에서는 브랜치 보호를 켤 수 없다 (private + free 플랜). ` +
+          `"Require review from Code Owners" 활성화가 **설정 자체로 불가능**하므로 REQ-7 (b) 를 충족할 수 없다. ` +
+          `CODEOWNERS 7경로는 등록돼 있으나 집행 수단이 없다 — 조회 실패가 아니라 기능 부재이며 통과로 처리하지 않는다`,
+        `${err.message}\n${err.body ?? ''}`,
+      );
+      return;
+    }
     report.fail(
       RULE,
       `(b) 브랜치 \`${branch}\` 보호 설정 조회 실패 — 판정 불가는 통과가 아니다`,

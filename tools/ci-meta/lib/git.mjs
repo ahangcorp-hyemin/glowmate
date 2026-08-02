@@ -35,6 +35,30 @@ export function resolveBase(root) {
   };
 }
 
+/**
+ * 현재 워크플로/워킹트리가 올라와 있는 브랜치 이름.
+ * PR 이벤트에서는 `GITHUB_HEAD_REF`(소스 브랜치), push 에서는 `GITHUB_REF_NAME` 이 원천이다.
+ * @returns {{branch:string|null, source:string}}
+ */
+export function currentBranch(root) {
+  if (process.env.GITHUB_HEAD_REF) {
+    return { branch: process.env.GITHUB_HEAD_REF, source: 'GITHUB_HEAD_REF (PR 소스 브랜치)' };
+  }
+  if (process.env.GITHUB_REF_NAME) {
+    return { branch: process.env.GITHUB_REF_NAME, source: 'GITHUB_REF_NAME' };
+  }
+  const ref = process.env.GITHUB_REF;
+  if (ref && ref.startsWith('refs/heads/')) {
+    return { branch: ref.slice('refs/heads/'.length), source: 'GITHUB_REF' };
+  }
+  const r = exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root });
+  if (r.ok) {
+    const b = r.stdout.trim();
+    return { branch: b === 'HEAD' ? null : b, source: 'git rev-parse --abbrev-ref HEAD' };
+  }
+  return { branch: null, source: '판정 불가' };
+}
+
 /** <rev>:<path> 의 blob 내용. 없으면 null. */
 export function showBlob(root, rev, relPath) {
   const r = exec('git', ['show', `${rev}:${relPath}`], { cwd: root });

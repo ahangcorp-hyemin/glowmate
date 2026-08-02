@@ -18,7 +18,7 @@ function git(args, cwd) {
   return res;
 }
 
-function gitOrFail(args, cwd, hint) {
+export function gitOrFail(args, cwd, hint) {
   const res = git(args, cwd);
   if (res.status !== 0) {
     fail([

@@ -17,7 +17,7 @@ import path from 'node:path';
 import { Workflow, CI_WORKFLOW, normalizeExpression } from '../lib/workflow.mjs';
 import { fmtSet, CheckError } from '../lib/util.mjs';
 import { REQUIRED_JOBS, AGGREGATOR_JOB } from '../fixture-rules.mjs';
-import { baseBranchName } from '../lib/github.mjs';
+import { baseBranchName, isPlanLimited, PLAN_LIMITED_TOKEN } from '../lib/github.mjs';
 
 const RULE = 'REQ-6';
 const BUDGET_PATH = '.github/ci-budget.json';
@@ -348,6 +348,16 @@ export async function checkReq6(report, ctx) {
   try {
     protection = await gh.client.branchProtection(branch);
   } catch (err) {
+    if (isPlanLimited(err)) {
+      report.fail(
+        RULE,
+        `(a) ${PLAN_LIMITED_TOKEN} — 이 리포지토리에서는 브랜치 보호를 켤 수 없다 (private + free 플랜). ` +
+          `required status checks 를 {${AGGREGATOR_JOB}} 로 등록하는 것이 **설정 자체로 불가능**하므로 ` +
+          `REQ-6 (a) 를 충족할 수 없다. 조회 실패가 아니라 기능 부재다 — 통과로 처리하지 않는다`,
+        `${err.message}\n${err.body ?? ''}`,
+      );
+      return;
+    }
     report.fail(
       RULE,
       `(a) 브랜치 \`${branch}\` 의 보호 설정을 조회할 수 없다 — 판정 불가는 통과가 아니다`,

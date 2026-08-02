@@ -18,6 +18,12 @@ import { isProseFile, isExcludedPath } from './checks/forbid2-masking.mjs';
 import { normalizePattern, matchesPattern, ownersForPath } from './lib/codeowners.mjs';
 import { evaluateRelaxationWindow, checkIndependentPr } from './lib/maintainer.mjs';
 import {
+  parseBuildSummary,
+  isApiRoute,
+  isInternalRoute,
+  DYNAMIC_TOKENS,
+} from './lib/next-summary.mjs';
+import {
   FORBID2_LINE_PATTERNS,
   FORBID2_WORKFLOW_IF_PATTERNS,
   DISABLE_DIRECTIVE_RE,
@@ -259,6 +265,75 @@ export function runSelfTests() {
       bad('REQ-7', `자기검사 — single_maintainer 대체 규약 판정 오류: ${problems.join(' / ')}`);
     } else {
       ok('REQ-7', '자기검사 통과 — (c-1) 만료 탐지 · (c-2) 90일 상한 탐지 · (c-3) 독립 PR 판정 정합');
+    }
+  }
+
+  // REQ-8 / FORBID-3 — next build 요약 파싱 · 페이지 라우트 필터 · 5토큰
+  {
+    const summary = [
+      'Route (app)                                 Size  First Load JS',
+      '┌ ○ /                                      136 B         101 kB',
+      '├ ○ /_not-found                            136 B         101 kB',
+      '├ ƒ /api/health                              0 B            0 B',
+      '├ ƒ /dyn                                   136 B         101 kB',
+      '└ ● /venues/[slug]                         136 B         101 kB',
+      '    ├ /venues/aaa',
+      'ƒ Middleware                                 27 kB',
+      '+ First Load JS shared by all               101 kB',
+      '',
+      '○  (Static)   prerendered as static content',
+      '●  (SSG)      prerendered as static HTML (uses generateStaticParams)',
+      'ƒ  (Dynamic)  server-rendered on demand',
+    ].join('\n');
+    const problems = [];
+    const parsed = parseBuildSummary(summary);
+
+    if (!parsed.headerFound) problems.push('요약 헤더 미인식');
+    const got = parsed.routes.map((r) => `${r.marker}${r.route}`).sort().join(',');
+    const want = ['○/', '○/_not-found', 'ƒ/api/health', 'ƒ/dyn', '●/venues/[slug]'].sort().join(',');
+    if (got !== want) problems.push(`라우트 파싱 불일치: ${got}`);
+    // 범례 줄 · Middleware · prerender 하위 경로를 라우트로 오인하면 안 된다
+    if (parsed.routes.some((r) => !r.route.startsWith('/'))) problems.push('범례 줄을 라우트로 오인');
+    if (parsed.routes.some((r) => r.route === '/venues/aaa')) {
+      problems.push('prerender 하위 경로를 라우트로 오인');
+    }
+    // 요약이 없으면 헤더 미발견 + 라우트 0건이어야 한다 (파싱 실패를 통과로 처리 금지의 근거)
+    const empty = parseBuildSummary('Failed to compile.');
+    if (empty.headerFound || empty.routes.length !== 0) problems.push('요약 부재 판정 오류');
+    // PPR 등 미분류 마커는 unknown 으로 들어와야 한다
+    const ppr = parseBuildSummary('Route (app)\n┌ ◐ /ppr    1 kB');
+    if (ppr.unknown.length !== 1) problems.push('미분류 마커(◐)를 unknown 으로 잡지 못했다');
+
+    if (!isApiRoute('/api/health') || !isApiRoute('/api')) problems.push('Route Handler 판정 누락');
+    if (isApiRoute('/apiary') || isApiRoute('/venues')) problems.push('Route Handler 오탐');
+    if (!isInternalRoute('/_not-found') || isInternalRoute('/venues')) problems.push('내부 라우트 판정 오류');
+
+    // 5토큰: 각각 합성 위반을 잡고, 정상 라인은 무탐이어야 한다
+    const positives = [
+      "export const dynamic = 'force-dynamic';",
+      'export const revalidate = 0;',
+      'import { unstable_noStore } from "next/cache";',
+      "export const fetchCache = 'force-no-store';",
+      "fetch(url, { cache: 'no-store' });",
+    ];
+    positives.forEach((line, i) => {
+      if (!DYNAMIC_TOKENS[i].re.test(line)) {
+        problems.push(`토큰 \`${DYNAMIC_TOKENS[i].id}\` 가 합성 위반을 잡지 못했다`);
+      }
+    });
+    for (const benign of ["export const revalidate = 3600;", "export const dynamic = 'force-static';"]) {
+      for (const t of DYNAMIC_TOKENS) {
+        if (t.re.test(benign)) problems.push(`토큰 \`${t.id}\` 가 정상 라인을 오탐: ${benign}`);
+      }
+    }
+
+    if (problems.length > 0) {
+      bad('FORBID-3', `자기검사 — next build 요약/토큰 판정 오류: ${problems.join(' / ')}`);
+    } else {
+      ok(
+        'FORBID-3',
+        `자기검사 통과 — 요약 파싱 · 범례/Middleware 무탐 · Route Handler 제외 · 미분류 마커 격리 · 5토큰 탐지/무탐`,
+      );
     }
   }
 

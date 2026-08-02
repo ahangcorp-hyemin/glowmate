@@ -10,6 +10,7 @@
 | `pnpm test:workspace` | `workspace-members.mjs` | REQ-1 |
 | `pnpm test:ci-meta` | `index.mjs` | REQ-5 · REQ-6 · REQ-7 · FORBID-2 · FORBID-5 + 판정기 자기검사 |
 | `pnpm test:discovery` | `discovery.mjs` | FORBID-6 (a) 존재 요구 / (b) 비스텁 요구 |
+| `pnpm test:routes` | `next-routes.mjs` | REQ-8 · FORBID-3 (`next build` 요약 파싱 + 페이지 라우트 토큰 grep) |
 
 ## 판정 원칙
 
@@ -126,6 +127,29 @@ Discovery 계약 저자에게: 인자 검증(미지의 `--check` 는 non-zero)�
 (a) 존재 요구의 판정 원천은 **base 브랜치의 `.github/pr-task` 이력**이다 —
 각 PR 이 자신의 계약 ID 를 그 파일에 1줄로 기재하므로, 그 파일을 건드린 전 커밋의 값 집합이
 "머지된 계약 ID 집합"이다. F1b 의 `docs/tasks.json` 에 의존하지 않는 자립 경로다.
+
+## REQ-8 · FORBID-3 — `next-routes.mjs`
+
+```bash
+pnpm --filter @glowmate/web exec next build | tee /tmp/next-build.log
+node tools/ci-meta/next-routes.mjs /tmp/next-build.log     # 또는 파이프로 stdin
+```
+
+| 수단 | 판정 |
+|---|---|
+| 1차 (`next build` 요약) | 페이지 라우트만 필터 → 동적(`ƒ`·`λ`) **0건** + Static/ISR(`○`·`●`) **≥ 2** |
+| 2차 (토큰 grep) | `apps/web/src/app/**` 의 `page.tsx`·`layout.tsx` 한정 5토큰 0건 |
+
+둘 중 하나라도 실패하면 exit 1. 실패 출력에 `REQ-8`·`FORBID-3` 토큰이 들어가므로 픽스처 ③의 귀속이 성립한다.
+
+- **Route Handler `/api/**` 는 제외** — 계약이 "정의상 동적이므로 대상이 아니다"라고 명시했다.
+  `/api/health` 가 `ƒ` 로 찍히는 것을 위반으로 잡으면 F1 자기 PR 이 red 가 된다.
+- Next 내부 생성 라우트(`/_not-found` 등)는 **≥2 카운트에서만 제외**하고 동적 여부 검사에는 포함한다
+  (루트 레이아웃이 동적이 되면 전 라우트가 `ƒ` 가 되는데, 그건 반드시 잡아야 한다).
+- 범례 줄(`○  (Static) …`)·`ƒ Middleware`·prerender 하위 경로는 라우트로 세지 않는다
+  (경로가 `/` 로 시작하는 항목만 라우트로 인정).
+- **로그를 못 읽거나 요약 섹션(`Route (app)`)을 못 찾으면 exit 1.** 라우트 0건도 exit 1.
+  PPR(`◐`) 등 계약에 분류 규정이 없는 마커가 나오면 임의 판정하지 않고 exit 1 한다.
 
 ## "구현 에이전트 계정" 집합 (REQ-7 (c))
 

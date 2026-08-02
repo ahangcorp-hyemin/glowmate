@@ -84,6 +84,24 @@ export function conventionalFixtureBranch(job) {
 }
 
 /**
+ * 픽스처 브랜치 판정.
+ *
+ * REQ-5 (2)(3) 은 **PR 의 메타 검증**이지 픽스처 자신의 검증이 아니다. 픽스처 브랜치에서 다시
+ * "픽스처 8종의 런을 조회해 귀속을 판정"하면 자기 자신을 검증하는 순환이 되고, 그 시점에 다른
+ * 픽스처 런은 아직 없다. 그래서 픽스처 브랜치에서만 그 두 항목을 면제한다.
+ *
+ * ⚠ 이 완화가 PR 브랜치로 새면 REQ-5 전체가 무력화된다. 그래서 접두사를 **정확히**
+ *   `ci-fixture/` 로 못박고, selftest 가 `main`·`feat/**` 등이 매칭되지 않음을 매 실행 검증한다.
+ */
+export const FIXTURE_BRANCH_PREFIX = 'ci-fixture/';
+
+export function isFixtureBranch(branch) {
+  if (typeof branch !== 'string') return false;
+  const b = branch.trim().replace(/^refs\/heads\//, '');
+  return b.startsWith(FIXTURE_BRANCH_PREFIX) && b.length > FIXTURE_BRANCH_PREFIX.length;
+}
+
+/**
  * 셋업/설치 스텝 판정.
  *
  * 픽스처 런에서 red 가 **셋업·설치 단계**에서 났다면 그것은 규칙 위반 탐지가 아니라
