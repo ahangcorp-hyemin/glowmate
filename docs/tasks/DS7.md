@@ -1,0 +1,217 @@
+# DS7 — 프리뷰 / 문서화 (컴포넌트 갤러리 · 토큰 문서)
+
+> 계약 규격: [02-task-contract-spec.md](../02-task-contract-spec.md) §1
+> 상태: 착수 대기 (DS4 · DS5 완료 후) · ⛔G5 = **옵션 A**
+
+## 설계 전제 — 원천은 코드다
+
+프리뷰와 문서는 **새로운 진실을 만들지 않는다.** 표시 대상은 이미 존재하는 두 가지뿐이다.
+
+- 컴포넌트 예시 → DS4·DS5 가 등록한 **케이스 레지스트리**(`*.cases.tsx`)
+- 토큰 값 → **실행 중인 페이지의 계산된 CSS 변수**
+  (Style Dictionary 를 폐기했으므로 `tokens.ts` 같은 생성 상수 파일은 존재하지 않는다.
+   `getComputedStyle(document.documentElement)` 로 `--seed-*` / `--color-*` 변수를 런타임 열거해 렌더한다 —
+   화면에 실제로 적용된 값과 문서가 정의상 어긋날 수 없다)
+
+이 규약이 깨지는 순간(프리뷰 전용 예시 데이터, 손으로 적은 색상 코드, 캡처 이미지)
+문서는 코드와 다른 두 번째 원천이 되고, 개발자는 문서를 믿고 **검사받지 않은 조합**을 만든다.
+
+**DS6 검사 대상 승계** — DS3 의 `wiring-smoke` 는 DS6 의 실환경 검사 대상(targets.json)의 최초 항목이다.
+본 태스크가 그 라우트를 제거하려면 **먼저 프리뷰 라우트를 targets.json 에 등재해 대상 수를 유지**해야 한다.
+그러지 않으면 DS6 의 실환경 하한(R-7)이 조용히 0 이 되어 게이트가 비게 된다.
+
+```yaml
+# ─── 식별 ───────────────────────────────
+id:            DS7-PREVIEW-DOCS
+dag_id:        DS7
+title:         프리뷰/문서화 — 케이스 레지스트리 기반 컴포넌트 갤러리 + 런타임 토큰 문서
+workstream:    web
+owner_agent:   dev-web
+
+# ─── 존재 이유 ──────────────────────────
+traces_to:     [H4, H5]
+why:           "W2·W3 를 구현할 에이전트가 컴포넌트의 상태별 정확한 사용법(특히 가격 상태 4종)을
+                실행되는 형태로 확인하지 못하면, 각자 해석해 가격 상태 구분이 화면마다 달라진다."
+
+# ─── DAG ────────────────────────────────
+depends_on:    [DS4-PRICE-COMPARE-CARD, DS5-CORE-COMPONENTS]
+blocks:        []
+parallel_with: [DS6-A11Y-GATE, W1-SEO-FOUNDATION]
+gate:          null      # ⛔G5 는 DS0 산출로 해소됨(옵션 A)
+
+# ─── 산출물 ─────────────────────────────
+deliverable:
+  pr_count:    1
+  touches:
+    - apps/preview/**                                  # 독립 프리뷰 앱 (프로덕션 배포 대상 아님)
+    - apps/preview/src/registry.ts                     # 케이스 레지스트리 자동 수집
+    - apps/preview/src/pages/tokens.tsx                # 런타임 CSS 변수 열거 기반 토큰 문서
+    - apps/preview/test/**
+    - packages/ui/package.json                         # exports 키 추가만
+    - packages/ui/a11y/targets.json                    # 프리뷰 라우트 등재 (대상 수 유지)
+    - packages/config/test/workspace.test.ts           # 워크스페이스 패키지 수 기대값 +1 갱신 1건만
+    - .github/workflows/ci.yml                         # job `preview-build` 추가만 (기존 job 수정 금지)
+    - apps/web/src/app/(dev)/wiring-smoke/**           # DS3 임시 스모크 라우트 제거 (조건부 — REQ-6)
+  artifacts:
+    - "프리뷰 앱 — 케이스 레지스트리를 유일 데이터 소스로 하는 컴포넌트 갤러리"
+    - "토큰 문서 페이지 — 실행 중 페이지에서 CSS 변수를 열거해 렌더 (하드코딩 0건)"
+    - "레지스트리 ↔ 프리뷰 엔트리 일치 검사"
+    - "프로덕션 미노출 검사 (빌드 라우트·sitemap·번들)"
+    - "CI job `preview-build`"
+
+# ─── 요구사항 ───────────────────────────
+requirements:
+  - id: REQ-1
+    statement: >
+      `pnpm --filter @glowmate/preview build` 가 exit 0 으로 종료하고,
+      프리뷰 엔트리 id 집합과 packages/ui 의 케이스 레지스트리 id 집합의 대칭차집합이 0 이다.
+    acceptance: "`pnpm test:preview --check parity` — 빌드 exit 0 + 두 집합의 대칭차집합 크기 = 0 assert"
+
+  - id: REQ-2
+    statement: >
+      apps/preview 소스에 packages/ui 컴포넌트를 직접 사용하는 JSX 와 예시용 props 객체 리터럴 정의가
+      0건이며, 모든 예시는 케이스의 render() 호출로만 생성된다.
+    acceptance: "`pnpm test:preview --check no-local-fixtures` — 컴포넌트 직접 JSX grep 0건 + 예시 props 리터럴 0건 assert"
+
+  - id: REQ-3
+    statement: >
+      실행 중인 프리뷰 토큰 페이지에서 `getComputedStyle` 로 열거한 CSS 변수 항목 수가
+      1 이상이고, apps/preview 소스의 색상 리터럴·px 리터럴 개수가 0 이다. (실환경 하한 REQ)
+    acceptance: "Playwright 검사 `--check token-doc` — 렌더된 토큰 행 수 ≥ 1 assert(0 이면 exit 1) + 리터럴 grep 0건"
+
+  - id: REQ-4
+    statement: >
+      `next build` 로 생성한 apps/web 의 라우트 목록에 프리뷰 경로가 0건이고, sitemap 출력에
+      프리뷰 URL 이 0건이며, apps/web 번들이 apps/preview 를 import 하지 않는다. (실환경 하한 REQ)
+    acceptance: "`pnpm test:preview --check not-published` — 빌드 라우트 목록 grep 0건 + sitemap 항목 0건 + dependency-cruiser 로 web→preview import 0건"
+
+  - id: REQ-5
+    statement: >
+      각 컴포넌트 문서의 props 표가 TypeScript 타입에서 자동 생성되며,
+      수기로 작성된 props 표 마크업이 0건이다.
+    acceptance: "`pnpm test:preview --check props-table` — 생성기 출력과 렌더된 표 행 집합 일치 + 수기 표 마크업 grep 0건"
+
+  - id: REQ-6
+    statement: >
+      apps/web 의 wiring-smoke 라우트를 제거하는 경우, 제거 후 DS6 의 targets.json 에 등재된
+      라우트 수가 1 이상으로 유지되며 `pnpm a11y:check` 가 exit 0 으로 통과한다.
+    acceptance: "`pnpm test:preview --check a11y-targets` — targets.json 길이 ≥ 1 assert + `pnpm a11y:check` exit 0"
+
+  - id: REQ-7
+    statement: >
+      CI 워크플로에 job `preview-build` 가 존재해 PR 이벤트에서 실행되고, 실패 시 머지가 차단된다.
+    acceptance: "워크플로 파싱 테스트 — job 존재 + pull_request 트리거 + continue-on-error 키 부재 assert"
+
+# ─── 조건부 금지사항 ────────────────────
+forbid:
+  - id: FORBID-1
+    when: >
+      프리뷰 또는 문서에 컴포넌트의 시각 예시를 추가할 때
+    must_not: >
+      정적 스크린샷 이미지(.png/.jpg/.webp) · Figma 임베드 · 디자인 파일 링크를 예시로 사용
+    because: >
+      코드가 바뀌어도 이미지는 그대로 남는다. W2·W3 를 구현할 에이전트가 이미지 기준으로 구현하면
+      실제 컴포넌트와 다른 화면이 만들어지고, "원천은 코드"라는 이 워크스트림의 전제가 무너진다.
+      특히 가격 상태 4종의 시각 구분이 이미지와 코드에서 어긋나면 어느 쪽이 맞는지 판정할 수 없다.
+    detect: >
+      `pnpm test:preview --check no-image-source` — apps/preview 소스 및 문서 마크다운에서
+      이미지 확장자 참조와 figma.com URL 매칭 0건 assert
+    on_violation: block_merge
+
+  - id: FORBID-2
+    when: >
+      프리뷰에서만 필요한 여백·크기·배경 보정이 필요한 경우
+    must_not: >
+      packages/ui/src/components/** 또는 packages/ui/styles/** 를 수정 (프리뷰 쪽 래퍼로 해결할 것)
+    because: >
+      갤러리에서 보기 좋게 만들려고 넣은 여백이 제품 컴포넌트에 남아 W2 리스트에서 카드 간격이
+      벌어지고, DS4 카드에서는 상태 배지 위치가 밀린다. 원인이 프리뷰 PR 이라는 사실은
+      몇 주 뒤에는 아무도 기억하지 못한다.
+    detect: >
+      CI path guard — 이 PR 의 diff 에 packages/ui/src/components/** 또는 packages/ui/styles/**
+      이 포함되면 exit 1
+    on_violation: block_merge
+
+  - id: FORBID-3
+    when: >
+      프리뷰를 apps/web 도메인 하위 라우트로 노출하거나 프로덕션 빌드에 포함시키는 경우
+    must_not: >
+      해당 라우트를 sitemap · robots 허용 · 정적 생성 대상에 포함
+    because: >
+      미완성 컴포넌트 갤러리가 색인되면 텍스트가 거의 없는 저품질 페이지 수십 개가 도메인 전체 평가를
+      끌어내린다. 채널 1순위가 SEO 인 제품에서 이는 H3(롱테일 1페이지 진입) 가설의 측정 자체를 오염시키고,
+      색인 제거에는 수 주가 걸린다.
+    detect: >
+      REQ-4 의 `--check not-published` — 실제 `next build` 라우트 목록·sitemap 출력에 프리뷰 경로 0건 +
+      web→preview import 0건 assert
+    on_violation: block_merge
+
+  - id: FORBID-4
+    when: >
+      케이스 레지스트리에 없는 조합(새 variant · 새 상태 조합)을 프리뷰에 보여주고 싶은 경우
+    must_not: >
+      apps/preview 안에 별도 예시 데이터를 정의해 렌더 (해당 조합을 *.cases.tsx 에 추가하도록
+      DS4·DS5 소관 PR 을 요청할 것)
+    because: >
+      프리뷰에만 있는 조합은 DS6 의 접근성 검사(대비·터치타깃·리플로)와 페어 커버리지 검사를 받지 않는다.
+      개발자는 "문서에 있으니 승인된 조합"이라 판단해 그대로 화면에 쓰고, 검사받지 않은 조합이
+      제품에 들어간다. 검사망 밖의 예시를 공식 문서에 싣는 것이 가장 나쁜 형태의 우회다.
+    detect: >
+      `pnpm test:preview --check parity` — 프리뷰 엔트리 id 집합과 레지스트리 id 집합의
+      대칭차집합 0 assert (프리뷰 전용 엔트리가 1건이라도 있으면 실패)
+    on_violation: block_merge
+
+  - id: FORBID-5
+    when: >
+      apps/web 의 wiring-smoke 라우트를 제거하는 경우
+    must_not: >
+      프리뷰 라우트를 DS6 의 targets.json 에 등재하지 않은 채 제거
+    because: >
+      wiring-smoke 는 DS6 실환경 검사(R-7)의 최초 대상이다. 대체 없이 제거하면 targets 가 비고,
+      DS6 는 픽스처 케이스만 검사하는 상태로 되돌아간다. 그 순간 "실제 페이지에서는 대비가 미달인데
+      CI 는 초록"인 상태가 가능해지며, 게이트는 존재하지만 아무것도 막지 못한다.
+    detect: >
+      `pnpm test:preview --check a11y-targets` — 제거 후 targets.json 길이 ≥ 1 assert +
+      `pnpm a11y:check` 가 실제 라우트 1개 이상을 검사한 기록을 리포트에서 확인
+    on_violation: block_merge
+
+  - id: FORBID-6
+    when: >
+      문서에 3050 접근성 임계값(최소 폰트 · 대비비 · 터치 타깃)을 기술할 때
+    must_not: >
+      숫자를 문서 텍스트에 직접 적기 (constraints.json 값을 읽어 렌더할 것)
+    because: >
+      문서 숫자와 constraints.json 이 갈라지면 개발자는 문서를 믿고 미달 컴포넌트를 만들고,
+      CI 에서 뒤늦게 막힌 뒤 "문서가 그렇게 되어 있다"며 임계 하향을 요구하게 된다.
+      DS6-A11Y-GATE 의 FORBID-1 이 지키려는 임계가 문서 경유로 협상 대상이 된다.
+    detect: >
+      `pnpm test:preview --check token-doc` — 문서 소스에서 임계 숫자 리터럴 grep 0건 +
+      constraints.json 을 읽어 렌더하는 컴포넌트 사용 assert
+    on_violation: block_merge
+
+# ─── 경계 ───────────────────────────────
+out_of_scope:
+  - "컴포넌트 구현·수정 및 케이스 추가 → DS4-PRICE-COMPARE-CARD · DS5-CORE-COMPONENTS 소관"
+  - "토큰 값·브랜드 팔레트 변경 → DS1-TOKEN-LAYERS 소관"
+  - "접근성 검사 하네스 구현·임계 변경 → DS6-A11Y-GATE 소관 (본 태스크는 targets.json 에 라우트 1건 등재만)"
+  - "프리뷰 앱의 외부 배포(URL 공개·인증 게이트 구성) — 본 태스크는 로컬/CI 빌드까지"
+  - "디자인 가이드라인 산문 · 브랜드 스토리 · 일러스트"
+  - "W 화면 스크린샷 · 사용자 플로우 문서"
+  - "Chromatic 등 유료 시각 회귀 서비스 도입"
+
+rollback: >
+  `git revert <merge-sha>` 로 apps/preview 전체와 CI job 추가분이 제거되고,
+  워크스페이스 패키지 수 기대값도 원복된다. 프리뷰는 프로덕션 배포 대상이 아니므로 사용자 영향이 없다.
+  본 PR 이 제거한 DS3 의 wiring-smoke 라우트는 revert 시 함께 복구되며(noindex 라 색인 영향 없음),
+  targets.json 도 이전 상태로 되돌아가므로 DS6 의 실환경 검사 대상이 공백이 되지 않는다.
+
+done_when:
+  - "`pnpm --filter @glowmate/preview build` exit 0"
+  - "`pnpm test:preview --all` 이 6개 서브체크 전부 exit 0"
+  - "프리뷰 엔트리 수 = 케이스 레지스트리 케이스 수 임이 검사 로그로 확인됨 (가격 상태 4종 포함)"
+  - "실행 중인 토큰 페이지에서 열거된 CSS 변수 행 수가 1 이상임이 확인됨"
+  - "apps/web 빌드 라우트 목록과 sitemap 에 프리뷰 경로가 0건임이 확인됨"
+  - "wiring-smoke 제거 후 targets.json 길이 ≥ 1 이고 `pnpm a11y:check` 가 실라우트를 검사함이 확인됨"
+  - "FORBID-1~6 각각에 대응하는 위반 픽스처가 커밋되고 대응 검사를 실패시키는 것이 확인됨"
+  - "touches 경로 밖 변경 파일 0개 (CI path guard 통과)"
+```
