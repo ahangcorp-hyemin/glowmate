@@ -1,6 +1,6 @@
 {
   "generated_from": "docs/tasks/*.md",
-  "count": 38,
+  "count": 40,
   "tasks": [
     {
       "file": "docs/tasks/C1.md",
@@ -343,6 +343,7 @@
         "C4-PRICE-NORMALIZER",
         "C6-TAG-ASSIGN",
         "C7-QUALITY-GATE",
+        "DS4-PRICE-COMPARE-CARD",
         "F4-NEED-TAG-ONTOLOGY",
         "O2-REVIEW-ADMIN",
         "W1-SEO-FOUNDATION",
@@ -377,7 +378,14 @@
         "DS1-TOKEN-LAYERS",
         "DS3-BASE-WIRING"
       ],
-      "parallel_with": [],
+      "parallel_with": [
+        "D1a-PROTOCOL",
+        "D1b-FIELDWORK",
+        "D2-SEO-SERP-FEASIBILITY",
+        "D3-SOURCE-DUE-DILIGENCE",
+        "D4-MEDICAL-AD-GUARDRAIL",
+        "F1-REPO-SCAFFOLD"
+      ],
       "gate": [],
       "deprecated": false
     },
@@ -389,19 +397,19 @@
       "owner_agent": "dev-web",
       "traces_to": [
         "H4",
-        "H5",
-        "S1"
+        "H5"
       ],
       "depends_on": [
-        "DS0-SEED-DUE-DILIGENCE"
+        "DS0-SEED-DUE-DILIGENCE",
+        "F1-REPO-SCAFFOLD"
       ],
       "blocks": [
         "DS3-BASE-WIRING",
         "DS6-A11Y-GATE"
       ],
       "parallel_with": [
-        "F1-REPO-SCAFFOLD",
-        "F2a-CORE-SCHEMA"
+        "F2a-CORE-SCHEMA",
+        "F4-NEED-TAG-ONTOLOGY"
       ],
       "gate": [],
       "deprecated": false
@@ -440,6 +448,7 @@
         "H5"
       ],
       "depends_on": [
+        "DS0-SEED-DUE-DILIGENCE",
         "F1-REPO-SCAFFOLD",
         "DS1-TOKEN-LAYERS"
       ],
@@ -459,16 +468,16 @@
     {
       "file": "docs/tasks/DS4.md",
       "id": "DS4-PRICE-COMPARE-CARD",
-      "title": "회당 단가 비교 카드 — 가격 상태 4종(확정 / 저신뢰 / 충돌 / 파싱실패) 시각 구분",
+      "title": "회당 단가 비교 카드 — 표시 상태 4종(confirmed / conflict / low_confidence / unavailable) 시각 구분 + 금액 원본 결속",
       "workstream": "web",
       "owner_agent": "dev-web",
       "traces_to": [
-        "H4",
-        "S1",
-        "KM-qualified-lead"
+        "H4"
       ],
       "depends_on": [
-        "DS3-BASE-WIRING"
+        "DS3-BASE-WIRING",
+        "DS6-A11Y-GATE",
+        "D4-MEDICAL-AD-GUARDRAIL"
       ],
       "blocks": [
         "DS5-CORE-COMPONENTS",
@@ -476,7 +485,7 @@
         "W3-VENUE-DETAIL"
       ],
       "parallel_with": [
-        "DS6-A11Y-GATE"
+        "W1-SEO-FOUNDATION"
       ],
       "gate": [],
       "deprecated": false
@@ -489,12 +498,12 @@
       "owner_agent": "dev-web",
       "traces_to": [
         "H5",
-        "S2",
         "H4"
       ],
       "depends_on": [
         "DS3-BASE-WIRING",
-        "DS4-PRICE-COMPARE-CARD"
+        "DS4-PRICE-COMPARE-CARD",
+        "DS6-A11Y-GATE"
       ],
       "blocks": [
         "DS7-PREVIEW-DOCS",
@@ -503,7 +512,7 @@
         "W7-CORRECTION-REQUEST"
       ],
       "parallel_with": [
-        "DS6-A11Y-GATE"
+        "W1-SEO-FOUNDATION"
       ],
       "gate": [],
       "deprecated": false
@@ -520,16 +529,20 @@
       ],
       "depends_on": [
         "DS1-TOKEN-LAYERS",
-        "DS3-BASE-WIRING"
+        "DS3-BASE-WIRING",
+        "F1-REPO-SCAFFOLD"
       ],
       "blocks": [
-        "W2-DISCOVERY-LIST",
-        "W3-VENUE-DETAIL"
-      ],
-      "parallel_with": [
         "DS4-PRICE-COMPARE-CARD",
-        "DS5-CORE-COMPONENTS"
+        "DS5-CORE-COMPONENTS",
+        "DS7-PREVIEW-DOCS",
+        "W2-DISCOVERY-LIST",
+        "W3-VENUE-DETAIL",
+        "W4-COMBO-LANDING",
+        "W5-EDITOR-REPORT",
+        "W7-CORRECTION-REQUEST"
       ],
+      "parallel_with": [],
       "gate": [],
       "deprecated": false
     },
@@ -545,11 +558,11 @@
       ],
       "depends_on": [
         "DS4-PRICE-COMPARE-CARD",
-        "DS5-CORE-COMPONENTS"
+        "DS5-CORE-COMPONENTS",
+        "DS6-A11Y-GATE"
       ],
       "blocks": [],
       "parallel_with": [
-        "DS6-A11Y-GATE",
         "W1-SEO-FOUNDATION"
       ],
       "gate": [],
@@ -558,7 +571,7 @@
     {
       "file": "docs/tasks/F1.md",
       "id": "F1-REPO-SCAFFOLD",
-      "title": "리포 스캐폴딩 · 모노레포 · CI (경계·게이트 집행 기반)",
+      "title": "리포 스캐폴딩 · 모노레포 · CI (경계 집행 기반)",
       "workstream": "foundation",
       "owner_agent": "dev-platform",
       "traces_to": [
@@ -573,7 +586,10 @@
         "D2-SEO-SERP-FEASIBILITY",
         "D3-SOURCE-DUE-DILIGENCE",
         "D4-MEDICAL-AD-GUARDRAIL",
+        "DS1-TOKEN-LAYERS",
         "DS3-BASE-WIRING",
+        "DS6-A11Y-GATE",
+        "F1b-CONTRACT-GOVERNANCE",
         "F2a-CORE-SCHEMA",
         "F4-NEED-TAG-ONTOLOGY",
         "F5-API-LAYER",
@@ -591,9 +607,35 @@
       "deprecated": false
     },
     {
+      "file": "docs/tasks/F1b.md",
+      "id": "F1b-CONTRACT-GOVERNANCE",
+      "title": "계약 거버넌스 정본 (docs/registry/ids.yaml · docs/gates/G1~G5.md · dag-check)",
+      "workstream": "foundation",
+      "owner_agent": "dev-platform",
+      "traces_to": [
+        "G1",
+        "G2",
+        "G3",
+        "G4"
+      ],
+      "depends_on": [
+        "F1-REPO-SCAFFOLD"
+      ],
+      "blocks": [
+        "F4-NEED-TAG-ONTOLOGY",
+        "O1-METRICS-DASHBOARD"
+      ],
+      "parallel_with": [
+        "F2a-CORE-SCHEMA",
+        "DS3-BASE-WIRING"
+      ],
+      "gate": [],
+      "deprecated": false
+    },
+    {
       "file": "docs/tasks/F2a.md",
       "id": "F2a-CORE-SCHEMA",
-      "title": "코어 스키마 & 마이그레이션 (도메인 6테이블 · PostGIS · C4 출력 필드)",
+      "title": "코어 스키마 & 마이그레이션 (core 스키마 6테이블 · PostGIS · C4 출력 필드)",
       "workstream": "foundation",
       "owner_agent": "dev-data",
       "traces_to": [
@@ -607,6 +649,7 @@
       "blocks": [
         "C1-CRAWLER-CORE",
         "C4-PRICE-NORMALIZER",
+        "F2c-OPS-LEGAL-SCHEMA",
         "C5-ENTITY-RESOLUTION",
         "C6-TAG-ASSIGN",
         "C7-QUALITY-GATE",
@@ -659,6 +702,31 @@
       "deprecated": false
     },
     {
+      "file": "docs/tasks/F2c.md",
+      "id": "F2c-OPS-LEGAL-SCHEMA",
+      "title": "운영·법적 저장소 (correction_request · correction_action_log · review_audit_log · venue_field_override · visibility_change_event)",
+      "workstream": "foundation",
+      "owner_agent": "dev-data",
+      "traces_to": [
+        "S5",
+        "H1",
+        "G3"
+      ],
+      "depends_on": [
+        "F2a-CORE-SCHEMA"
+      ],
+      "blocks": [
+        "O2-REVIEW-ADMIN",
+        "W7-CORRECTION-REQUEST",
+        "W8-CORRECTION-PROCESSING"
+      ],
+      "parallel_with": [
+        "F2b-QUALITY-SCHEMA"
+      ],
+      "gate": [],
+      "deprecated": false
+    },
+    {
       "file": "docs/tasks/F4.md",
       "id": "F4-NEED-TAG-ONTOLOGY",
       "title": "3050 니즈 태그 온톨로지 (업종 용어 → 통증·생애주기 언어 매핑)",
@@ -670,6 +738,7 @@
       ],
       "depends_on": [
         "F1-REPO-SCAFFOLD",
+        "F1b-CONTRACT-GOVERNANCE",
         "D1a-PROTOCOL",
         "D1b-FIELDWORK",
         "D4-MEDICAL-AD-GUARDRAIL"
@@ -754,7 +823,7 @@
     {
       "file": "docs/tasks/O1.md",
       "id": "O1-METRICS-DASHBOARD",
-      "title": "게이트 지표 대시보드 (G1 3구간 · H2 · H4 · H5 · H7 · NSM)",
+      "title": "게이트 지표 대시보드 (G1 3구간 · H2 · H4 · H5 · H6 · H7 · NSM)",
       "workstream": "ops",
       "owner_agent": "dev-ops",
       "traces_to": [
@@ -762,6 +831,7 @@
         "H2",
         "H4",
         "H5",
+        "H6",
         "H7",
         "KM-price-coverage",
         "NSM-qualified-lead"
@@ -778,7 +848,10 @@
         "O2-REVIEW-ADMIN",
         "W8-CORRECTION-PROCESSING"
       ],
-      "gate": [],
+      "gate": [
+        "G1",
+        "G3"
+      ],
       "deprecated": false
     },
     {
@@ -796,6 +869,7 @@
       "depends_on": [
         "C7-QUALITY-GATE",
         "F2b-QUALITY-SCHEMA",
+        "F2c-OPS-LEGAL-SCHEMA",
         "D4-MEDICAL-AD-GUARDRAIL"
       ],
       "blocks": [],
@@ -803,13 +877,16 @@
         "O1-METRICS-DASHBOARD",
         "W8-CORRECTION-PROCESSING"
       ],
-      "gate": [],
+      "gate": [
+        "G1",
+        "G3"
+      ],
       "deprecated": false
     },
     {
       "file": "docs/tasks/O3.md",
       "id": "O3-DEPLOY-MONITORING",
-      "title": "배포 파이프라인(웹/크롤러 분리) · 모니터링 · 알림 규약",
+      "title": "배포 파이프라인(웹/크롤러 분리) · 메트릭 저장소 · 알림 규약",
       "workstream": "ops",
       "owner_agent": "dev-ops",
       "traces_to": [
@@ -994,9 +1071,14 @@
       "parallel_with": [
         "W2-DISCOVERY-LIST",
         "W3-VENUE-DETAIL",
-        "W7-CORRECTION-REQUEST"
+        "W7-CORRECTION-REQUEST",
+        "W9-OBSERVABILITY-EVENTS"
       ],
-      "gate": [],
+      "gate": [
+        "G1",
+        "G2",
+        "G3"
+      ],
       "deprecated": false
     },
     {
@@ -1024,7 +1106,11 @@
       "parallel_with": [
         "W4-COMBO-LANDING"
       ],
-      "gate": [],
+      "gate": [
+        "G1",
+        "G2",
+        "G3"
+      ],
       "deprecated": false
     },
     {
@@ -1041,7 +1127,7 @@
       "depends_on": [
         "W1-SEO-FOUNDATION",
         "F5-API-LAYER",
-        "F2b-QUALITY-SCHEMA"
+        "F2c-OPS-LEGAL-SCHEMA"
       ],
       "blocks": [
         "W8-CORRECTION-PROCESSING"
@@ -1051,7 +1137,10 @@
         "W3-VENUE-DETAIL",
         "W5-EDITOR-REPORT"
       ],
-      "gate": [],
+      "gate": [
+        "G1",
+        "G3"
+      ],
       "deprecated": false
     },
     {
@@ -1068,14 +1157,18 @@
       "depends_on": [
         "W7-CORRECTION-REQUEST",
         "C7-QUALITY-GATE",
-        "F2b-QUALITY-SCHEMA"
+        "F2b-QUALITY-SCHEMA",
+        "F2c-OPS-LEGAL-SCHEMA"
       ],
       "blocks": [],
       "parallel_with": [
         "O2-REVIEW-ADMIN",
         "O1-METRICS-DASHBOARD"
       ],
-      "gate": [],
+      "gate": [
+        "G1",
+        "G3"
+      ],
       "deprecated": false
     },
     {
@@ -1104,7 +1197,11 @@
         "W3-VENUE-DETAIL",
         "W5-EDITOR-REPORT"
       ],
-      "gate": [],
+      "gate": [
+        "G1",
+        "G2",
+        "G3"
+      ],
       "deprecated": false
     }
   ]

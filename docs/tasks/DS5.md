@@ -1,7 +1,7 @@
 # DS5 — 코어 컴포넌트 (업체 카드 · 니즈 태그 칩 · 필터 바 · 리스트)
 
-> 계약 규격: [02-task-contract-spec.md](../02-task-contract-spec.md) §1
-> 상태: 착수 대기 (DS3 완료 후) · ⛔G5 = **옵션 A** (shadcn/ui 기반)
+> 계약 규격: [02-task-contract-spec.md](../02-task-contract-spec.md) §1 (원칙 2.5 · R-6 · R-7 포함)
+> 상태: **수정본 (2차 감사 REVISE 반영)** · ⛔G5 = 옵션 A (shadcn/ui 기반)
 
 ## 설계 전제
 
@@ -26,14 +26,14 @@ workstream:    web
 owner_agent:   dev-web
 
 # ─── 존재 이유 ──────────────────────────
-traces_to:     [H5, S2, H4]
+traces_to:     [H5, H4]
 why:           "니즈 태그로 좁혀 보는 경험(H5)과 리스트에서의 가격 인지(H4)를 구성하는 최소 부품이 없으면
                 W2·W5·W7 화면이 각자 카드를 만들게 되고 필터 사용률 측정이 UI 편차로 오염된다."
 
 # ─── DAG ────────────────────────────────
-depends_on:    [DS3-BASE-WIRING, DS4-PRICE-COMPARE-CARD]   # ⚠ DAG 수정 제안 — 아래 dag_amendment 참조
+depends_on:    [DS3-BASE-WIRING, DS4-PRICE-COMPARE-CARD, DS6-A11Y-GATE]   # ⚠ dag_amendment 참조
 blocks:        [DS7-PREVIEW-DOCS, W2-DISCOVERY-LIST, W5-EDITOR-REPORT, W7-CORRECTION-REQUEST]
-parallel_with: [DS6-A11Y-GATE]
+parallel_with: [W1-SEO-FOUNDATION]
 
 # ⚠ dag_amendment (팀 리드 승인 필요)
 #   03-task-dag.md 는 DS4 ‖ DS5 로 병렬 배치한다. 그러나 REQ-2·FORBID-1 이 "VenueCard 의 가격 영역은
@@ -41,6 +41,9 @@ parallel_with: [DS6-A11Y-GATE]
 #   REQ-2 acceptance 가 구조적으로 불가능하다. 병렬을 유지하려면 DS5 가 자체 가격 렌더를 갖게 되는데,
 #   그것이 정확히 FORBID-1 이 막으려는 상태다.
 #   → DAG 에 DS4 → DS5 간선 추가를 제안한다. 승인 전까지는 DS4 머지 완료를 착수 조건으로 본다.
+#   (2) DS6-A11Y-GATE 를 parallel_with → depends_on 으로 승격.
+#   REQ-8 의 `a11y:check --list`·`--check case-content` 와 FORBID-3 의 실브라우저 하네스가 DS6 산출물이다.
+#   병렬로 두면 DS5 가 먼저 머지될 때 그 acceptance 와 detect 가 존재하지 않는 명령이 된다(2차 감사 P3).
 gate:          null      # ⛔G5 는 DS0 산출로 해소됨(옵션 A)
 
 # ─── 산출물 ─────────────────────────────
@@ -73,45 +76,53 @@ shared_contract:
 requirements:
   - id: REQ-1
     statement: >
-      4개 컴포넌트 각각이 최소 3개 상태 케이스를 *.cases.tsx 에 등록하고(총 12케이스 이상),
-      `pnpm a11y:check` 가 해당 케이스 전부에 대해 위반 0건으로 종료한다.
-    acceptance: "`pnpm a11y:check` exit 0 + 리포트의 케이스 목록에 4개 컴포넌트 각각 ≥ 3건 존재 assert"
+      NeedsTagChip 에 태그 5개를 전달하면 칩 노드 수가 정확히 5 이고, 각 칩의 가시 텍스트가
+      props[i].label 과 문자열 일치한다. (렌더 하한 · 원칙 2.5)
+    acceptance: "`pnpm test:ds-core --check chip-render` — 노드 수 = 5 assert + 라벨 문자열 5건 전건 일치, 렌더 노드 수 stdout 출력(0 이면 exit 1)"
 
   - id: REQ-2
     statement: >
-      VenueCard 의 가격 영역은 DS4 컴포넌트를 import 해 렌더하며,
-      components/venue 소스 내 가격 상태 문자열 리터럴('confirmed' 등)과 금액 포맷 함수 정의가 0건이다.
-    acceptance: "`pnpm test:ds-core --check price-delegation` — DS4 import 존재 assert + 상태 문자열/포맷 함수 grep 0건"
+      VenueCard 에 showNumeric=true 인 가격 props 를 전달하면 렌더 트리에 `data-price-state` 노드가
+      정확히 1개 존재하고, 그 노드를 생성한 컴포넌트가 DS4 export 다. (렌더 하한 · 원칙 2.5)
+    acceptance: >
+      `pnpm test:ds-core --check price-render` — 노드 수 = 1 assert +
+      런타임 소유 컴포넌트가 `@glowmate/ui` price 모듈 export 임을 확인
+      (grep 이 아니라 렌더 트리 기준. 미사용 import 로는 통과하지 않는다)
 
   - id: REQ-3
     statement: >
-      packages/ui/src 전체에 니즈 태그 슬러그·라벨 배열 리터럴이 0건이며,
-      NeedsTagChip 목록에 빈 배열을 전달하면 렌더되는 칩 수가 0 이다.
-    acceptance: "`pnpm test:ds-core --check tag-source` — 태그 배열 리터럴 grep 0건 + 빈 배열 렌더 시 칩 노드 수 = 0 assert"
+      FilterBar 에 필터 그룹 4개를 전달하면 인터랙티브 노드 수가 4 이상이다. (렌더 하한 · 원칙 2.5)
+    acceptance: "`pnpm test:ds-core --check filter-render` — 인터랙티브 노드 수 ≥ 4 assert, 실측 수 stdout 출력(0 이면 exit 1)"
 
   - id: REQ-4
     statement: >
-      실제 브라우저에서 앱 CSS 번들이 로드된 상태로 렌더했을 때 FilterBar 의 선택 항목은
-      aria-pressed(또는 aria-checked) 값이 비선택 항목과 다르고, 계산 스타일이 border-width 또는
-      표식 노드 유무 중 최소 1개 축에서 색상과 무관하게 다르다. (실환경 하한 REQ)
-    acceptance: "Playwright 검사 `--check selection` — 실 CSS 로드 상태에서 aria 속성 상이 + 비색상 축 상이 ≥ 1 assert"
+      packages/ui/src 전체에 니즈 태그 슬러그·라벨을 담은 배열 리터럴 · 객체 리터럴 매핑 ·
+      슬러그→라벨 파생 함수가 0건이며, 빈 배열 전달 시 칩 수가 0 이다.
+    acceptance: "`pnpm test:ds-core --check tag-source` — 3종 패턴 AST 검사 0건 + 빈 배열 렌더 시 칩 0개 assert (REQ-1 의 하한과 짝을 이뤄 자명 통과를 막는다)"
 
   - id: REQ-5
     statement: >
-      4개 컴포넌트의 모든 인터랙티브 요소가 가시 텍스트 노드를 1개 이상 포함한다(아이콘 단독 요소 0건).
-    acceptance: "`pnpm test:ds-core --check label` — 등록 케이스 전수에서 인터랙티브 노드마다 접근 가능한 이름 + 가시 텍스트 노드 존재 assert"
+      실제 브라우저에서 앱 CSS 번들이 로드된 상태에서 FilterBar 의 선택 항목이 비선택 항목과
+      aria-pressed(또는 aria-checked) 값이 다르고, border-width 또는 표식 노드 유무 중
+      최소 1개 축에서 색상과 무관하게 다르다. (실환경 하한 REQ · R-7)
+    acceptance: "Playwright `--check selection` — 실 CSS 로드 상태에서 aria 속성 상이 + 비색상 축 상이 ≥ 1 assert (jsdom 판정 금지)"
 
   - id: REQ-6
     statement: >
-      VenueList 에 20건을 전달했을 때 서버 렌더 HTML 문자열에 카드 루트 노드가 20개 포함된다
-      (클라이언트 지연 렌더 0건).
-    acceptance: "`pnpm test:ds-core --check ssr-count` — renderToString 결과의 `data-component=\"venue-card\"` 매칭 수 = 20 assert"
+      4개 컴포넌트의 모든 인터랙티브 요소가 가시 텍스트 노드를 1개 이상 포함한다
+      (검사 대상 인터랙티브 노드 총수가 0 이면 실패).
+    acceptance: "`pnpm test:ds-core --check label` — 인터랙티브 노드 총수를 stdout 출력(0 이면 exit 1) + 각 노드에 접근 가능한 이름과 가시 텍스트 노드 존재 assert"
 
   - id: REQ-7
     statement: >
-      4개 컴포넌트 소스에 fetch · packages/api · packages/db · 상태관리 스토어 import 가 0건이며,
-      모든 데이터는 props 로만 주입된다.
-    acceptance: "CI job `boundary` — dependency-cruiser 규칙 `no-ui-to-data` 위반 0건 + fetch 호출 grep 0건"
+      VenueList 에 20건을 전달했을 때 서버 렌더 HTML 문자열에 카드 루트 노드가 정확히 20개 포함된다.
+    acceptance: "`pnpm test:ds-core --check ssr-count` — renderToString 결과의 `data-component=\"venue-card\"` 매칭 수 = 20 assert"
+
+  - id: REQ-8
+    statement: >
+      4개 컴포넌트 각각이 케이스를 3건 이상 등록하며, 각 컴포넌트의 케이스 중 최소 1건은
+      렌더 노드 수가 0 이 아닌 데이터 케이스다. (케이스 내용 하한 · R-6)
+    acceptance: "`pnpm a11y:check --list` 및 `--check case-content` — 컴포넌트별 케이스 수 ≥ 3 + 컴포넌트별 비어 있지 않은 케이스 ≥ 1 assert"
 
 # ─── 조건부 금지사항 ────────────────────
 forbid:
@@ -126,8 +137,9 @@ forbid:
       같은 업체가 리스트에서는 확정가로 보이고 상세에서는 저신뢰로 보인다. 사용자는 리스트 숫자를 믿고
       전화를 걸고, W6 이 계측할 "가격 블록 노출 코호트"(H4)의 정의 자체가 어긋나 가설 판정이 불가능해진다.
     detect: >
-      `pnpm test:ds-core --check price-delegation` — VenueCard 렌더 트리의 `data-price-state` 노드가
-      DS4 컴포넌트에서만 생성되는지 검증 + 상태 문자열/금액 포맷 함수 grep 0건
+      REQ-2 `--check price-render` — VenueCard 렌더 트리의 `data-price-state` 노드 수 = 1 이고
+      **그 노드의 소유 컴포넌트가 DS4 export 임을 런타임에서 확인**(0개 렌더는 REQ-2 하한이 막는다) +
+      AST 규칙으로 상태 리터럴·금액 포맷 함수 정의 0건 + 미사용 import 금지 린트
     on_violation: block_merge
 
   - id: FORBID-2
@@ -140,9 +152,10 @@ forbid:
       "UI 태그 집합 = 온톨로지 집합" 검사가 packages/ui 를 경유해 우회되고,
       존재하지 않는 태그로 필터한 세션이 집계되어 필터 사용률(H5) 측정이 오염된다.
     detect: >
-      `pnpm test:ds-core --check tag-source` — 태그 배열 리터럴 grep 0건 +
-      빈 배열 전달 시 칩 0개 렌더 assert(내장 목록이 있으면 실패) +
-      dependency-cruiser 로 packages/ui → F4 온톨로지 패키지 import 금지
+      REQ-4 `--check tag-source` — 배열 리터럴뿐 아니라 **객체 리터럴 매핑(`Record<slug,label>`)과
+      슬러그→라벨 파생 함수**까지 AST 로 검사해 0건 + 빈 배열 렌더 시 칩 0개 assert +
+      dependency-cruiser 로 `packages/ui` → `@glowmate/need-tags`(F4-NEED-TAG-ONTOLOGY 정본 패키지)
+      import 금지. **REQ-1(5개 전달 시 칩 5개)이 함께 통과해야 하므로 빈 구현으로는 성립하지 않는다**
     on_violation: block_merge
 
   - id: FORBID-3
@@ -156,8 +169,9 @@ forbid:
       선택했는지 알 수 없으면 필터를 껐다 켰다 반복하거나 아예 쓰지 않게 되고,
       H5(필터 사용률 25%)가 가설의 문제인지 UI 결함인지 구분할 수 없는 숫자로 나온다.
     detect: >
-      REQ-4 의 실브라우저 `--check selection` — 선택/비선택 케이스 간 aria 속성 상이 +
-      border-width 또는 표식 노드 유무 중 최소 1개 축 상이 assert (jsdom 판정 금지)
+      REQ-5 의 실브라우저 `--check selection`(DS6 하네스) — 선택/비선택 케이스 간 aria 속성 상이 +
+      border-width 또는 표식 노드 유무 중 최소 1개 축 상이 assert (jsdom 판정 금지).
+      REQ-3 이 인터랙티브 노드 ≥ 4 를 요구하므로 대상 0개로 자명 통과할 수 없다
     on_violation: block_merge
 
   - id: FORBID-4
@@ -185,8 +199,9 @@ forbid:
       눌리지 않고, W6 의 계측 결과가 "수요가 없다"로 오독되어 UVP 피봇 같은 잘못된 판단으로 이어진다.
       한 번 내려진 피봇 결정은 UI 를 고쳐도 되돌아오지 않는다.
     detect: >
-      `pnpm test:ds-core --check label` — 등록 케이스 전수에서 인터랙티브 노드마다
-      접근 가능한 이름과 가시 텍스트 노드가 모두 존재함을 assert
+      REQ-6 `--check label` — 인터랙티브 노드 **총수를 stdout 출력하고 0 이면 exit 1**,
+      각 노드에 접근 가능한 이름과 가시 텍스트 노드가 모두 존재함을 assert
+      (전칭명제가 대상 0에서 자명 참이 되는 경로 차단)
     on_violation: block_merge
 
   - id: FORBID-6
@@ -222,10 +237,11 @@ rollback: >
   그 경우 types.ts 만 남기는 후속 커밋을 즉시 올린다.
 
 done_when:
-  - "`pnpm test:ds-core --all` 이 6개 서브체크 전부 exit 0"
-  - "`pnpm a11y:check` 리포트에 4개 컴포넌트 각각 ≥ 3케이스가 포함되고 위반 0건"
+  - "`pnpm test:ds-core --all` 이 7개 서브체크 전부 exit 0"
+  - "`pnpm a11y:check` 리포트에 4개 컴포넌트 각각 ≥ 3케이스가 포함되고 위반 0건, 컴포넌트별 비어 있지 않은 케이스 ≥ 1"
+  - "렌더 하한 3종(칩 5개 · data-price-state 1개 · 인터랙티브 ≥ 4)의 실측 수가 stdout 에 출력되고 전부 하한 충족"
   - "실브라우저 기준 선택/비선택 계산 스타일 비교표가 PR 본문에 첨부됨"
-  - "VenueCard 렌더 트리의 data-price-state 노드가 DS4 컴포넌트 유래임이 테스트로 확인됨"
+  - "VenueCard 렌더 트리의 data-price-state 노드가 DS4 컴포넌트 유래임이 **런타임 소유 확인**으로 검증됨 (grep 아님)"
   - "FORBID-1~6 각각에 대응하는 위반 픽스처가 커밋되고 대응 검사를 실패시키는 것이 확인됨"
   - "20건 입력 시 SSR HTML 카드 수 20 이 확인됨"
   - "touches 경로 밖 변경 파일 0개 (CI path guard 통과)"

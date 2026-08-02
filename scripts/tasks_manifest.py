@@ -17,9 +17,11 @@ OUT = ROOT / "docs" / "tasks.json"
 # 계약 상단 ```yaml 블록에서 뽑는다. 전용 YAML 파서 없이 동작해야 하므로
 # 필요한 스칼라/리스트 필드만 얕게 읽는다.
 SCALAR = re.compile(r"^(id|title|workstream|owner_agent|pr_count):\s*(.+?)\s*$", re.M)
-# 뒤에 `# 주석` 이 붙어도 인식해야 한다. 계약 저자들이 의존선의 이유를 주석으로 남긴다.
+# 뒤에 `# 주석` 이 붙어도, 대괄호가 여러 줄에 걸쳐도 인식해야 한다.
+# 여러 줄을 못 읽으면 필드가 통째로 빈 리스트가 되어 **위반이 조용히 통과한다** —
+# 오탐보다 위험한 미탐이므로 DOTALL 로 읽되 최초 `]` 까지만 비탐욕 매칭한다.
 LIST_INLINE = re.compile(
-    r"^(traces_to|depends_on|blocks|parallel_with|gate):\s*\[(.*?)\]\s*(?:#.*)?$", re.M
+    r"^(traces_to|depends_on|blocks|parallel_with|gate):[ \t]*\[([^\]]*)\]", re.M
 )
 LIST_BLOCK = re.compile(
     r"^(traces_to|depends_on|blocks|parallel_with|gate):\s*\n((?:\s+-\s+.+\n)+)", re.M

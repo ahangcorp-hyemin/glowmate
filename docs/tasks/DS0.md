@@ -27,8 +27,39 @@
 > | **DS4·DS5** | 컴포넌트 베이스가 shadcn/ui 프리미티브(Card·Badge·Button) 조합임을 반영 |
 > | **DS6·DS7** | 생성 `tokens.ts` 부재 반영 (문서는 런타임 CSS 변수 열거로 렌더) |
 >
+> ## ⚠️ 2차 감사 REVISE — 미해소 결함과 후속 조치
+>
+> 감사 결과 **acceptance 7건 중 실행된 것이 0건**이다(`scripts/design-system/validate_ds0.mjs` 와
+> `docs/design-system/DS0/**` 가 리포에 부재). FORBID-1~5 의 detect 도 전부 그 스크립트를 가리키므로
+> 5개 금지사항이 장식 상태로 종결됐다. **사후에 REQ 를 산출물에 맞춰 고쳐 쓰지 않는다** —
+> 대신 미충족 사실을 기록하고, 하류가 인용할 정본을 별도 PR 로 동결한다.
+>
+> ### ▶ 후속 태스크 제안: **DS0-FREEZE (인용 정본 동결)** — 팀 리드 승인 필요
+>
+> DAG 에 없는 태스크이므로 **제안만 한다.** D4 가 1차 감사 후 정본 경로·스키마·rule_id 체계를 고정한 것과
+> 동일한 조치이며, 이것 없이는 DS1·DS3 의 REQ 가 인용할 대상이 없다.
+>
+> | 산출물 | 내용 | 인용하는 계약 |
+> |---|---|---|
+> | `docs/design-system/DS0/pinned.json` | 패키지 4종(`@seed-design/css` · `@seed-design/tailwind4-theme` · `pretendard` · shadcn 기준 Radix)의 **정확한 x.y.z + tarball sha512** | DS1 REQ-8·FORBID-5 · DS3 REQ-2 |
+> | `docs/design-system/DS0/verdict.json` | `option_a` + 축별 판정값 + evidence_ref (기계 판독) | DS1 · DS3 헤더 |
+> | `docs/design-system/DS0/snapshots/NOTICE` · `LICENSE` + 각 sha256 | carrot 교체 의무와 Apache-2.0 §4 귀속 고지의 **법적 근거 원문**. 현재는 원격 URL 인용문뿐이다 | DS1 FORBID-1 |
+> | 실사 보고서 각 절의 **불변 앵커 ID** | 절 번호(§2.2·§9.2) 인용 금지 → 앵커 인용으로 전환 | DS1 · DS3 · DS5 |
+>
+> **재검증 트리거(수치 고정)**: 실사 기준일(2026-08-03)로부터 **12주 경과** 또는
+> `@seed-design/css` **메이저 버전 변경** 시 G5 재판정. 보고서 자신이 "주당 최대 48커밋이므로
+> 수 주 내 사실관계가 바뀔 수 있다"고 적었는데 트리거가 없던 것을 보완한다.
+>
+> ### 상신 (본 계약 단독으로 해소 불가)
+>
+> 1. **PRD §4 게이트 표에 G5 등록** — 현재 G1~G4 뿐이라 `traces_to: [G5]` 가 유령 참조다.
+>    게이트 정본을 PRD 로 일원화하지 않으면 traces_to 자동 검증이 영구히 불가능하다.
+>    (라이브 DS 계약 6건은 이번 수정에서 traces_to 를 **PRD 소재 H ID 로만** 구성했다)
+> 2. `tasks_manifest.py` 의 `LIST_INLINE` 정규식이 **여러 줄 인라인 리스트를 놓친다** —
+>    본 계약의 `parallel_with` 가 통째로 소실돼 폐기 ID 참조가 검사를 통과했다(감사 §0-1).
+>
 > 아래 원문 계약은 **실사 착수 시점의 계약**이며 기록 보존용으로 유지한다. 재실행 대상이 아니다.
-> 옵션 B 재검토 조건은 실사 보고서 §8 "옵션 B를 재검토해야 할 조건" 참조.
+> 옵션 B 재검토 조건은 실사 보고서 "옵션 B를 재검토해야 할 조건" 절 참조.
 >
 > ---
 
@@ -58,8 +89,7 @@ why:           "컴포넌트 레이어를 어디서 가져올지 확정되지 �
 # ─── DAG ────────────────────────────────
 depends_on:    []
 blocks:        [DS1-TOKEN-LAYERS, DS3-BASE-WIRING]      # DS2-TOKEN-BUILD 는 본 실사 결과(G5=옵션 A)로 폐기
-parallel_with: [D1-PRICE-AVAILABILITY-SPIKE, D2-SEO-SERP-FEASIBILITY, D3-SOURCE-DUE-DILIGENCE,
-                D4-MEDICAL-AD-GUARDRAIL, F1-REPO-SCAFFOLD]
+parallel_with: [D1a-PROTOCOL, D1b-FIELDWORK, D2-SEO-SERP-FEASIBILITY, D3-SOURCE-DUE-DILIGENCE, D4-MEDICAL-AD-GUARDRAIL, F1-REPO-SCAFFOLD]
 gate:          null                 # 이 태스크가 ⛔G5 의 **입력**을 산출한다
 
 # ─── 산출물 ─────────────────────────────

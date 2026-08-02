@@ -73,12 +73,24 @@ def rewrite(text: str, mapping: dict[str, str]) -> tuple[str, int]:
 
 def fill_reverse_blocks(dry: bool) -> int:
     """X.depends_on 에 Y 가 있으면 Y.blocks 에 X 를 채운다 (순수 대칭, 판단 불필요)."""
+    # 폐기 태스크는 양방향 대칭에서 제외한다. 채우면 검증기가 "폐기 참조" 위반으로 잡아
+    # 두 스크립트가 서로 싸운다 — 규칙 두 개가 교집합에서 모순되는 P7 패턴이다.
+    dep_title = re.compile(r"^#\s.*(폐기|DEPRECATED|SUPERSEDED)", re.I | re.M)
+    dep_status = re.compile(
+        r"^>\s*(?:\*\*)?(?:상태|status)(?:\*\*)?\s*[:：].*?(폐기|DEPRECATED|SUPERSEDED)",
+        re.I | re.M,
+    )
+
     files = {}
     for path in TASKS.glob("*.md"):
         text = path.read_text(encoding="utf-8")
         m = re.search(r"^id:\s*(\S+)", text, re.M)
-        if m:
-            files[m.group(1)] = (path, text)
+        if not m:
+            continue
+        head = text[: text.find("```yaml")] if "```yaml" in text else text[:400]
+        if dep_title.search(head) or dep_status.search(head):
+            continue  # 폐기 태스크는 대칭 대상이 아니다
+        files[m.group(1)] = (path, text)
 
     needed: dict[str, set[str]] = {tid: set() for tid in files}
     for tid, (_, text) in files.items():

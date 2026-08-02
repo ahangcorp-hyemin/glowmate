@@ -1,13 +1,14 @@
-# F2a — 코어 스키마 (venue · price_plan · need_tag · editor_report · source_record)
+# F2a — 코어 스키마 (venue · price_plan · need_tag · venue_need_tag · editor_report · source_record)
 
 > 계약 규격: [02-task-contract-spec.md](../02-task-contract-spec.md) §1
 > 신설: 2026-08-03 (구 F2 분할 — `docs/audit/D1-F4-audit.md` §F2 필수 수정 #9)
+> 개정: 2026-08-03 (2차 감사 — C4 불변식 I2·I3 충돌 해소 · no-op down 차단 · F2b 예약 컬럼으로 분할선 정정 · 7번째 테이블 우회 차단)
 
 ```yaml
 # ─── 식별 ───────────────────────────────
 id:            F2a-CORE-SCHEMA
 dag_id:        F2a
-title:         코어 스키마 & 마이그레이션 (도메인 6테이블 · PostGIS · C4 출력 필드)
+title:         코어 스키마 & 마이그레이션 (core 스키마 6테이블 · PostGIS · C4 출력 필드)
 workstream:    foundation
 owner_agent:   dev-data
 
@@ -18,7 +19,7 @@ why:           "C4 가 산출하는 회당 단가·단위 유형·원문 스니�
 
 # ─── DAG ────────────────────────────────
 depends_on:     [F1-REPO-SCAFFOLD]
-blocks:        [C1-CRAWLER-CORE, C4-PRICE-NORMALIZER, C5-ENTITY-RESOLUTION, C6-TAG-ASSIGN, C7-QUALITY-GATE, F2b-QUALITY-SCHEMA, F5-API-LAYER, W2-DISCOVERY-LIST, W3-VENUE-DETAIL]
+blocks:        [C1-CRAWLER-CORE, C4-PRICE-NORMALIZER, F2c-OPS-LEGAL-SCHEMA, C5-ENTITY-RESOLUTION, C6-TAG-ASSIGN, C7-QUALITY-GATE, F2b-QUALITY-SCHEMA, F5-API-LAYER, W2-DISCOVERY-LIST, W3-VENUE-DETAIL]
 parallel_with:  [O3-DEPLOY-MONITORING, DS1-TOKEN-LAYERS]
 gate:          null                  # Phase 1은 게이트와 무관하게 선행 가능
 
@@ -31,7 +32,7 @@ deliverable:
     - packages/db/src/types.ts
     - packages/db/test/core/**
     - packages/db/test/allowed-columns.core.json    # 허용 컬럼 화이트리스트 (계약 부록 = 기대값)
-    - packages/db/package.json
+    - packages/db/package.json                      # DB 드라이버 의존 추가 (packages/db 는 F1 REQ-3 의 제외 집합이므로 boundary job 을 red 로 만들지 않는다)
     - .github/workflows/ci.yml                      # db-schema job 추가만
     - .github/ci-budget.json                        # db-schema 예산 항목 추가만
   artifacts:
@@ -45,14 +46,17 @@ deliverable:
 requirements:
   - id: REQ-1
     statement: >
-      마이그레이션 적용 후 도메인 테이블이 정확히 6개(venue, price_plan, need_tag, venue_need_tag,
-      editor_report, source_record)이고, 각 테이블이 테스트 소스에 하드코딩된 필수 컬럼·제약 목록
-      (venue: id·slug UNIQUE·name·category·gu·location / need_tag: slug UNIQUE·ontology_id /
+      DB 스키마 네임스페이스 `core` 의 테이블 목록이 6개(venue, price_plan, need_tag, venue_need_tag,
+      editor_report, source_record)와 집합 동등이고, 각 테이블이 테스트 소스에 하드코딩된 필수 컬럼·제약 목록
+      (venue: id·slug UNIQUE·name·category·gu·location / price_plan: total_amount_krw·session_count·
+      raw_text·source_record_id / need_tag: slug UNIQUE·ontology_id /
       venue_need_tag: (venue_id, need_tag_id) PK·evidence_snippet /
       editor_report: venue_id FK·visited_at / source_record: source_url·raw_payload·fetched_at)을 전부 포함한다.
     acceptance: >
-      `pnpm test:schema-core` — information_schema 질의 결과를 테스트 파일에 하드코딩된 기대 목록과 대조,
-      누락 1건이라도 있으면 exit 1. 마이그레이션에서 덤프한 스냅샷을 기대값으로 사용하면 실패로 간주한다.
+      `pnpm test:schema-core` — `information_schema.tables WHERE table_schema='core'` 결과와 하드코딩 6개의
+      집합 동등 비교(부분집합 비교로 구현하면 실패), 필수 컬럼 누락 1건이라도 있으면 exit 1.
+      기대 목록이 본 계약 REQ-1 statement 의 열거와 일치하는지는 packages/db CODEOWNERS 리뷰 체크리스트로 확인한다
+      — 계약 문서가 자연어라 파싱 규약이 없어 이 항목만 자동화할 수 없다. 나머지 검사는 전부 자동이다.
 
   - id: REQ-2
     statement: >
@@ -65,11 +69,14 @@ requirements:
   - id: REQ-3
     statement: >
       price_plan 이 원문 필드(raw_text NOT NULL, source_record_id NOT NULL FK)와 파생 필드를 분리하고,
-      CHECK 제약 2종 — (a) price_per_session IS NULL → failure_reason NOT NULL,
-      (b) price_unit_type <> 'per_session' → price_per_session IS NULL — 을 갖는다.
+      CHECK 제약 3종 — (a) price_unit_type='unparseable' → failure_reason NOT NULL,
+      (b) price_unit_type NOT IN ('per_session','single_session') → price_per_session IS NULL,
+      (c) price_per_session IS NULL OR price_per_session > 0 — 을 갖는다.
     acceptance: >
-      `pnpm test:constraints-core` — (a) 위반 INSERT 가 SQLSTATE 23514 로 거부, (b) 위반 INSERT 가 23514 로 거부,
-      raw_text NULL INSERT 가 23502 로 거부.
+      `pnpm test:constraints-core` — (a)(b)(c) 위반 INSERT 가 각각 SQLSTATE 23514 로 거부되고,
+      C4 불변식 정합 픽스처 3종(single_session: price_per_session=total_amount_krw·failure_reason NULL /
+      period_pass: price_per_session NULL·failure_reason NULL / unparseable: 금액 4종 NULL·failure_reason 有)이
+      **전부 INSERT 성공**해야 한다. raw_text NULL INSERT 는 23502 로 거부.
 
   - id: REQ-4
     statement: >
@@ -89,14 +96,22 @@ requirements:
 
   - id: REQ-6
     statement: >
-      6개 테이블의 전체 컬럼 집합이 packages/db/test/allowed-columns.core.json 화이트리스트의 부분집합이다.
-    acceptance: "`pnpm test:schema-core` — 화이트리스트 밖 컬럼이 1개라도 존재하면 컬럼명과 함께 exit 1."
+      core 스키마 전 테이블의 컬럼 집합이 packages/db/test/allowed-columns.core.json 화이트리스트의
+      부분집합이며, 화이트리스트의 `reserved_for_f2b` 항목은 정확히 3개
+      (venue.visibility, price_plan.visibility, price_plan.confidence)로 F2b 가 파일을 수정하지 않고
+      해당 컬럼을 추가할 수 있다.
+    acceptance: >
+      `pnpm test:schema-core` — 화이트리스트 밖 컬럼이 1개라도 존재하면 컬럼명과 함께 exit 1.
+      `reserved_for_f2b` 배열 길이가 3이 아니거나 위 3개와 집합 동등하지 않으면 exit 1.
 
   - id: REQ-7
     statement: >
-      모든 마이그레이션이 up/down 쌍을 가지며 `up → down → up` 왕복 후 스키마 덤프의 sha256 이
-      최초 up 직후 덤프의 sha256 과 일치한다.
-    acceptance: "CI job `db-schema` — 왕복 실행 후 두 sha256 불일치 시 exit 1."
+      모든 마이그레이션이 up/down 쌍을 가지며, `down` 직후 덤프 sha256 이 **F2a 적용 이전** 덤프와 일치하고
+      (되돌림 실효성), 이어지는 `up` 직후 덤프 sha256 이 최초 up 직후 덤프와 일치한다(재적용 동일성).
+    acceptance: >
+      CI job `db-schema` — 3개 덤프(pre / post-up / post-down)를 채취해 post-down == pre 및
+      post-up(2회차) == post-up(1회차) 를 각각 assert. no-op down 픽스처(빈 down 스크립트)에서
+      post-down != pre 로 반드시 exit 1 임을 확인한다.
 
 # ─── 조건부 금지사항 ────────────────────
 forbid:
@@ -121,19 +136,24 @@ forbid:
     because: >
       "파싱 실패"와 "회당 0원"이 같은 값이 되면 C4 가 실패를 기록할 자리를 잃고, W3 가격 블록에 0원 또는
       가짜 평균가가 노출된다. UVP 전체가 걸린 가격 신뢰는 단 한 건의 오노출로 붕괴한다.
-    detect: "`pnpm test:schema-core` — is_nullable='YES' · column_default IS NULL · CHECK(price_per_session IS NULL OR price_per_session > 0) 존재를 assert"
+    detect: "`pnpm test:schema-core` — is_nullable='YES' · column_default IS NULL assert (양수 CHECK 자체는 REQ-3 (c)로 승격되어 test:constraints-core 가 검증)"
     on_violation: block_merge
 
   - id: FORBID-3
-    when: "6개 테이블에 allowed-columns.core.json 에 등재되지 않은 컬럼명 또는 ENUM 라벨을 추가하는 경우"
-    must_not: "화이트리스트 갱신(= CODEOWNERS 승인) 없이 컬럼·ENUM 라벨 추가"
+    when: >
+      core 스키마의 **어느 테이블에든**(REQ-1 의 6개 및 신설 테이블 포함) allowed-columns.core.json 에
+      등재되지 않은 컬럼명·ENUM 라벨을 추가하거나, 화이트리스트 최초 작성 시 성별·연령대 추정·
+      개인 식별자 계열 컬럼명(gender·sex·target_audience·age_band·user_agent·device_id·fingerprint 등)을
+      등재하는 경우
+    must_not: "화이트리스트 갱신(= CODEOWNERS 승인) 없이 컬럼·ENUM 라벨을 추가하거나, 금지 축을 사전 등재해 두는 것 (reserved_for_f2b 3개는 예외로 계약 본문에 못박혀 있다)"
     because: >
       금지 정규식은 이름만 바꾸면 뚫린다 — `gender` 는 막아도 `target_audience ENUM('women','men')` 은 통과하고,
       그 순간 성별이 1급 스키마 축이 되어 4050 남성 확장 시 색인된 URL 까지 포함한 파괴적 마이그레이션이 발생한다.
       폐쇄 화이트리스트만이 "이름을 바꾼 같은 것"을 막는다.
     detect: >
-      `pnpm test:schema-core` — 컬럼 집합 ⊄ 화이트리스트면 실패(REQ-6). 화이트리스트 파일 diff 는
-      packages/db CODEOWNERS 승인 리뷰(승인자 ≠ 작성자) 없이는 CI 실패.
+      `pnpm test:schema-core` — core 스키마 전 테이블의 컬럼 집합 ⊄ 화이트리스트면 실패(REQ-6),
+      화이트리스트 내용이 금지 축 정규식에 매치되면 실패, `reserved_for_f2b` 길이 ≠ 3 이면 실패.
+      화이트리스트 파일 diff 는 packages/db CODEOWNERS 승인 리뷰(승인자 ≠ 작성자) 없이는 CI 실패.
     on_violation: block_merge
 
   - id: FORBID-4
@@ -157,7 +177,8 @@ forbid:
 
 # ─── 경계 ───────────────────────────────
 out_of_scope:
-  - "visibility ENUM · confidence · quality_score · reason_codes · override · public_venue 뷰 · price_conflict · venue_suppression · lead_event → F2b-QUALITY-SCHEMA"
+  - "visibility ENUM · confidence · quality_score · reason_codes · override · public_venue 뷰 · price_conflict · venue_suppression · lead_event → F2b-QUALITY-SCHEMA (코어 테이블에 붙는 3개 컬럼은 REQ-6 의 reserved_for_f2b 로 선등재되어 있어 F2b 가 본 태스크 파일을 수정하지 않는다)"
+  - "correction_request · correction_action_log · review_audit_log · venue_field_override · visibility_change_event → 운영·법적 저장소 → F2c-OPS-LEGAL-SCHEMA 소관. 본 태스크에서 만들지 않는다"
   - "need_tag 행 삽입(온톨로지 데이터 시드) → F4 정의 후 C6 소관. 본 태스크는 테이블 구조만"
   - "가격 파싱·정규화 로직 (C4) · 엔티티 병합 (C5)"
   - "조회 함수·zod 응답 계약 (F5)"
@@ -173,7 +194,9 @@ rollback: >
 done_when:
   - "`pnpm db:migrate && pnpm test:schema-core && pnpm test:constraints-core && pnpm test:geo && pnpm test:append-only` 전부 exit 0"
   - "up→down→up 왕복 후 덤프 sha256 동일"
-  - "위반 픽스처 5종(price_per_session NOT NULL / 화이트리스트 밖 컬럼 / CASCADE FK / source_record DELETE / up 마이그레이션 DROP COLUMN)이 각각 대응 검사를 실패시킴을 확인"
+  - "위반 픽스처 7종(price_per_session NOT NULL / 화이트리스트 밖 컬럼 / core 스키마 7번째 테이블 / 금지 축 사전 등재 / CASCADE FK / source_record DELETE / up 마이그레이션 DROP COLUMN)이 각각 대응 검사를 실패시킴을 확인"
+  - "no-op down 픽스처(빈 down 스크립트)가 REQ-7 을 실패시킴을 확인"
+  - "C4 불변식 정합 픽스처 3종(single_session · period_pass · unparseable)이 전부 INSERT 성공함을 확인 — C4 가 착수 즉시 대기 상태로 들어가지 않는 유일한 조건"
   - "packages/db/src/types.ts 가 마이그레이션으로부터 생성되고 `pnpm typecheck` 통과"
   - "db-schema job 이 .github/ci-budget.json 예산 안에서 완료되고 F1 의 8개 job 이 여전히 green"
   - "packages/db/README 에 6테이블 관계도와 tombstone 처리 절차 포함"

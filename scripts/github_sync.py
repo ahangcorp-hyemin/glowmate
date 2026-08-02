@@ -20,6 +20,10 @@ ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "docs" / "tasks.json"
 BODY_LIMIT = 60000  # GitHub 이슈 본문 상한 여유분
 
+# 보드에 담을 Projects v2 (owner/number). `project` 스코프가 없으면 조용히 건너뛴다.
+PROJECT_OWNER = "ahangcorp-hyemin"
+PROJECT_NUMBER = "1"
+
 
 def gh(*args: str, check: bool = True) -> str:
     r = subprocess.run(["gh", *args], capture_output=True, text=True, cwd=ROOT)
@@ -116,7 +120,25 @@ def main() -> int:
         print(f"  #{mapping[t['id']]:>3} {t['id']} ← blocked by {', '.join('#' + d for d in deps)}")
 
     print(f"\n의존관계 {linked}건 반영 완료")
-    print("착수 가능 태스크 확인: python3 scripts/github_sync.py --ready")
+
+    # ── Pass 3: 보드에 담기 (project 스코프 없으면 건너뜀) ──
+    probe = subprocess.run(
+        ["gh", "project", "view", PROJECT_NUMBER, "--owner", PROJECT_OWNER],
+        capture_output=True, text=True, cwd=ROOT,
+    )
+    if probe.returncode != 0:
+        print("\n보드 담기 생략 — `gh auth refresh -h github.com -s project` 후 재실행하면 반영된다")
+    else:
+        repo = gh("repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner")
+        for tid, num in sorted(mapping.items(), key=lambda x: x[1]):
+            subprocess.run(
+                ["gh", "project", "item-add", PROJECT_NUMBER, "--owner", PROJECT_OWNER,
+                 "--url", f"https://github.com/{repo}/issues/{num}"],
+                capture_output=True, text=True, cwd=ROOT,
+            )
+        print(f"보드({PROJECT_OWNER}/projects/{PROJECT_NUMBER})에 {len(mapping)}건 담기 완료")
+
+    print("\n착수 가능 태스크 확인: python3 scripts/github_sync.py --ready")
     return 0
 
 

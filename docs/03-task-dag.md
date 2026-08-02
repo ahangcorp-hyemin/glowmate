@@ -16,6 +16,24 @@
 | **9** | **`blocks` ↔ `depends_on` 양방향 정합성 전무** — W2·W3·W4가 `depends_on:[W1]` 뿐이라 **D4 산출물 없이 착수 가능**하고, 그들의 detect가 참조할 파일이 없다. 없는 파일을 스캔하는 테스트는 스텁이 되고 스텁은 항상 통과한다 → **Phase 3 전체가 G3/D4를 건너뛴다** | DAG 정합성 검증 스크립트를 F1 CI에 추가 + D4 산출물 인용 규약(정본 경로·스키마·버전) 고정 |
 | **4** | C7 REQ-1("`is_public` 쓰기 경로 정확히 1개") ↔ O2 REQ-4("2인 승인 시 공개 전환") **정면 충돌** — 한쪽을 지키면 다른 쪽이 구현 불가 | **판정 컬럼(C7)과 오버라이드 레이어(O2)를 분리 저장**, 최종 상태는 뷰가 결합해 산출 |
 
+## 가격 상태 어휘 정본 (2차 감사 반영 — 정정 #10)
+
+> 2차 감사에서 **C4 · F6 · DS4 · W3 가 같은 상태를 서로 다른 이름으로** 불렀다(`unparseable` ↔ `unknown` 등).
+> 화면·모듈·API가 같은 상태를 다르게 부르면 판정이 어긋나고, 파이프라인의 모든 금지사항이 **화면이라는 마지막 칸에서** 무너진다.
+
+**두 축을 구분한다. 섞지 마라.**
+
+| 축 | 소유 | 값 |
+|---|---|---|
+| **가격 유형** (C4 산출) | `C4-PRICE-NORMALIZER` | `per_session` · `period_pass` · `single_session` · `unparseable` |
+| **표시 상태** (F6 산출) | `F6-PRICE-STATE` | `confirmed` · `conflict` · `low_confidence` · `unavailable` |
+
+**규칙**
+
+1. **표시 상태의 단일 판정 소스는 `F6-PRICE-STATE` 다.** DS4·W3·W2·W4는 F6을 소비만 하고 **자체 판정 로직을 구현하지 않는다.** 중복 구현은 두 판정이 어긋나는 시점을 만든다
+2. `period_pass` 는 **확정 가격이면 `confirmed`** 다. 회당 환산이 불가능하다는 이유로 `unavailable` 로 접으면, 기간권 업체의 가격이 영구히 표시되지 않는다 (원칙 2.5 위반)
+3. `unparseable`(유형) 과 `unavailable`(표시) 은 **다른 개념이다.** 전자는 파싱 실패, 후자는 화면에 숫자를 못 내보내는 모든 사유의 합집합
+
 ## 태스크 ID 정본 (Canonical Registry)
 
 > **계약의 `depends_on` / `blocks` / `parallel_with` 는 반드시 이 목록의 문자열과 정확히 일치해야 한다.**
@@ -26,10 +44,11 @@ D1a-PROTOCOL   D1b-FIELDWORK            ← D1 분할 (감사 반영)
 D2-SEO-SERP-FEASIBILITY   D3-SOURCE-DUE-DILIGENCE   D4-MEDICAL-AD-GUARDRAIL
 D1-PRICE-AVAILABILITY-SPIKE  ← 폐기(D1a/D1b로 분할). 신규 참조 금지
 
-F2a-CORE-SCHEMA   F2b-QUALITY-SCHEMA     ← F2 분할 (감사 반영)
+F2a-CORE-SCHEMA   F2b-QUALITY-SCHEMA   F2c-OPS-LEGAL-SCHEMA   ← F2 분할 (감사 반영)
 F2-SCHEMA  ← 폐기. 신규 참조 금지
 
-F1-REPO-SCAFFOLD   F2-SCHEMA   F4-NEED-TAG-ONTOLOGY
+F1-REPO-SCAFFOLD   F1b-CONTRACT-GOVERNANCE   ← F1 분할 (F1 게이트 감사 승인)
+F2-SCHEMA   F4-NEED-TAG-ONTOLOGY
 F5-API-LAYER   F6-PRICE-STATE          ← 감사 반영 신설
 F3-DESIGN-TOKENS  ← 폐기(DS 워크스트림으로 대체). 신규 참조 금지
 DS2-TOKEN-BUILD   ← 폐기(G5 옵션 A). 신규 참조 금지
@@ -94,7 +113,8 @@ Phase 4  OPS
 |---|---|---|---|---|
 | **F1** | 리포 스캐폴딩 · 모노레포 · CI | — | — | — |
 | **F2a** | 코어 스키마 (venue · price_plan · need_tag · editor_report · source_record) ⚠️분할 | F1 | — | H1,H2 |
-| **F2b** | 품질·공개판정 스키마 (`visibility` ENUM · confidence · conflict · override 레이어 · lead_event) ⚠️분할 | F2a | — | H4 |
+| **F2b** | 품질·공개판정 스키마 (`visibility` ENUM · confidence · conflict · override 레이어 · lead_event · venue_suppression · `public_venue` 뷰 단독 소유) ⚠️분할 | F2a | — | H4 |
+| **F2c** | **운영·법적 저장소** (correction_request · correction_action_log · review_audit_log · venue_field_override · visibility_change_event) ⚠️2차 감사 반영 신설 | F2a | F2b | — (법적) |
 | ~~F3~~ | ~~디자인 토큰 & 코어 컴포넌트~~ → **DS 워크스트림으로 대체** (하단 참조) | — | — | — |
 | **F4** | 니즈 태그 온톨로지 정의 | D1, D4 | F1 | H5 |
 | **F5** | **공용 API 레이어 패키지** (웹/앱 공용, DB 직접 호출 차단 경계 소유) ⚠️신설 | F1, F2 | F4 | — |

@@ -1,7 +1,7 @@
 # DS7 — 프리뷰 / 문서화 (컴포넌트 갤러리 · 토큰 문서)
 
-> 계약 규격: [02-task-contract-spec.md](../02-task-contract-spec.md) §1
-> 상태: 착수 대기 (DS4 · DS5 완료 후) · ⛔G5 = **옵션 A**
+> 계약 규격: [02-task-contract-spec.md](../02-task-contract-spec.md) §1 (원칙 2.5 · R-6 · R-7 포함)
+> 상태: **수정본 (2차 감사 REVISE 반영)** · ⛔G5 = 옵션 A
 
 ## 설계 전제 — 원천은 코드다
 
@@ -16,9 +16,18 @@
 이 규약이 깨지는 순간(프리뷰 전용 예시 데이터, 손으로 적은 색상 코드, 캡처 이미지)
 문서는 코드와 다른 두 번째 원천이 되고, 개발자는 문서를 믿고 **검사받지 않은 조합**을 만든다.
 
-**DS6 검사 대상 승계** — DS3 의 `wiring-smoke` 는 DS6 의 실환경 검사 대상(targets.json)의 최초 항목이다.
-본 태스크가 그 라우트를 제거하려면 **먼저 프리뷰 라우트를 targets.json 에 등재해 대상 수를 유지**해야 한다.
-그러지 않으면 DS6 의 실환경 하한(R-7)이 조용히 0 이 되어 게이트가 비게 된다.
+**DS6 검사 대상 승계 — 프로덕션 라우트 수를 줄이지 않는다**
+
+DS3 의 `wiring-smoke` 는 DS6 실환경 검사 대상(`targets.json`)의 초기 항목이다.
+2차 감사가 지적한 두 결함을 함께 해소한다.
+
+1. **자기 차단** — targets 에서 항목을 지우는 것은 DS6 FORBID-1 에 걸린다. 그대로 두면 개발 에이전트가
+   `threshold-change-approved` 라벨로 우회하고, **임계 보호 장치를 무력화하는 관용구를 정상 작업에서 학습**한다.
+   → DS6 FORBID-1 에 "(삭제 ≤ 추가) 이고 프로덕션 라우트 수 비감소인 **교체**는 허용" 예외를 넣었고,
+   본 계약 REQ-6 이 그 조건을 검증한다.
+2. **실환경 대상의 후퇴** — 승계 후 유일 항목이 비배포 프리뷰 앱이 되면 R-7 하한이 형식만 남는다.
+   → REQ-6 은 길이가 아니라 **`is_production=true` 항목 수의 비감소**를 요구한다.
+   프리뷰 라우트는 `is_production=false` 로 등재되므로 프로덕션 대상을 대체할 수 없다.
 
 ```yaml
 # ─── 식별 ───────────────────────────────
@@ -34,10 +43,16 @@ why:           "W2·W3 를 구현할 에이전트가 컴포넌트의 상태별 �
                 실행되는 형태로 확인하지 못하면, 각자 해석해 가격 상태 구분이 화면마다 달라진다."
 
 # ─── DAG ────────────────────────────────
-depends_on:    [DS4-PRICE-COMPARE-CARD, DS5-CORE-COMPONENTS]
+depends_on:    [DS4-PRICE-COMPARE-CARD, DS5-CORE-COMPONENTS, DS6-A11Y-GATE]   # ⚠ dag_amendment 참조
 blocks:        []
-parallel_with: [DS6-A11Y-GATE, W1-SEO-FOUNDATION]
+parallel_with: [W1-SEO-FOUNDATION]
 gate:          null      # ⛔G5 는 DS0 산출로 해소됨(옵션 A)
+
+# ⚠ dag_amendment (팀 리드 승인 필요)
+#   03-task-dag.md 는 DS7 을 DS6 와 병렬로 둔다. 그러나 REQ-6 이 DS6 산출물(targets.json)을 직접 수정하고
+#   `a11y:check` 를 실행하며, DS6 FORBID-1 의 교체 예외 조건을 전제로 한다.
+#   병렬로 두면 DS7 이 먼저 머지될 때 수정 대상 파일도 검사 명령도 존재하지 않는다(2차 감사 P3 / E).
+#   → DAG 에 DS6 → DS7 간선 추가를 제안한다.
 
 # ─── 산출물 ─────────────────────────────
 deliverable:
@@ -63,44 +78,52 @@ deliverable:
 requirements:
   - id: REQ-1
     statement: >
-      `pnpm --filter @glowmate/preview build` 가 exit 0 으로 종료하고,
-      프리뷰 엔트리 id 집합과 packages/ui 의 케이스 레지스트리 id 집합의 대칭차집합이 0 이다.
-    acceptance: "`pnpm test:preview --check parity` — 빌드 exit 0 + 두 집합의 대칭차집합 크기 = 0 assert"
+      프리뷰 엔트리 id 집합과 packages/ui 케이스 레지스트리 id 집합의 대칭차집합이 0 이다.
+    acceptance: "`pnpm test:preview --check parity` — 대칭차집합 크기 = 0 assert"
 
   - id: REQ-2
     statement: >
-      apps/preview 소스에 packages/ui 컴포넌트를 직접 사용하는 JSX 와 예시용 props 객체 리터럴 정의가
-      0건이며, 모든 예시는 케이스의 render() 호출로만 생성된다.
-    acceptance: "`pnpm test:preview --check no-local-fixtures` — 컴포넌트 직접 JSX grep 0건 + 예시 props 리터럴 0건 assert"
+      수집된 케이스 수가 16 이상이다 (DS4 4건 + DS5 12건 하한). — 공집합에서 대칭차집합이
+      자명하게 0 이 되는 경로 차단
+    acceptance: "`pnpm test:preview --check registry-size` — 케이스 수 ≥ 16 assert, 실측 수 stdout 출력(0 이면 exit 1)"
 
   - id: REQ-3
     statement: >
-      실행 중인 프리뷰 토큰 페이지에서 `getComputedStyle` 로 열거한 CSS 변수 항목 수가
-      1 이상이고, apps/preview 소스의 색상 리터럴·px 리터럴 개수가 0 이다. (실환경 하한 REQ)
-    acceptance: "Playwright 검사 `--check token-doc` — 렌더된 토큰 행 수 ≥ 1 assert(0 이면 exit 1) + 리터럴 grep 0건"
+      토큰 문서 페이지에 DS1 의 가격 상태 12개 토큰 전건과 glowmate 브랜드 팔레트 전 단계가
+      행으로 렌더된다. (문서 내용 하한)
+    acceptance: >
+      Playwright `--check token-doc` — 렌더된 토큰 행의 키 집합이 semantic.css 의 가격 상태 12개와
+      brand-palette.json 의 전 단계를 포함하는지 assert, 누락 키 목록 stdout 출력
 
   - id: REQ-4
     statement: >
-      `next build` 로 생성한 apps/web 의 라우트 목록에 프리뷰 경로가 0건이고, sitemap 출력에
-      프리뷰 URL 이 0건이며, apps/web 번들이 apps/preview 를 import 하지 않는다. (실환경 하한 REQ)
-    acceptance: "`pnpm test:preview --check not-published` — 빌드 라우트 목록 grep 0건 + sitemap 항목 0건 + dependency-cruiser 로 web→preview import 0건"
+      apps/preview 소스에 색상 리터럴·px 리터럴과 packages/ui 컴포넌트 직접 사용 JSX 가 0건이며,
+      모든 예시가 케이스 render() 호출로만 생성된다.
+    acceptance: "`pnpm test:preview --check no-local-fixtures` — 리터럴 grep 0건 + 컴포넌트 직접 JSX·createElement AST 검사 0건 (REQ-1 parity 가 실질 방어를 병행한다)"
 
   - id: REQ-5
     statement: >
-      각 컴포넌트 문서의 props 표가 TypeScript 타입에서 자동 생성되며,
-      수기로 작성된 props 표 마크업이 0건이다.
-    acceptance: "`pnpm test:preview --check props-table` — 생성기 출력과 렌더된 표 행 집합 일치 + 수기 표 마크업 grep 0건"
+      `next build` 로 생성한 apps/web 라우트 목록에 프리뷰 경로가 0건이고, sitemap 출력에
+      프리뷰 URL 이 0건이며, apps/web 번들이 apps/preview 를 import 하지 않는다. (실환경 하한 REQ)
+    acceptance: "`pnpm test:preview --check not-published` — 빌드 라우트 목록·sitemap 항목 grep 0건 + dependency-cruiser 로 web→preview import 0건, 검사한 라우트 총수 stdout 출력"
 
   - id: REQ-6
     statement: >
-      apps/web 의 wiring-smoke 라우트를 제거하는 경우, 제거 후 DS6 의 targets.json 에 등재된
-      라우트 수가 1 이상으로 유지되며 `pnpm a11y:check` 가 exit 0 으로 통과한다.
-    acceptance: "`pnpm test:preview --check a11y-targets` — targets.json 길이 ≥ 1 assert + `pnpm a11y:check` exit 0"
+      wiring-smoke 라우트를 제거한 뒤 targets.json 의 `is_production=true` 항목 수가
+      제거 전 이상이며, 프리뷰 라우트는 `is_production=false` 로 등재된다.
+    acceptance: >
+      `pnpm test:preview --check a11y-targets` — 제거 전후 is_production=true 항목 수 비교(감소 시 exit 1) +
+      프리뷰 항목의 is_production === false assert + `pnpm a11y:check` exit 0
 
   - id: REQ-7
     statement: >
+      각 컴포넌트 문서의 props 표가 TypeScript 타입에서 자동 생성되며 수기 props 표 마크업이 0건이다.
+    acceptance: "`pnpm test:preview --check props-table` — 생성기 출력과 렌더된 표 행 집합 일치 + 수기 표 마크업 grep 0건"
+
+  - id: REQ-8
+    statement: >
       CI 워크플로에 job `preview-build` 가 존재해 PR 이벤트에서 실행되고, 실패 시 머지가 차단된다.
-    acceptance: "워크플로 파싱 테스트 — job 존재 + pull_request 트리거 + continue-on-error 키 부재 assert"
+    acceptance: "워크플로 파싱 테스트 — job 존재 + pull_request 트리거 + continue-on-error 키 부재 assert + `.github/rulesets/main.json` 에 등재"
 
 # ─── 조건부 금지사항 ────────────────────
 forbid:
@@ -142,8 +165,9 @@ forbid:
       끌어내린다. 채널 1순위가 SEO 인 제품에서 이는 H3(롱테일 1페이지 진입) 가설의 측정 자체를 오염시키고,
       색인 제거에는 수 주가 걸린다.
     detect: >
-      REQ-4 의 `--check not-published` — 실제 `next build` 라우트 목록·sitemap 출력에 프리뷰 경로 0건 +
-      web→preview import 0건 assert
+      REQ-5 의 `--check not-published` — 실제 `next build` 라우트 목록·sitemap 출력에 프리뷰 경로 0건 +
+      web→preview import 0건 assert. 검사한 라우트 총수를 stdout 출력해 빌드 실패로 목록이 비었을 때
+      자명 통과하는 경로를 차단한다
     on_violation: block_merge
 
   - id: FORBID-4
@@ -157,22 +181,25 @@ forbid:
       개발자는 "문서에 있으니 승인된 조합"이라 판단해 그대로 화면에 쓰고, 검사받지 않은 조합이
       제품에 들어간다. 검사망 밖의 예시를 공식 문서에 싣는 것이 가장 나쁜 형태의 우회다.
     detect: >
-      `pnpm test:preview --check parity` — 프리뷰 엔트리 id 집합과 레지스트리 id 집합의
-      대칭차집합 0 assert (프리뷰 전용 엔트리가 1건이라도 있으면 실패)
+      REQ-1 `--check parity`(대칭차집합 0) **와 REQ-2 `--check registry-size`(케이스 ≥ 16)를 함께** 판정.
+      parity 단독은 양쪽이 공집합일 때 자명 참이 되므로 크기 하한이 반드시 병행되어야 한다
     on_violation: block_merge
 
   - id: FORBID-5
     when: >
-      apps/web 의 wiring-smoke 라우트를 제거하는 경우
+      apps/web 의 wiring-smoke 라우트를 제거하면서 targets.json 을 변경하는 경우
     must_not: >
-      프리뷰 라우트를 DS6 의 targets.json 에 등재하지 않은 채 제거
+      제거 후 `is_production=true` 항목 수를 제거 전보다 줄이거나, 프리뷰 라우트를
+      `is_production=true` 로 등재해 프로덕션 대상을 대체한 것처럼 계상
     because: >
-      wiring-smoke 는 DS6 실환경 검사(R-7)의 최초 대상이다. 대체 없이 제거하면 targets 가 비고,
-      DS6 는 픽스처 케이스만 검사하는 상태로 되돌아간다. 그 순간 "실제 페이지에서는 대비가 미달인데
-      CI 는 초록"인 상태가 가능해지며, 게이트는 존재하지만 아무것도 막지 못한다.
+      wiring-smoke 는 DS6 실환경 검사(R-7)의 초기 대상이다. 프로덕션 대상 수가 줄면 게이트는
+      픽스처와 비배포 앱만 검사하는 상태로 되돌아가고, "실제 페이지는 대비 미달인데 CI 는 초록"이
+      가능해진다. 프리뷰 앱은 계약상 배포 대상이 아니므로 그것으로 프로덕션 표면을 대체하면
+      하한이 형식만 남는다.
     detect: >
-      `pnpm test:preview --check a11y-targets` — 제거 후 targets.json 길이 ≥ 1 assert +
-      `pnpm a11y:check` 가 실제 라우트 1개 이상을 검사한 기록을 리포트에서 확인
+      REQ-6 `--check a11y-targets` — 제거 전후 is_production=true 항목 수 비교(감소 시 exit 1) +
+      프리뷰 항목의 is_production === false assert. DS6 FORBID-1 의 교체 예외
+      (삭제 ≤ 추가 · 프로덕션 수 비감소)와 동일 조건이라 라벨 우회 없이 정상 경로로 통과한다
     on_violation: block_merge
 
   - id: FORBID-6
@@ -185,8 +212,9 @@ forbid:
       CI 에서 뒤늦게 막힌 뒤 "문서가 그렇게 되어 있다"며 임계 하향을 요구하게 된다.
       DS6-A11Y-GATE 의 FORBID-1 이 지키려는 임계가 문서 경유로 협상 대상이 된다.
     detect: >
-      `pnpm test:preview --check token-doc` — 문서 소스에서 임계 숫자 리터럴 grep 0건 +
-      constraints.json 을 읽어 렌더하는 컴포넌트 사용 assert
+      `pnpm test:preview --check threshold-prose` — 문서 소스에서 (a) 임계 숫자 리터럴,
+      (b) 임계를 산문화하는 표현("AA" · "AAA" · "수준" · "기준" 이 대비·폰트·타깃 문맥에 인접)
+      2종 패턴 grep 0건 + constraints.json 을 읽어 렌더하는 컴포넌트 사용 assert
     on_violation: block_merge
 
 # ─── 경계 ───────────────────────────────
