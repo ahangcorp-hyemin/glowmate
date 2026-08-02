@@ -1,0 +1,9 @@
+{
+  "job": "boundary",
+  "label": "REQ-3 ③ 미분류 신규 의존 (date-fns)",
+  "expect": ["REQ-3"],
+  "branch": "ci-fixture/boundary-unclassified",
+  "overlay": "overlay/",
+  "expected_result": "red",
+  "note": "허용목록 전환의 핵심 — 부인목록 구현이면 여기서 통과해버린다."
+}

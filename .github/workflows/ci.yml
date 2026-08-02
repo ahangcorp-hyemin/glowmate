@@ -1,0 +1,241 @@
+name: ci
+
+# F1-REPO-SCAFFOLD REQ-5·REQ-6.
+#
+# 검사 job 8개는 `needs` 를 선언하지 않는다 — 병렬 실행이며, 하나가 죽어도 나머지 7개의
+# 판정이 남아야 픽스처 귀속 검증(REQ-5 (3))이 성립한다.
+# 애그리게이터 `ci-required` 1개만 needs 를 갖고, 브랜치 보호의 유일한 필수 체크로 등록된다.
+#
+# 셋업 스텝을 composite action 으로 빼지 않고 각 job 에 인라인한 이유:
+# `.github/actions/**` 는 F1 touches 밖이라 path-guard(FORBID-4)가 red 가 된다.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+
+env:
+  # 검사기들이 승인 리뷰·브랜치 보호를 조회한다. 조회 불가 시 검사기는 exit 1 한다(판정 불가 ≠ 통과).
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "규칙 REQ-2 — strict/noUncheckedIndexedAccess/noImplicitOverride 상속 + tsc 오류 0건"
+      - uses: actions/checkout@v4
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "규칙 REQ-5 REQ-6 REQ-7 FORBID-2 FORBID-5 — lint + CI 메타 검사"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test:ci-meta
+
+  boundary:
+    name: boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "규칙 REQ-3 FORBID-1 — 의존 도달성 + 의존 분류 이중 경계"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:dep-graph
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - run: echo "규칙 REQ-1 REQ-8 FORBID-3 — 워크스페이스 구성 + 정적 렌더링 기본값"
+      - uses: actions/checkout@v4
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # REQ-4 — 이 job 은 setup-python 을 하지 않는다.
+      # services/crawler 가 워크스페이스 밖이라는 것을 build 성공으로 실증한다.
+      - name: 'REQ-4 — python 툴체인 없이 pnpm -r build'
+        run: pnpm -r build
+      - run: pnpm test:workspace
+      - run: pnpm test
+      - name: 'REQ-8 / FORBID-3 — next build 라우트 요약'
+        run: pnpm --filter @glowmate/web exec next build
+
+  python:
+    name: python
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - run: echo "규칙 REQ-4 — crawler 독립 툴체인 + Playwright 스모크"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - name: 의존 설치
+        working-directory: services/crawler
+        run: pip install --disable-pip-version-check -e '.[dev]'
+      - name: ruff
+        working-directory: services/crawler
+        run: ruff check .
+      - name: Playwright 브라우저
+        working-directory: services/crawler
+        run: python -m playwright install --with-deps chromium
+      - name: pytest
+        working-directory: services/crawler
+        run: python -m pytest -q
+
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - run: echo "규칙 SECRET-SCAN — 자격증명 커밋 차단"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks 설치
+        run: |
+          set -euo pipefail
+          version=8.28.0
+          curl -sSfL -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${version}/gitleaks_${version}_linux_x64.tar.gz"
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+      - name: 스캔 설정 생성
+        # 커밋된 설정 파일을 두지 않는다 — 루트 .gitleaks.toml 은 F1 touches 밖이다(FORBID-4).
+        # 런타임 생성이므로 diff 에 나타나지 않는다.
+        run: |
+          cat > /tmp/gitleaks.toml <<'TOML'
+          [extend]
+          useDefault = true
+
+          [allowlist]
+          description = "자리표시자만 담은 예시 파일"
+          paths = ['''\.env\.example$''']
+          TOML
+      - name: 스캔
+        run: gitleaks detect --no-banner --redact --config /tmp/gitleaks.toml --source .
+
+  discovery:
+    name: discovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - run: echo "규칙 FORBID-6 — validate_d*.py 존재 요구 + 비스텁 요구"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:discovery
+
+  path-guard:
+    name: path-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - run: echo "규칙 FORBID-4 — .github/pr-task 계약의 touches 밖 경로 변경 차단"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:path-guard
+
+  # ─────────────────────────────────────────────────────────────────────
+  # REQ-6 — 브랜치 보호의 유일한 필수 체크.
+  #
+  # `if: always()` 는 FORBID-2 패턴 사전의 대상이 아니다. 계약 FORBID-2 when 의 제외 절이
+  # "애그리게이터 ci-required job 의 if: 조건"을 job 이름 `ci-required` 하나에 한정해 제외한다.
+  # 제외가 필요한 이유: needs 만 선언하면 선행 job 실패 시 이 job 이 아예 실행되지 않고
+  # `skipped` 로 끝나며, GitHub 브랜치 보호는 skipped 필수 체크를 **통과로 취급한다**.
+  # 즉 8개 job 이 전부 red 여도 머지가 열린다 — B-8 이 막으려던 상태 그 자체다.
+  # 따라서 실행을 보장한 뒤 needs.*.result 를 명시 평가해 non-success 를 실패로 전파한다.
+  # ─────────────────────────────────────────────────────────────────────
+  ci-required:
+    name: ci-required
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    if: always()
+    needs:
+      - typecheck
+      - lint
+      - boundary
+      - test
+      - python
+      - secret-scan
+      - discovery
+      - path-guard
+    steps:
+      - name: 'REQ-6 — 선행 job 결과 집계 (실패 전파)'
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          node - <<'JS'
+          const needs = JSON.parse(process.env.NEEDS_JSON);
+          const entries = Object.entries(needs);
+          if (entries.length === 0) {
+            console.error('REQ-6: needs 가 비어 있다 — 애그리게이터가 아무것도 집계하지 않는다');
+            process.exit(1);
+          }
+          for (const [name, v] of entries) {
+            console.log(`  ${v.result === 'success' ? '✓' : '✗'} ${name}: ${v.result}`);
+          }
+          const bad = entries.filter(([, v]) => v.result !== 'success');
+          if (bad.length > 0) {
+            console.error(`REQ-6: ci-required 실패 — success 가 아닌 선행 job ${bad.length}건`);
+            process.exit(1);
+          }
+          console.log(`REQ-6: 선행 job ${entries.length}건 전부 success`);
+          JS

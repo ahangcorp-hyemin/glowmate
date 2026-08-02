@@ -1,0 +1,28 @@
+{
+  "name": "glowmate",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
+    "test": "pnpm -r test",
+    "test:workspace": "node tools/ci-meta/workspace-members.mjs",
+    "test:dep-graph": "node tools/dep-graph/index.mjs",
+    "test:ci-meta": "node tools/ci-meta/index.mjs",
+    "test:path-guard": "node tools/path-guard/index.mjs",
+    "test:discovery": "node tools/ci-meta/discovery.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.1",
+    "dependency-cruiser": "18.1.0",
+    "eslint": "9.39.5",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.65.0",
+    "yaml": "2.8.1"
+  }
+}

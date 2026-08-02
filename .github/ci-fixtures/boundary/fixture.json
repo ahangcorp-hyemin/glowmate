@@ -1,0 +1,8 @@
+{
+  "job": "boundary",
+  "label": "① @vercel/postgres 의존 (드라이버 도달)",
+  "expect": ["REQ-3","FORBID-1"],
+  "branch": "ci-fixture/boundary",
+  "overlay": "overlay/",
+  "note": "overlay/ 이하를 리포 루트에 덮어쓴 브랜치를 push 하면 대응 job 만 red 가 된다."
+}

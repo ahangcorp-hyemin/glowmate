@@ -1,0 +1,40 @@
+# F1-REPO-SCAFFOLD REQ-7 — 7경로 소유자 등록.
+#
+# single-maintainer-until: 2026-11-01
+#
+# 이 리포는 현재 push 권한 보유 계정이 1개다. 그래서 "승인자 ≠ PR 작성자"를 GitHub 리뷰로
+# 집행할 수 없다. REQ-7 acceptance 의 `single_maintainer` 대체 규약이 적용된다:
+#
+#   (c-1) 위 만료일까지만 유효하다. 날짜가 지나면 lint job 이 exit 1 한다 — 이 완화는 스스로 만료한다.
+#   (c-2) 만료일은 CODEOWNERS 최초 도입일(2026-08-03)로부터 90일 이내다.
+#   (c-3) 승인 대상 파일(db-driver-exceptions.json · dependency-classes.json 의 승인 대상 diff ·
+#         ci-budget.json 기존 항목 상향)의 변경은 **그 파일 하나만 포함하는 독립 PR** 이어야 한다.
+#
+# 대체 규약은 "타인이 봤다"를 흉내내지 않는다. 검증 가능한 것(독립 PR · 만료)만 요구하고,
+# 검증 불가능한 것(타인 승인)은 유예했음을 CI 로그에 SINGLE_MAINTAINER 로 명시 기록한다.
+# 조용히 통과시키는 것과 명시적으로 유예하는 것은 다르다 — 전자는 규칙이 죽은 줄도 모르게 하고,
+# 후자는 만료일에 반드시 다시 협상하게 만든다.
+#
+# 만료 전에 할 일: 두 번째 계정을 collaborator 로 초대하거나 org 로 이전한 뒤,
+# 아래 소유자를 그 계정/팀으로 교체한다. 그 순간 REQ-7 (c) 원 요구가 자동으로 되살아난다
+# (collaborator 수 ≥ 2 이면 검사기가 (c) 를 판정한다).
+
+# DB 스키마·드라이버 — 경계의 안쪽. F2a/F2b/F2c/F5 가 건드린다.
+/packages/db/            @ahangcorp-hyemin
+/packages/api/           @ahangcorp-hyemin
+
+# 가격 상태 기계 — C7 의 비공개 전환 판정이 여기 걸린다.
+/packages/price-state/   @ahangcorp-hyemin
+
+# 경계 정본 — dependency-classes / data-access-names / db-driver-exceptions.
+# data-access 분류 추가·변경과 예외 등재가 이 경로의 승인을 요구한다(REQ-3, FORBID-1c).
+/packages/config/        @ahangcorp-hyemin
+
+# CI 정의·예산·소유자 규칙 자체. FORBID-5 의 timeout 상향 승인이 여기 걸린다.
+/.github/                @ahangcorp-hyemin
+
+# ID·지표 레지스트리 (F1b 소유 경로).
+/docs/registry/          @ahangcorp-hyemin
+
+# 검사기 — 여기를 고칠 수 있으면 모든 detect 를 무력화할 수 있다.
+/tools/                  @ahangcorp-hyemin

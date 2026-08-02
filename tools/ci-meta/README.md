@@ -1,0 +1,129 @@
+# tools/ci-meta — CI 메타 검사기 (F1-REPO-SCAFFOLD)
+
+`.github/workflows/ci.yml` · `.github/ci-budget.json` · `.github/CODEOWNERS` · `.github/ci-fixtures/**` 가
+**계약대로 구성되어 있고 실제로 집행되는지**를 판정한다. 구성 파일 자체는 이 디렉터리의 소유가 아니며 읽기만 한다.
+
+## 진입점
+
+| 명령 | 파일 | 담당 규칙 |
+|---|---|---|
+| `pnpm test:workspace` | `workspace-members.mjs` | REQ-1 |
+| `pnpm test:ci-meta` | `index.mjs` | REQ-5 · REQ-6 · REQ-7 · FORBID-2 · FORBID-5 + 판정기 자기검사 |
+| `pnpm test:discovery` | `discovery.mjs` | FORBID-6 (a) 존재 요구 / (b) 비스텁 요구 |
+
+## 판정 원칙
+
+1. **판정 불가 ≠ 통과.** CI 컨텍스트(`GITHUB_ACTIONS=true`)에서 GitHub API·base 커밋·pnpm·python 을
+   확보하지 못하면 그 검사는 **FAIL** 이다. 로컬에서는 `SKIPPED(local)` 로 **명시 출력**한다(조용한 통과 없음).
+2. **검사 대상 0건을 통과로 처리하지 않는다.** 대상이 0건일 수밖에 없는 시점(F1 머지 시점의 FORBID-6)에도
+   판정기 자신을 합성 위반 입력으로 검사해(`selftest.mjs`, `discovery.mjs` 의 self-test) 탐지력을 매 실행 입증한다.
+3. **실패 출력에는 규칙 ID 토큰(`REQ-5` · `REQ-6` · `FORBID-2` …)이 반드시 포함된다.**
+   REQ-5 의 귀속 검증이 픽스처 런 로그에서 이 문자열을 찾는다.
+4. 종료 코드를 마스킹하지 않는다. FAIL 1건이면 exit 1.
+
+## REQ-6 (c) 집행 검증 — B-8 을 닫는 판정 로직
+
+`needs:` 만 선언한 애그리게이터는 선행 job 실패 시 실행되지 않고 `skipped` 로 끝나며,
+브랜치 보호는 **skipped 필수 체크를 통과로 취급**한다. 등록(a)(b)만 검사하면 전 job red 에서 머지가 열린다.
+그래서 `ci-required` 의 **형태**를 정적으로 판정한다.
+
+| 판정 | 요구 | 위반 예 |
+|---|---|---|
+| R6C-1 실행 보장 | `if:` 가 **`always()`** 를 포함 | `if:` 없음(needs-only) · `if: success()`/`failure()` · **`if: !cancelled()`** |
+| R6C-2 평가 존재 | `run`/step `if`/`with`/`env` 가 `needs.*.result` 를 명시 평가 | 평가 스텝 없음 |
+| R6C-3 평가 범위 | `needs` 의 **전** job 이 평가에 포함 (개별 `needs.<job>.result` 또는 집계형 `needs.*.result`/`toJSON(needs)`) | 8개 중 2개만 평가 |
+| R6C-4 비교 기준 | 평가가 `success` 와 비교 — non-success **전체**를 잡아야 한다 | `contains(needs.*.result,'failure')` 만 (skipped·cancelled 누출) |
+| R6C-5 비영 종료 | `exit <nonzero>` / `exit(<nonzero>)` / `exit $rc` 존재, 그리고 job·step 에 `continue-on-error` 없음 | 평가만 하고 실패시키지 않음 |
+
+**`!cancelled()` 를 무효로 판정하는 이유:** 계약 REQ-6 은 non-success 를 `failure · cancelled · skipped`
+세 축으로 정의한다. `!cancelled()` 는 워크플로 취소 시 `ci-required` 자신이 `skipped` 로 끝나고
+브랜치 보호가 이를 통과로 취급하므로 **cancelled 축을 커버하지 못한다**. `always()` 만이 세 축을 모두 덮는다.
+
+여기에 더해 **런타임 증거**를 API 로 확인한다 — REQ-5 픽스처 8종 각 런의 `ci-required` conclusion 이
+`success` 도 `skipped` 도 아니어야 한다. 1건이라도 통과 처리되면 exit 1.
+
+## 픽스처 런 조회 규약 (`.github/ci-fixtures/**` 담당자용 인터페이스)
+
+계약은 픽스처 트리를 실제 Actions 런으로 만드는 **오버레이 방식을 규정하지 않는다**(감사 f1-gate2 §4-1).
+이 검사기는 다음 순서로 런을 특정한다.
+
+1. `.github/ci-fixtures/<job>/fixture.json` 의 `run_id` — 가장 명시적. 권장.
+2. 위 파일의 `branch`
+3. 관례 브랜치 `ci-fixture/<job>`
+
+```jsonc
+// .github/ci-fixtures/<job>/fixture.json   ← 오버레이 대상이 아니다 (드라이버 메타데이터)
+{
+  "branch": "ci-fixture/boundary",
+  "run_id": 1234567890,           // 선택. 있으면 이 런을 직접 조회한다
+  "expect": ["REQ-3", "FORBID-1"],// 선택. 생략 시 fixture-rules.mjs 의 기본 기대 토큰 사용
+  "pr_task": "D1a-PROTOCOL"       // 선택. 픽스처가 F1 touches 밖 경로를 건드릴 때 필수
+}
+```
+
+`pr_task` 가 필요한 이유: 픽스처 ⑦ 은 `scripts/discovery/validate_d*.py` 를 만드는데 그 경로는 F1 touches
+밖이다. 오버레이 브랜치의 `.github/pr-task` 를 그 경로를 touches 로 갖는 계약(`D1a-PROTOCOL`)으로 바꾸지
+않으면 같은 런에서 **path-guard 도 red** 가 되어 "대응 job 만 red · 나머지 7 green" 이 깨진다.
+
+**신선도**: 런의 `head_sha` 시점 `.github/workflows/ci.yml` 의 blob sha 가 현재 PR 의 blob sha 와
+같아야만 유효한 런으로 인정한다(과거 red 런 재사용 금지). 어느 경로로도 신선한 런을 찾지 못하면 CI 에서 exit 1.
+
+**귀속**은 두 층으로 판정한다.
+
+1. **실패 스텝** (API, 정확) — red 가 난 스텝이 셋업/설치 스텝이면 실패. 그건 규칙 탐지가 아니라
+   결합 실패(lockfile 불일치 등)이며 계약 REQ-5 말미가 명시적으로 배제한 상태다.
+2. **실패 지점 로그** — `ci.yml` 은 각 job 첫 스텝에서 규칙 ID 를 echo 하므로 **로그 전체를 대상으로
+   `includes()` 하면 green 런에서도 항상 참**이 되어 귀속 검증이 공허해진다. 그래서 마지막 `##[error]`
+   마커 주변 구간만 판정 대상으로 삼는다. 토큰이 로그에는 있으나 실패 지점에 없으면 그 사실을 적어 실패시킨다.
+
+## 픽스처 실행 드라이버 — `fixtures-run.mjs`
+
+```bash
+node tools/ci-meta/fixtures-run.mjs                    # dry-run(기본): 오버레이 계획과 실행될 git 명령만 출력
+node tools/ci-meta/fixtures-run.mjs --job discovery    # 픽스처 1종만
+node tools/ci-meta/fixtures-run.mjs --push             # 실제로 브랜치 생성 + force-with-lease push
+node tools/ci-meta/fixtures-run.mjs --push --collect   # push 후 런 URL·신선도 수집, fixture.json 에 넣을 run_id 출력
+```
+
+- 픽스처 트리는 리포 루트에 **덮어쓰기**되는 부분 트리. 브랜치는 `ci-fixture/<job>`, base 는 현재 PR 의 HEAD.
+- `--push` 는 워킹트리가 깨끗할 때만 진행하고, 끝나면 원래 브랜치로 복귀한다.
+- 트리가 하나라도 없거나 오버레이할 파일이 0건이면 **exit 1** (검사 대상 0건 통과 금지).
+
+## FORBID-2 스캔 범위
+
+대상: base 커밋 대비 **추가된 라인** + 현재 워크플로 상태의 `continue-on-error`.
+
+계약 명시 제외 2종을 그대로 구현한다.
+
+- ① `.github/ci-fixtures/**` 와 **패턴 정의 파일 자신**(`forbid2-patterns.mjs`)
+- ② job 이름이 **정확히 `ci-required`** 인 단 하나의 job 의 `if:` 조건 (라인 범위로 한정).
+  검사 job 8개의 `if:`·`continue-on-error` 는 그대로 대상이다.
+
+추가로, 비실행 산문 파일(`.md` `.txt` 등)은 스캔하지 않는다 — FORBID-2 의 `when` 은
+"CI 스텝의 종료 코드를 마스킹하거나 검사 대상을 축소하는 **구성**"이며, 계약 문서가 금지 관용구를
+**인용**하는 것은 어떤 검사도 무력화하지 않는다. 확장자 기준이므로 `docs/foo.sh` 는 그대로 대상이다.
+(이 규칙이 없으면 F1 자기 PR 이 자신의 계약 문서 때문에 차단된다 — 규격 §3.4 안티패턴.)
+
+## FORBID-6 스텁 판정 프로브
+
+존재하는 전 `scripts/discovery/validate_d*.py` 에 결손 입력을 주입한다.
+**모든** 프로브가 exit 0 이면 스텁으로 판정한다.
+
+| 프로브 | 인자 | cwd |
+|---|---|---|
+| `no-args` | (없음) | 리포 루트 |
+| `unknown-check` | `--check __glowmate_nonexistent_check__` | 리포 루트 |
+| `all-in-empty-tree` | `--all` | 빈 임시 디렉터리 |
+| `missing-input-file` | `--check verdict --input __glowmate_missing_input__.json` | 빈 임시 디렉터리 |
+
+Discovery 계약 저자에게: 인자 검증(미지의 `--check` 는 non-zero)이 있으면 이 판정을 자동으로 통과한다.
+
+(a) 존재 요구의 판정 원천은 **base 브랜치의 `.github/pr-task` 이력**이다 —
+각 PR 이 자신의 계약 ID 를 그 파일에 1줄로 기재하므로, 그 파일을 건드린 전 커밋의 값 집합이
+"머지된 계약 ID 집합"이다. F1b 의 `docs/tasks.json` 에 의존하지 않는 자립 경로다.
+
+## "구현 에이전트 계정" 집합 (REQ-7 (c))
+
+계약에 원천이 미정의다(감사 f1-gate2 §4-3). 새 정본 파일을 만들지 않고
+**PR 작성자 ∪ 환경변수 `GLOWMATE_IMPLEMENTER_ACCOUNTS`(콤마 구분)** 의 합집합으로 판정한다.
+두 원천이 모두 비어 교집합 검사가 공허해지면 그 사실을 CI 에서 FAIL 로 드러낸다.

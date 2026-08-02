@@ -1,0 +1,8 @@
+# services/crawler 는 의도적으로 제외한다 — Python 3.12 독립 툴체인이며
+# python 미설치 러너에서도 `pnpm -r build` 가 성립해야 한다 (REQ-4).
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+onlyBuiltDependencies:
+  - sharp

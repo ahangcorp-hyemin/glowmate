@@ -1,0 +1,28 @@
+{
+  "_note": [
+    "REQ-3 (b) 의 허용목록 정본. packages/api·packages/db 를 제외한 전 워크스페이스 패키지의",
+    "dependencies·devDependencies 전 항목이 여기에 분류돼 있어야 한다. 미분류 1건이면 boundary exit 1.",
+    "",
+    "이 파일은 FORBID-4 의 전 계약 공통 허용 경로다 — 의존을 추가하는 하류 계약은 자기 PR 안에서",
+    "여기에 분류를 등재하는 것이 정상 경로이며, touches 밖 수정으로 취급하지 않는다.",
+    "",
+    "  other       — 승인 없이 추가 가능. 단 data-access-names.json 에 매칭되는 이름은 예외(아래).",
+    "  data-access — 추가·변경 시 packages/config CODEOWNERS 승인 리뷰 필요(승인자 ≠ PR 작성자).",
+    "                제외 집합(packages/api·packages/db) 밖의 패키지가 이 분류의 의존을 가지면 exit 1.",
+    "",
+    "기존 항목의 분류를 변경하는 diff 도 방향과 무관하게 승인이 필요하다 —",
+    "data-access → other 강등이 경계를 해제하는 최단 경로이기 때문이다."
+  ],
+  "classes": {
+    "next": "other",
+    "react": "other",
+    "react-dom": "other",
+    "@types/node": "other",
+    "@types/react": "other",
+    "@types/react-dom": "other",
+    "typescript": "other",
+    "eslint": "other",
+    "eslint-config-next": "other",
+    "@vercel/postgres": "data-access"
+  }
+}

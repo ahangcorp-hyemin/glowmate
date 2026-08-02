@@ -1,0 +1,8 @@
+{
+  "job": "typecheck",
+  "label": "④ 타입 오류",
+  "expect": ["REQ-2","error TS"],
+  "branch": "ci-fixture/typecheck",
+  "overlay": "overlay/",
+  "note": "overlay/ 이하를 리포 루트에 덮어쓴 브랜치를 push 하면 대응 job 만 red 가 된다."
+}
