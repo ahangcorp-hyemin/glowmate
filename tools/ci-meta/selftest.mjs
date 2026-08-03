@@ -106,7 +106,89 @@ const AGGREGATOR_CASES = [
     yaml: `    runs-on: ubuntu-latest\n    if: always()\n    needs:\n${NEEDS_YAML}\n    env:\n      N: \${{ toJSON(needs) }}\n    steps:\n      - run: |\n          node -e "const n=JSON.parse(process.env.N);const b=Object.entries(n).filter(([,v])=>v.result!=='success');if(b.length)process.exit(1)"`,
     expectFail: [],
   },
+  // ── R6C-5 연결성 (f1-pr-review §10 권고 7) ──────────────────────────────
+  // "non-zero 종료가 어딘가 있는가" 로는 아래 반례가 통과한다. 그 형태의 ci-required 는
+  // 선행 8개 job 이 전부 red 여도 success 로 끝나고 머지가 열린다 — B-8 이 막으려던 상태다.
+  // 이 두 케이스(반례 FAIL · 정상 PASS)가 없으면 판정을 되돌려도 아무도 알아채지 못한다.
+  {
+    name: '반례 — non-zero 종료는 있으나 non-success 판정에 연결되지 않는다 (권고 7)',
+    yaml: stepRun(
+      [
+        "const needs = JSON.parse(process.env.NEEDS_JSON);",
+        'const entries = Object.entries(needs);',
+        "const bad = entries.filter(([, v]) => v.result !== 'success');",
+        'if (entries.length === 0) {',
+        '  process.exit(1);', // ← non-zero 는 존재한다
+        '}',
+        'console.log(`${bad.length}건 실패`);', // ← 그러나 bad 에 대해서는 종료하지 않는다
+      ],
+      'NEEDS_JSON',
+    ),
+    expectFail: ['R6C-5'],
+  },
+  {
+    name: '정상 — 다행 if 블록 안에서 non-success 판정 결과로 종료 (ci.yml 실물 형태)',
+    yaml: stepRun(
+      [
+        'const needs = JSON.parse(process.env.NEEDS_JSON);',
+        'const entries = Object.entries(needs);',
+        'if (entries.length === 0) {',
+        '  process.exit(1);',
+        '}',
+        "const bad = entries.filter(([, v]) => v.result !== 'success');",
+        'if (bad.length > 0) {',
+        '  console.error("REQ-6: ci-required 실패");',
+        '  process.exit(1);',
+        '}',
+      ],
+      'NEEDS_JSON',
+    ),
+    expectFail: [],
+  },
+  {
+    name: '정상 — else 분기에서 종료 (success 전량 확인 형태)',
+    yaml: stepRun(
+      [
+        'const n = JSON.parse(process.env.NEEDS_JSON);',
+        "const allOk = Object.values(n).every((v) => v.result === 'success');",
+        'if (allOk) {',
+        '  console.log("all green");',
+        '} else {',
+        '  process.exit(1);',
+        '}',
+      ],
+      'NEEDS_JSON',
+    ),
+    expectFail: [],
+  },
+  {
+    // 판정 불가를 통과로 처리하지 않는다 — 종료 형태가 산문 문자열 안에만 있고
+    // 실행 경로상의 종료 지점으로 읽히지 않으면 R6C-5 는 실패한다.
+    name: '판정 불가 — 종료 형태가 문자열 안에만 있다 (통과 아님)',
+    yaml:
+      `    runs-on: ubuntu-latest\n    if: always()\n    needs:\n${NEEDS_YAML}\n` +
+      `    env:\n      N: \${{ toJSON(needs) }}\n    steps:\n` +
+      `      - run: echo "success 가 아닌 job 이 있으면 exit 1 해야 한다"`,
+    expectFail: ['R6C-5'],
+  },
+  {
+    name: '정상 — 스텝 `if:` 가 non-success 를 판정하고 run 이 종료 (셸 형태)',
+    yaml:
+      `    runs-on: ubuntu-latest\n    if: always()\n    needs:\n${NEEDS_YAML}\n` +
+      `    steps:\n      - if: \${{ !contains(needs.*.result, 'success') || contains(needs.*.result, 'failure') }}\n        run: exit 1`,
+    expectFail: [],
+  },
 ];
+
+/** 여러 줄 node 스크립트를 실행하는 애그리게이터 스텝 1개짜리 job YAML 을 만든다. */
+function stepRun(jsLines, envName) {
+  const body = jsLines.map((l) => `          ${l}`).join('\n');
+  return (
+    `    runs-on: ubuntu-latest\n    if: always()\n    needs:\n${NEEDS_YAML}\n` +
+    `    steps:\n      - env:\n          ${envName}: \${{ toJSON(needs) }}\n` +
+    `        run: |\n          node - <<'JS'\n${body}\n          JS`
+  );
+}
 
 /* ── FORBID-2 패턴 사전 케이스 ──────────────────────────────────────────── */
 
