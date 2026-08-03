@@ -12,6 +12,9 @@
 // 특히 B-8: `needs:` 만 선언한 순진한 애그리게이터가 R6C-1 에서 실제로 걸리는지를 여기서 못박는다.
 
 import YAML from 'yaml';
+import { Report } from './lib/util.mjs';
+import { isFixtureBranch } from './fixture-rules.mjs';
+import { GitHubError, isPlanLimited } from './lib/github.mjs';
 import { analyzeEnforcementJob } from './checks/req6-aggregator.mjs';
 import { computeRaised } from './checks/forbid5-budget.mjs';
 import { isProseFile, isExcludedPath } from './checks/forbid2-masking.mjs';
@@ -334,6 +337,70 @@ export function runSelfTests() {
         'FORBID-3',
         `자기검사 통과 — 요약 파싱 · 범례/Middleware 무탐 · Route Handler 제외 · 미분류 마커 격리 · 5토큰 탐지/무탐`,
       );
+    }
+  }
+
+  // REQ-5 픽스처 브랜치 면제 범위 — 이 완화가 PR 브랜치로 새면 REQ-5 전체가 무력화된다
+  {
+    const problems = [];
+    const mustMatch = ['ci-fixture/lint', 'ci-fixture/boundary-ui-other', 'refs/heads/ci-fixture/test'];
+    const mustNotMatch = [
+      'main',
+      'feat/f1-repo-scaffold',
+      'ci-fixture',
+      'ci-fixtures/lint',
+      'x/ci-fixture/lint',
+      'feat/ci-fixture-like',
+      '',
+      null,
+      undefined,
+    ];
+    for (const b of mustMatch) {
+      if (!isFixtureBranch(b)) problems.push(`픽스처 브랜치를 인식 못함: ${b}`);
+    }
+    for (const b of mustNotMatch) {
+      if (isFixtureBranch(b)) problems.push(`면제가 새어나감: ${String(b)}`);
+    }
+
+    // 면제 조건 미충족 시 exempt() 는 FAIL 로 되돌아야 한다 (검사 무력화 경로 차단)
+    const probe = new Report('probe');
+    probe.exempt('REQ-5', 'x', { allowed: false, branch: 'main', why: 'y' });
+    if (!probe.failed) problems.push('allowed=false 인데 exempt() 가 통과로 처리됐다');
+    const probe2 = new Report('probe');
+    probe2.exempt('REQ-5', 'x', { allowed: true, branch: 'ci-fixture/lint', why: 'y' });
+    if (probe2.failed) problems.push('정당한 면제가 실패로 처리됐다');
+
+    if (problems.length > 0) {
+      bad('REQ-5', `자기검사 — 픽스처 브랜치 면제 범위 오류: ${problems.join(' / ')}`);
+    } else {
+      ok(
+        'REQ-5',
+        `자기검사 통과 — 면제는 \`ci-fixture/\` 접두사에만 적용(${mustMatch.length}건 인식 / ${mustNotMatch.length}건 무탐) · allowed=false 면 FAIL 로 되돌림`,
+      );
+    }
+  }
+
+  // REQ-6 (a) / REQ-7 (b) — PLAN_LIMITED 는 "조회 실패"와 구분만 하고 통과로 바꾸지 않는다
+  {
+    const problems = [];
+    const planErr = new GitHubError(
+      'GitHub API 403',
+      403,
+      '{"message":"Upgrade to GitHub Pro or make this repository public to enable this feature."}',
+    );
+    if (!isPlanLimited(planErr)) problems.push('플랜 제약 403 을 인식하지 못했다');
+    if (isPlanLimited(new GitHubError('403', 403, '{"message":"Resource not accessible by integration"}'))) {
+      problems.push('일반 403(권한 부족)을 플랜 제약으로 오판했다');
+    }
+    if (isPlanLimited(new GitHubError('404', 404, 'Upgrade to GitHub Pro'))) {
+      problems.push('404 를 플랜 제약으로 오판했다');
+    }
+    if (isPlanLimited(new Error('boom'))) problems.push('GitHubError 가 아닌 예외를 플랜 제약으로 오판했다');
+
+    if (problems.length > 0) {
+      bad('REQ-6', `자기검사 — PLAN_LIMITED 판정 오류: ${problems.join(' / ')}`);
+    } else {
+      ok('REQ-6', 'PLAN_LIMITED 자기검사 통과 — 플랜 제약 403 만 분리 인식 (판정은 FAIL 유지)');
     }
   }
 

@@ -5,7 +5,9 @@
  *   1. `.github/pr-task` 에서 이 PR 이 구현하는 계약 ID 1줄을 읽는다 (부재·공백·2줄 이상 → exit 1)
  *   2. 그 ID 로 docs/tasks/*.md 의 `id:` 를 대조해 계약을 찾는다 (미등재 → exit 1)
  *   3. 계약의 `touches` 블록을 직접 파싱한다 (touches 키가 있는데 항목 0건 → exit 1)
- *   4. `git diff --name-only origin/main...HEAD` 와 대조한다 (diff 획득 실패 → exit 1)
+ *   4. `git diff --name-only <base>...HEAD` 와 대조한다 (diff 획득 실패 → exit 1).
+ *      base 는 기본 `origin/main` 이고, REQ-5 픽스처 브랜치(`ci-fixture/**`)에서만
+ *      분기점(오버레이 커밋의 부모 = PR HEAD)이다 — 판정 근거는 lib/base-ref.mjs 참조.
  *   5. touches 글롭 밖 경로가 1건이라도 있으면 exit 1 (전 계약 공통 허용 3경로는 제외)
  */
 import fs from 'node:fs';
@@ -13,7 +15,8 @@ import path from 'node:path';
 import { fail, FORBID_TOKEN } from './errors.mjs';
 import { loadContracts, parseTouches } from './contract.mjs';
 import { compilePatterns, matchPath, normalizePath } from './glob.mjs';
-import { BASE_REF, changedFiles, mergeBase, repoRoot, resolveRef } from './git.mjs';
+import { changedFiles, repoRoot, resolveRef } from './git.mjs';
+import { resolveBase } from './base-ref.mjs';
 
 export const PR_TASK_PATH = '.github/pr-task';
 export const TASKS_DIR = 'docs/tasks';
@@ -130,24 +133,25 @@ export function classify(files, touches) {
 }
 
 /** 검사 본체. 실패는 전부 PathGuardError 로 던진다. 성공 시 리포트를 반환한다. */
-export function runCheck({ cwd = process.cwd() } = {}) {
+export function runCheck({ cwd = process.cwd(), env = process.env } = {}) {
   const root = repoRoot(cwd);
   const taskId = readPrTask(root);
   const contract = resolveContract(root, taskId);
   const touches = touchesOf(contract, root);
 
-  const baseSha = resolveRef(BASE_REF, root);
+  // 비교 기준은 base-ref.mjs 가 결정한다 (기본 origin/main, 픽스처 브랜치만 분기점).
+  // 어떤 기준을 썼는지는 성공·실패 양쪽 출력에 반드시 남긴다.
+  const base = resolveBase({ cwd: root, env });
   const headSha = resolveRef('HEAD', root);
-  const base = mergeBase(BASE_REF, 'HEAD', root);
-  if (base === headSha) {
+  if (base.sha === headSha) {
     fail([
-      `HEAD 가 \`${BASE_REF}\` 의 조상이라 이 PR 의 변경 집합이 존재하지 않는다 (커밋 0건).`,
-      `  ${BASE_REF} = ${baseSha}`,
+      `이 ref 의 변경 집합이 존재하지 않는다 (기준 커밋 == HEAD, 커밋 0건).`,
+      ...base.lines,
       '  체크아웃 ref 가 잘못되었을 가능성이 높다. 빈 변경 집합을 통과로 처리하지 않는다.',
     ]);
   }
 
-  const files = changedFiles(BASE_REF, root);
+  const files = changedFiles(base.spec, root);
   const { inside, commonAllowed, violations } = classify(files, touches);
 
   if (violations.length > 0) {
@@ -156,6 +160,7 @@ export function runCheck({ cwd = process.cwd() } = {}) {
         `${violations.length}건이 변경되었다 — 타 태스크 소유 경로 선행 작성 금지.`,
       ...violations.map((file) => `  - ${file}`),
       '',
+      ...base.lines,
       `  허용 범위(touches ${touches.length}건): ${touches.join(', ')}`,
       `  전 계약 공통 허용: ${ALWAYS_ALLOWED.join(', ')}`,
       '  범위 밖 작업이 정말 필요하면 계약을 개정하라. 검사기를 우회하지 마라.',
@@ -165,8 +170,10 @@ export function runCheck({ cwd = process.cwd() } = {}) {
   return {
     taskId: contract.id,
     contractFile: path.relative(root, contract.file),
-    baseRef: BASE_REF,
-    baseSha,
+    baseMode: base.mode,
+    baseRef: base.spec,
+    baseSha: base.sha,
+    fixture: base.fixture,
     headSha,
     touches,
     files,
@@ -174,7 +181,8 @@ export function runCheck({ cwd = process.cwd() } = {}) {
     commonAllowed,
     lines: [
       `path-guard: 계약 ${contract.id} (${path.relative(root, contract.file)}) · touches ${touches.length}건`,
-      `  기준: ${BASE_REF}...HEAD (${baseSha.slice(0, 7)}...${headSha.slice(0, 7)})`,
+      ...base.lines,
+      `  HEAD: ${headSha.slice(0, 7)}`,
       `  변경 ${files.length}건 = touches 내 ${inside.length}건 + 공통 허용 ${commonAllowed.length}건 + 위반 0건`,
       ...commonAllowed.map((file) => `  · 공통 허용: ${file}`),
     ],

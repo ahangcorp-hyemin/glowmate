@@ -19,7 +19,9 @@ import {
   conventionalFixtureBranch,
   isSetupStep,
   failureRegion,
+  isFixtureBranch,
 } from '../fixture-rules.mjs';
+import { currentBranch } from '../lib/git.mjs';
 
 const RULE = 'REQ-5';
 const RULE6 = 'REQ-6';
@@ -93,6 +95,32 @@ async function isFresh(client, run, localSha) {
 
 export async function checkReq5Runs(report, ctx, manifests, wf) {
   const { root, gh } = ctx;
+
+  // 픽스처 브랜치 면제 — REQ-5 (2)(3) 은 **PR 의 메타 검증**이지 픽스처 자신의 검증이 아니다.
+  // 픽스처 브랜치에서 다시 픽스처 런을 조회하면 자기 자신을 검증하는 순환이 되고,
+  // 그 시점에 다른 픽스처 런은 아직 존재하지도 않는다.
+  // ⚠ PR 브랜치에서는 아래 판정이 그대로 엄격하게 돈다. 이 면제는 `ci-fixture/` 접두사에만 걸린다.
+  const branchInfo = currentBranch(root);
+  if (isFixtureBranch(branchInfo.branch)) {
+    const why =
+      'REQ-5 (2)(3) 은 PR 의 메타 검증이므로 픽스처 브랜치에서는 검사 대상이 아니다 ' +
+      '(자기 자신을 검증하는 순환 + 다른 픽스처 런 부재). PR 브랜치에서는 엄격하게 판정한다';
+    report.exempt(RULE, '(2)(3) 픽스처 8종의 실제 Actions 런 신선도·귀속 검증', {
+      allowed: true,
+      branch: branchInfo.branch,
+      why: `${why} · 판정 원천: ${branchInfo.source}`,
+    });
+    report.exempt(RULE6, `(c) 런타임 — 픽스처 8종 각 런의 \`${AGGREGATOR_JOB}\` conclusion 검증`, {
+      allowed: true,
+      branch: branchInfo.branch,
+      why: `${why} · 판정 원천: ${branchInfo.source}`,
+    });
+    return;
+  }
+  report.info(
+    RULE,
+    `(2)(3) 판정 컨텍스트: 브랜치 ${branchInfo.branch ?? '<불명>'} (${branchInfo.source}) — 픽스처 브랜치가 아니므로 엄격 판정한다`,
+  );
 
   if (!gh.available) {
     report.skip(

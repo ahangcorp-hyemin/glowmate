@@ -17,8 +17,28 @@ PR 의 변경 파일 집합이, 그 PR 이 구현한다고 선언한 계약의 `
    파일명은 축약형(`docs/tasks/F1.md`)이고 정본 ID 는 `F1-REPO-SCAFFOLD` 이므로 **파일명이 아니라 `id:` 필드로 해석**한다.
 3. 그 계약의 `touches` 블록을 **직접 파싱**한다.
    `docs/tasks.json`(F1b-CONTRACT-GOVERNANCE 소유)에 **의존하지 않는다** — F1 단독 머지 상태에서도 동작해야 하는 자립 경로다.
-4. `git diff --name-only --no-renames origin/main...HEAD` 와 대조한다.
+4. `git diff --name-only --no-renames <base>...HEAD` 와 대조한다 (base 선택은 아래 §비교 기준).
 5. touches 글롭 밖 경로가 **1건이라도** 있으면 `exit 1`.
+
+## 비교 기준(base) 선택 — `lib/base-ref.mjs`
+
+| ref | base | 근거 |
+|---|---|---|
+| 일반 브랜치 (기본) | `origin/main` 과의 공통 조상 | PR 의 변경 집합 = `origin/main...HEAD` |
+| `ci-fixture/**` (단, `pull_request` 이벤트 제외) | **분기점 = 오버레이 커밋의 부모(HEAD~1) = PR HEAD** | 픽스처 브랜치는 `tools/ci-meta/fixtures-run.mjs` 가 PR HEAD 에서 분기해 오버레이 커밋 1개를 얹은 것이다. `origin/main` 기준으로 보면 F1 의 변경 전량이 diff 에 들어오고, 픽스처 ⑦ 처럼 `.github/pr-task` 를 `D1a-PROTOCOL` 로 바꾸는 트리에서는 그 전량이 D1a touches 밖이 되어 **대응 job 외의 `path-guard` 까지 red** 가 된다 (REQ-5 "대응 job 만 red · 나머지 7 green" 위반. 감사 `f1-gate2.md` §4-1 이 예고한 발현) |
+
+**어느 기준을 썼는지는 성공·실패 출력 양쪽에 항상 명시한다** (`기준: origin/main...HEAD …` / `기준: 픽스처 분기점 HEAD~1 …`).
+
+완화가 PR 브랜치로 새지 않도록 픽스처 모드 진입 조건을 좁혔다. 하나라도 어긋나면 **exit 1** (기준을 못 정하는 상태는 통과가 아니다):
+
+1. ref 이름이 `ci-fixture/` 로 시작 (CI: `GITHUB_HEAD_REF` → `GITHUB_REF_NAME`, 로컬: `git rev-parse --abbrev-ref HEAD`)
+2. 이벤트가 `pull_request` 가 **아님** — PR 로 머지되는 경로에는 절대 적용하지 않는다. 적용하면 브랜치를 `ci-fixture/x` 로 명명하고 위반 커밋을 앞 커밋에 숨기는 우회가 열린다
+3. HEAD 가 부모 1개인 비병합 커밋
+4. HEAD 커밋 제목이 `ci-fixture(<name>):` 형식 (fixtures-run.mjs 가 만드는 형식)
+5. `.github/ci-fixtures/<name>/` 트리가 실제로 존재 — 커밋 제목만으로 완화하지 않는다
+6. HEAD~1 이 또 다른 `ci-fixture(...)` 커밋이 **아님** — 오버레이가 2개 쌓이면 앞 커밋의 변경이 판정에서 빠지는 미탐이 된다
+
+픽스처 ⑧(path-guard)은 이 모드에서도 red 다: 오버레이가 `docs/notes/out-of-touches.md` 이고 `.github/pr-task` 가 `F1-REPO-SCAFFOLD` 이므로 touches 밖 1건이 그대로 남는다. 탐지력은 유지된다.
 
 ## 전 계약 공통 허용 3경로
 
@@ -43,7 +63,8 @@ touches 밖이어도 통과한다 (`lib/check.mjs` 의 `ALWAYS_ALLOWED`):
 | 계약에 `touches:` 키 없음 | 허용 범위 판정 불가 |
 | 계약에 `touches:` 가 있는데 파싱 항목 0건 | **파싱 실패 ≠ 위반 0건.** 조용한 통과가 이 프로젝트에서 반복 지적된 최악의 미탐이다 (`scripts/tasks_manifest.py:20-22` 와 같은 취지) |
 | `origin/main` 해석 실패 (얕은 클론 등) | diff 를 못 구했으면 빈 diff 로 통과시키지 않는다. 워크플로는 `fetch-depth: 0` 필요 |
-| merge-base 계산 실패 · HEAD 가 origin/main 의 조상(커밋 0건) | 체크아웃 ref 오류를 통과로 처리하지 않는다 |
+| merge-base 계산 실패 · 기준 커밋 == HEAD(커밋 0건) | 체크아웃 ref 오류를 통과로 처리하지 않는다 |
+| `ci-fixture/**` 인데 픽스처 모드 조건 (3)~(6) 불충족 | 비교 기준을 확정할 수 없는 상태 |
 | 그 외 예기치 못한 예외 | `index.mjs` 가 exit 1 로 변환. 종료 코드 마스킹 없음 |
 
 실패 출력은 **항상 `FORBID-4` 토큰과 위반 경로 전량**을 포함한다 (REQ-5 픽스처 ⑧ 의 귀속 검증이 이 문자열에 의존).
@@ -72,9 +93,10 @@ index.mjs           진입점. 성공 요약 출력 / 실패는 exit 1
 lib/check.mjs       판정 절차 · ALWAYS_ALLOWED 3경로 · 위반 분류
 lib/contract.mjs    docs/tasks/*.md 의 yaml 펜스 · id · touches 파서
 lib/glob.mjs        touches 글롭 → 정규식
-lib/git.mjs         origin/main 해석 · merge-base · 변경 파일 목록 (실패는 전부 예외)
+lib/base-ref.mjs    비교 기준 선택 (기본 origin/main · ci-fixture/** 만 분기점)
+lib/git.mjs         ref 해석 · merge-base · 변경 파일 목록 (실패는 전부 예외)
 lib/errors.mjs      PathGuardError · FORBID-4 토큰
-test/*.test.mjs     자기 테스트 (node:test, 외부 의존 없음)
+test/*.test.mjs     자기 테스트 39건 (node:test, 외부 의존 없음)
 ```
 
 Node 24 ESM. **새 의존 없음** (`node:` 내장 모듈과 `git` 만 사용).
