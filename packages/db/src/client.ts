@@ -40,7 +40,10 @@ export function readDbConfig(env: EnvSource): DbConfig {
   }
 
   const rawMax = env['DB_MAX_CONNECTIONS'];
-  const maxConnections = rawMax === undefined ? 5 : Number.parseInt(rawMax, 10);
+  // parseInt 를 쓰지 않는 이유: `parseInt('2.5', 10)` 은 2 를 돌려준다. 잘못된 설정이
+  // 조용히 다른 값으로 바뀌어 통과하는 것이 이 프로젝트가 막으려는 실패 유형이다.
+  // (packages/db/src/client.test.ts 가 이 케이스를 잠근다.)
+  const maxConnections = rawMax === undefined ? 5 : (/^\d+$/.test(rawMax) ? Number(rawMax) : Number.NaN);
   if (!Number.isInteger(maxConnections) || maxConnections < 1) {
     throw new Error(`DB_MAX_CONNECTIONS 가 양의 정수가 아니다: ${String(rawMax)}`);
   }
