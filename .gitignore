@@ -1,6 +1,11 @@
 # 동기화 중간 산출물
 .tmp/
 
+# 병렬 에이전트용 git 워크트리 (리포 안에 생성된다)
+# 커밋 대상이 아니고, lint·typecheck·secret-scan 의 검사 대상도 아니다 —
+# 각 워크트리는 자기 브랜치에서 별도로 검사받는다.
+.claude/worktrees/
+
 # 파생물 — docs/tasks/*.md 계약에서 생성된다
 # (CI 재현성을 위해 커밋해 두되, 손으로 고치지 말 것)
 # docs/tasks.json

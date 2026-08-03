@@ -180,10 +180,14 @@ jobs:
             # "대응 job 만 red" 가 깨진다 — eslint ignores·FORBID-2 제외와 같은 근거다.
             # 픽스처 브랜치에서는 오버레이가 이 파일을 apps/web/src/lib/ 로 복사하므로
             # 제외 경로 밖이 되어 정상적으로 red 가 된다.
-            '''^\.github/ci-fixtures/''',
+            # 가짜 자격증명을 담은 픽스처는 ⑤ 하나뿐이다. 트리 전체를 제외하면
+            # 나머지 10개 트리에 실제 비밀값이 섞여도 스캔이 지나친다 — 제외는 최소로.
+            '''^\.github/ci-fixtures/secret-scan/''',
             '''(^|/)\.next/''',
             '''(^|/)node_modules/''',
             '''(^|/)(dist|out)/''',
+            # 병렬 에이전트용 git 워크트리 (로컬 실행 시에만 존재한다)
+            '''(^|/)\.claude/worktrees/''',
           ]
           TOML
       # 스캔을 두 번 돌린다. 어느 한쪽도 생략하지 않는다.

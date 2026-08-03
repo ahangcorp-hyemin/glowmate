@@ -1,4 +1,10 @@
 {
   "extends": "../config/tsconfig.base.json",
+  "compilerOptions": {
+    // Node 24 의 타입 스트리핑은 런타임 import 에 `.ts` 확장자를 요구한다.
+    // REQ-2 의 세 플래그는 재선언하지 않는다 — base 에서만 온다.
+    "allowImportingTsExtensions": true,
+    "types": ["node"]
+  },
   "include": ["src/**/*.ts"]
 }
