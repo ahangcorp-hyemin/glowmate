@@ -1,0 +1,13 @@
+{
+  "id": "08-forbid2-enterable-with-blocked-status",
+  "why": "status=no_volume_data 인 행이 enterable 라벨로 집계에 들어간 트리. 검색량을 측정하지 못한 키워드를 분자에 넣으면 100건 달성이 자명해진다.",
+  "base": "00-valid",
+  "checks": [
+    "verdict"
+  ],
+  "expect": "fail",
+  "expect_rule": "FORBID-2",
+  "env": {
+    "D2_CONTROL_KEY": "fixturekey"
+  }
+}
