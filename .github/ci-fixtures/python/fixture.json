@@ -1,8 +1,12 @@
 {
   "job": "python",
   "label": "⑥ pytest 실패",
-  "expect": ["REQ-4","FAILED","assert"],
+  "expect": [
+    "FAILED services/crawler/tests/",
+    "FAILED tests/",
+    "=== FAILURES ==="
+  ],
   "branch": "ci-fixture/python",
   "overlay": "overlay/",
-  "note": "overlay/ 이하를 리포 루트에 덮어쓴 브랜치를 push 하면 대응 job 만 red 가 된다."
+  "note": "ruff 를 통과하고 pytest 에서만 red 가 되어야 한다. `assert` 처럼 일반적인 토큰은 ruff 실패로도 매칭되어 귀속이 공허해진다(검수 지적)."
 }
