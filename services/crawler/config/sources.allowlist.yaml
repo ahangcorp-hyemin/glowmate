@@ -1,0 +1,122 @@
+# sources.allowlist.yaml — C1-CRAWLER-CORE
+#
+# ★ 이 파일은 **판정하는 파일이 아니라 전사하는 파일이다.**
+#   원천은 D3-SOURCE-DUE-DILIGENCE 의 두 산출물뿐이다:
+#     docs/discovery/D3/verdicts.csv        (소스별 verdict)
+#     docs/discovery/D3/crawl_policy.yaml   (준수 파라미터 · 허용 경로 글롭)
+#   신규 소스 추가·승인 판단은 C1 의 out_of_scope 다. 여기에 손으로 소스를 더하면
+#   CI job `allowlist-guard` 가 D3 원천과 대조해 exit 1 한다.
+#
+# ★ approved=true 로 바꾸거나 max_rps · per_host_concurrency 를 올리는 diff 는
+#   `d3-change-approved` 라벨 + D3 산출물 갱신 없이는 머지되지 않는다 (FORBID-1 (b)).
+#   "수집이 느리다"는 이유로 숫자만 올리는 것이 언제나 최단 경로이고, 그 변경은
+#   코드 diff 없이 상대 서버 부하를 즉시 배가시킨다.
+#
+# ★ verdict ∈ {forbidden, pending} 인 소스도 **명시적으로 기재**한다.
+#   기재하지 않으면 "approved=false 항목이 레지스트리에 로드되지 않음"(done_when)을
+#   검사할 대상이 0건이 되어 검사가 영원히 녹색이 된다. 대신 이 소스들은
+#   hosts · allowed_path_globs 가 반드시 비어 있어야 하며(allowlist-guard 가 강제),
+#   따라서 사전 판정 게이트에서 어떤 URL 도 통과하지 못한다.
+
+schema_version: 1
+
+# D3 정본의 전사 시점 sha256. crawler.d3.D3_PINNED_SHA256 과 일치해야 하며,
+# 두 값 중 하나만 고치면 allowlist-guard 가 실패한다.
+d3_provenance:
+  verdicts.csv: "497eed691ced2a9bb4eeac1afae03691d60706bd78db4c8f738ffc616dd4eb36"
+  crawl_policy.yaml: "a899ebb063d99c5d117960dea89485fc5944a0ede3f06bae5dcec4ce0f03bb47"
+  transcribed_at: "2026-08-03"
+  gate_ref: "docs/gates/G3.md"
+
+sources:
+  # ── 유일한 수집 대상 (G3 adapter_targets) ────────────────────────────────
+  official_website:
+    verdict: conditional
+    approved: true
+    # crawl_policy.yaml 전사
+    max_requests_per_min: 6
+    max_concurrency: 1
+    retry_backoff_sec: 30
+    raw_retention_days: 90
+    expiry_action: tombstone_payload
+    user_agent: "glowmate-crawler/0.1 (+https://github.com/ahangcorp-hyemin/glowmate; contact minseo.im@wrtn.io)"
+    # 파생값 — max_requests_per_min / 60. 이 값을 직접 올리면 allowlist-guard 가 실패한다.
+    max_rps: 0.1
+    per_host_concurrency: 1
+    # FORBID-4 (c) — 200 인데 본문이 이보다 작으면 blocked_access 로 처리한다.
+    # D3 도달성 실증 12건의 최소 본문이 65,379 바이트였다. 8 KiB 는 그보다 한참 아래이면서
+    # 로그인·차단 안내 페이지(대개 2 KiB 미만)보다는 위인 값이다.
+    min_body_bytes: 8192
+    # robots·ToS 매트릭스를 통과한 도메인만 (docs/discovery/D3/sources/official_website.md).
+    # www.manicure2004.com 은 User-agent:* 에 Disallow:/ 이므로 제외됐다 —
+    # "검색엔진 봇에는 열려 있다"는 논거로 되돌리지 마라.
+    hosts:
+      - www.spoany.co.kr
+      - www.fitnessm1.com
+      - soonsoobeauty.com
+      - www.chaum.net
+      - www.curveskorea.co.kr
+    # crawl_policy.yaml 의 allowed_path_globs 전사. 실사에서 **실제로 요청해 본 경로만** 담는다.
+    allowed_path_globs:
+      - "https://www.spoany.co.kr/branch_view.php?idx=*"
+      - "https://www.spoany.co.kr/branch.php"
+      - "https://www.spoany.co.kr/robots.txt"
+      - "https://www.fitnessm1.com/hakdong"
+      - "https://www.fitnessm1.com/gx"
+      - "https://www.fitnessm1.com/robots.txt"
+      - "https://soonsoobeauty.com/"
+      - "https://soonsoobeauty.com/robots.txt"
+      - "https://www.chaum.net/"
+      - "https://www.chaum.net/robots.txt"
+      - "https://www.curveskorea.co.kr/robots.txt"
+
+  # ── verdict=forbidden — 어떤 경우에도 요청하지 않는다 ─────────────────────
+  naver_place:
+    verdict: forbidden
+    approved: false
+    reason: "map.naver.com robots 가 User-agent:* 에 Disallow:/ (D3 R-ROBOTS-DISALLOW)"
+    hosts: []
+    allowed_path_globs: []
+
+  kakao_map:
+    verdict: forbidden
+    approved: false
+    reason: "place.map.kakao.com·map.kakao.com 모두 Disallow:/ (D3 R-ROBOTS-DISALLOW)"
+    hosts: []
+    allowed_path_globs: []
+
+  google_maps:
+    verdict: forbidden
+    approved: false
+    reason: "추가 약관 Section 2 가 비즈니스 등록정보 DB 생성을 금지 (D3 R-TOS-PROHIBIT)"
+    hosts: []
+    allowed_path_globs: []
+
+  instagram:
+    verdict: forbidden
+    approved: false
+    reason: "robots.txt 자체가 서면 허가 없는 자동 수집을 금지 (D3 R-TOS-PROHIBIT)"
+    hosts: []
+    allowed_path_globs: []
+
+  taling:
+    verdict: forbidden
+    approved: false
+    reason: "이용약관 제8조 5항이 스크래핑의 상업적 이용을 금지 (D3 R-TOS-PROHIBIT)"
+    hosts: []
+    allowed_path_globs: []
+
+  # ── verdict=pending — 약관 원문 미확보. 승격은 D3 재실사 소관이다 ─────────
+  daangn:
+    verdict: pending
+    approved: false
+    reason: "약관 본문이 클라이언트 렌더라 원문·조항 확보 실패 (D3 R-PENDING-NO-TOS)"
+    hosts: []
+    allowed_path_globs: []
+
+  visitkorea:
+    verdict: pending
+    approved: false
+    reason: "약관 URL 이 HTTP 404 로 원문 확보 실패 (D3 R-PENDING-NO-TOS)"
+    hosts: []
+    allowed_path_globs: []

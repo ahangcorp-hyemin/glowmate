@@ -1,0 +1,79 @@
+# core/blocking/markers.yaml — 차단 마커 사전 (C1 FORBID-4)
+#
+# 이 사전은 **버전 관리 대상**이다. `version` 을 올리지 않고 마커를 고치면
+# `crawler.blocking.load_markers()` 가 실패한다(아래 규정 참조).
+#
+# ── fail-closed 규정 ────────────────────────────────────────────────────────
+# 1. 이 파일이 없거나 YAML 파싱에 실패하면 로더는 예외를 올린다. "마커 없음 = 차단 없음"으로
+#    처리하지 않는다. 마커 사전이 사라진 채 수집이 계속되면 차단 페이지가 정상 수집으로
+#    며칠간 집계된다.
+# 2. `_default` 항목이 없으면 예외다. 소스별 항목은 `_default` 를 **대체하지 않고 더한다** —
+#    대체 방식이면 소스 항목을 하나 추가하는 순간 로그인·캡차 마커가 조용히 사라진다.
+#    같은 `id` 를 쓰면 소스 항목이 우선하고, `min_body_bytes` 는 두 값 중 큰 쪽이 쓰인다.
+# 3. `min_body_bytes` 는 소스마다 1 이상이어야 한다. 0 이면 (c) 크기 하한 검사가 무력화된다.
+#    실효값은 max(allowlist.min_body_bytes, markers.min_body_bytes) 로, **더 큰 쪽**을 쓴다.
+#
+# ── 신규 마커 추가 절차 ─────────────────────────────────────────────────────
+# 1. 차단 응답의 원문을 blob 스토어에서 꺼내 실제 문자열을 확인한다 (추측 금지).
+# 2. 해당 소스 항목의 `markers` 에 `{id, kind, pattern, evidence}` 를 추가한다.
+#    - `kind: substring` 은 대소문자 무시 부분문자열, `kind: regex` 는 정규식이다.
+#    - `evidence` 에는 그 문자열을 관측한 crawl_run_id 또는 blob_key 를 적는다.
+# 3. `version` 을 올린다 (YYYY-MM-DD.N).
+# 4. `services/crawler/tests/fixtures/core/blocked/` 에 그 응답의 축약 픽스처를 넣고
+#    `tests/core/test_blocked_access.py` 의 픽스처 목록에 등재한다.
+#    픽스처 없는 마커는 오탐·미탐 어느 쪽도 검증되지 않는다.
+
+version: "2026-08-03.1"
+
+_default:
+  min_body_bytes: 512
+  markers:
+    - id: http-login-required-ko
+      kind: substring
+      pattern: "로그인이 필요합니다"
+      evidence: "일반 한국어 웹 로그인 게이트 문구"
+    - id: http-login-required-en
+      kind: substring
+      pattern: "please sign in to continue"
+      evidence: "영문 로그인 게이트 문구"
+    - id: captcha-recaptcha
+      kind: substring
+      pattern: "g-recaptcha"
+      evidence: "reCAPTCHA 위젯 마크업"
+    - id: captcha-hcaptcha
+      kind: substring
+      pattern: "h-captcha"
+      evidence: "hCaptcha 위젯 마크업"
+    - id: cloudflare-challenge
+      kind: substring
+      pattern: "cf-browser-verification"
+      evidence: "Cloudflare 브라우저 검증 인터스티셜"
+    - id: cloudflare-attention
+      kind: substring
+      pattern: "attention required! | cloudflare"
+      evidence: "Cloudflare 1020 차단 페이지 title"
+    - id: access-denied-ko
+      kind: regex
+      pattern: "(접근이\\s*(거부|차단)되었습니다|비정상적인\\s*접근)"
+      evidence: "한국어 접근 차단 안내 문구"
+    - id: access-denied-en
+      kind: regex
+      pattern: "(access\\s+denied|forbidden\\s*[-—:]|you\\s+have\\s+been\\s+blocked)"
+      evidence: "영문 접근 차단 안내 문구"
+    - id: rate-limited-notice
+      kind: regex
+      pattern: "(too\\s+many\\s+requests|요청이\\s*너무\\s*많습니다)"
+      evidence: "429 를 200 본문으로 돌려주는 사이트 대응"
+
+official_website:
+  # allowlist 의 8192 와 함께 max() 로 평가된다. D3 도달성 실증 12건의 최소 본문은 65,379 바이트다.
+  min_body_bytes: 8192
+  markers:
+    - id: ow-empty-shell
+      kind: regex
+      pattern: "<body[^>]*>\\s*</body>"
+      evidence: "본문이 비어 오는 신종 차단 페이지 (200 + 빈 body)"
+    - id: ow-maintenance-ko
+      kind: regex
+      pattern: "(서비스\\s*점검\\s*중|일시적으로\\s*이용할\\s*수\\s*없)"
+      evidence: "점검 안내 페이지를 정상 수집으로 집계하지 않기 위한 마커"

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://glowmate.local/schemas/source_envelope.schema.json",
+  "title": "source_record.raw_payload 봉투 (C1-CRAWLER-CORE REQ-3)",
+  "description": "응답 body 자체는 blob 스토어에 있고, core.source_record.raw_payload 에는 이 봉투만 들어간다. 봉투에 body 를 직접 담지 않는 이유는 원문이 커질수록 DB 가 재수집 불가능한 자산의 사본을 이중으로 들고 있게 되기 때문이다.",
+  "type": "object",
+  "required": [
+    "blob_key",
+    "body_sha256",
+    "http_status",
+    "final_url",
+    "headers",
+    "crawl_run_id",
+    "adapter_version",
+    "source_id"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "blob_key": {
+      "type": "string",
+      "minLength": 1,
+      "description": "blob 스토어의 객체 키. crawler.purge 가 파기하는 단위다."
+    },
+    "body_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "응답 body 의 sha256 (소문자 hex). 저장 후 재조회 값과 불일치하면 success 가 될 수 없다 (FORBID-5)."
+    },
+    "http_status": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 599
+    },
+    "final_url": {
+      "type": "string",
+      "minLength": 1,
+      "description": "리다이렉트 후 최종 URL. 요청 URL 과 다를 수 있으므로 별도 필드다."
+    },
+    "headers": {
+      "type": "object",
+      "description": "응답 헤더. 키는 소문자로 정규화한다.",
+      "additionalProperties": { "type": "string" }
+    },
+    "crawl_run_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "이 수집 실행의 ID. rollback 시 quarantine 목록의 단위다."
+    },
+    "adapter_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "추출 로직 버전. C4 재처리 대상 판정에 쓰인다."
+    },
+    "source_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requested_url": {
+      "type": "string",
+      "minLength": 1,
+      "description": "리다이렉트 전 요청 URL."
+    },
+    "body_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "fetched_at": {
+      "type": "string",
+      "minLength": 1,
+      "description": "수집 시각 (UTC ISO-8601). source_record.fetched_at 과 같은 값."
+    },
+    "content_encoding": {
+      "type": "string"
+    },
+    "extracted": {
+      "type": "object",
+      "description": "어댑터가 채우는 추출 결과. 공통 필드 스키마는 extracted.schema.json 이 정의한다. C1 은 값을 채우지 않는다."
+    }
+  }
+}

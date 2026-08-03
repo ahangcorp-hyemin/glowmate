@@ -1,0 +1,84 @@
+# smoke_seeds.yaml — 실수집 스모크 시드 (C1 REQ-8)
+#
+# 여기 있는 URL 은 전부 **강남 3구(강남·서초·송파) 실재 업체의 공식 홈페이지**이며,
+# D3 `crawl_policy.yaml` 의 `allowed_path_globs` 를 만족한다. 글롭 밖 URL 을 넣으면
+# 사전 판정 게이트가 `source_not_allowed` 로 끊고 스모크는 수집 하한(10건)에 미달해 exit 1 한다.
+#
+# 왜 이 소스뿐인가: G3 판정(`docs/gates/G3.md`)의 `adapter_targets` 가 `official_website`
+# 1개다. naver_place · kakao_map · google_maps · instagram · taling 은 forbidden 이고
+# daangn · visitkorea 는 pending 이다. 시드를 늘리려고 그쪽 URL 을 넣지 마라 —
+# allowlist 에 hosts 가 비어 있어 통과하지 못하며, 통과시키려는 변경은 FORBID-1 이 막는다.
+#
+# 지점 식별(idx)의 출처: https://www.spoany.co.kr/branch.php 의 `data-branchidx` 속성.
+# 이 목록 페이지도 D3 글롭에 포함돼 있다.
+# 주소·구는 그 페이지의 표기를 그대로 옮긴 것이며, 스모크는 주소를 파싱하지 않는다
+# (필드 추출은 C2·C3 소관). `district` 는 시드가 정말 강남 3구인지 사람이 대조하기 위한 주석이다.
+
+source: official_website
+
+seeds:
+  official_website:
+    - url: "https://www.spoany.co.kr/branch_view.php?idx=26"
+      target_key: "spoany:26"
+      name: "스포애니 강남역1호점"
+      district: "강남구"
+    - url: "https://www.spoany.co.kr/branch_view.php?idx=38"
+      target_key: "spoany:38"
+      name: "스포애니 논현역점"
+      district: "강남구"
+    - url: "https://www.spoany.co.kr/branch_view.php?idx=25"
+      target_key: "spoany:25"
+      name: "스포애니 대치동점"
+      district: "강남구"
+    - url: "https://www.spoany.co.kr/branch_view.php?idx=110"
+      target_key: "spoany:110"
+      name: "스포애니 압구정역점"
+      district: "강남구"
+    - url: "https://www.spoany.co.kr/branch_view.php?idx=120"
+      target_key: "spoany:120"
+      name: "스포애니 선릉역점"
+      district: "강남구"
+    - url: "https://www.spoany.co.kr/branch_view.php?idx=49"
+      target_key: "spoany:49"
+      name: "스포애니 역삼역점"
+      district: "강남구"
+    - url: "https://www.spoany.co.kr/branch_view.php?idx=84"
+      target_key: "spoany:84"
+      name: "스포애니 한티역점"
+      district: "강남구"
+    - url: "https://www.spoany.co.kr/branch_view.php?idx=82"
+      target_key: "spoany:82"
+      name: "스포애니 교대역점"
+      district: "서초구"
+    - url: "https://www.spoany.co.kr/branch_view.php?idx=56"
+      target_key: "spoany:56"
+      name: "스포애니 뱅뱅사거리점"
+      district: "서초구"
+    - url: "https://www.spoany.co.kr/branch_view.php?idx=22"
+      target_key: "spoany:22"
+      name: "스포애니 이수역점"
+      district: "서초구"
+    - url: "https://www.spoany.co.kr/branch_view.php?idx=18"
+      target_key: "spoany:18"
+      name: "스포애니 문정점"
+      district: "송파구"
+    - url: "https://www.spoany.co.kr/branch_view.php?idx=11"
+      target_key: "spoany:11"
+      name: "스포애니 잠실점"
+      district: "송파구"
+    - url: "https://www.spoany.co.kr/branch_view.php?idx=28"
+      target_key: "spoany:28"
+      name: "스포애니 송파동점"
+      district: "송파구"
+    - url: "https://www.fitnessm1.com/hakdong"
+      target_key: "fitnessm1:hakdong"
+      name: "휘트니스엠 학동점"
+      district: "강남구"
+    - url: "https://soonsoobeauty.com/"
+      target_key: "soonsoobeauty:cheongdam"
+      name: "순수 청담본점"
+      district: "강남구"
+    - url: "https://www.chaum.net/"
+      target_key: "chaum:cheongdam"
+      name: "차움"
+      district: "강남구"

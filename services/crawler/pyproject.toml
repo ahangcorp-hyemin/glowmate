@@ -1,12 +1,22 @@
 [project]
 name = "glowmate-crawler"
 version = "0.0.0"
-description = "glowmate 크롤러 — Playwright 기반 스모크 추출기 (F1-REPO-SCAFFOLD REQ-4)"
+description = "glowmate 크롤러 — 코어(C1-CRAWLER-CORE) + Playwright 스모크 추출기(F1 REQ-4)"
 readme = "README.md"
 # 루트 `.python-version` 이 3.12 로 고정돼 있다. CI python job 은 3.12 로 실행한다.
 requires-python = ">=3.12"
+#
+# ★ FORBID-4 — 접근통제 회피 수단은 여기 들어올 수 없다.
+#   스텔스 플러그인(playwright-stealth · undetected-chromedriver · selenium-stealth),
+#   랜덤 UA 라이브러리(fake-useragent 등), 프록시 로테이션(rotating-proxies · proxybroker),
+#   TLS 지문 위장(curl-cffi · tls-client), 캡차 우회 서비스 클라이언트가 대상이다.
+#   목록 정본은 `core/crawler/ci/patterns.py` 이고, CI job `crawler-ci` 의
+#   `python -m crawler.ci.symbol_guard` 가 이 파일을 스캔해 exit 1 한다.
 dependencies = [
   "playwright>=1.47",
+  # C1 코어 — 설정·마커 사전(YAML) 로딩과 봉투 스키마 검증. 둘 다 fail-closed 경로에 쓰인다.
+  "PyYAML>=6.0",
+  "jsonschema>=4.21",
 ]
 
 [project.optional-dependencies]
@@ -29,7 +39,12 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/glowmate_crawler"]
+# `core/crawler` → 임포트 이름 `crawler` (REQ-8 의 `python -m crawler.smoke`).
+# 접두사 **제거**(core/ 를 떼는 것)만 하므로 editable 설치가 성립한다. 접두사를 다른
+# 이름으로 **치환**하는 형태(sources = {"core" = "crawler"})는 hatchling 이 editable 에서
+# 거부한다 — "Dev mode installations are unsupported when any path rewrite in the
+# `sources` option changes a prefix rather than removes it".
+packages = ["src/glowmate_crawler", "core/crawler"]
 
 # ─── pytest ────────────────────────────────────────────────────────────────
 # addopts 에 종료 코드를 마스킹하거나 수집 대상을 축소하는 옵션을 넣지 않는다 (F1 FORBID-2).
@@ -38,17 +53,26 @@ packages = ["src/glowmate_crawler"]
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
-pythonpath = ["src"]
+# `core` 를 소스 루트로 얹어야 editable 설치 없이도 `import crawler` 가 된다.
+pythonpath = ["src", "core"]
 addopts = "-ra --strict-markers --strict-config"
+markers = [
+  # REQ-4 부하테스트. `pytest -m load` 로 단독 실행하며, 기본 실행에서도 **제외되지 않는다**
+  # (deselect 하면 그 순간 REQ-4 검증이 CI 에서 사라진다).
+  "load: per-host 레이트/동시성 부하 테스트 (REQ-4)",
+  "network: 실제 아웃바운드 요청을 하는 테스트 (기본 수집 대상에 두지 않는다)",
+]
 
 # ─── ruff ──────────────────────────────────────────────────────────────────
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-src = ["src", "tests"]
+src = ["src", "core", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["glowmate_crawler"]
+# `_helpers` 는 tests/core 의 공용 모듈이다. pytest 가 테스트 디렉터리를 sys.path 에 얹으므로
+# 최상위 임포트로 보이지만 리포 안의 코드이므로 first-party 로 분류한다.
+known-first-party = ["glowmate_crawler", "crawler", "_helpers"]

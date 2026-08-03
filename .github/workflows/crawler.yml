@@ -1,0 +1,183 @@
+name: crawler
+
+# C1-CRAWLER-CORE — 크롤러 전용 검사 워크플로.
+#
+# ★ 왜 별도 파일인가: C1 계약의 touches 가 `.github/workflows/crawler.yml` 만 허용한다.
+#   `.github/workflows/ci.yml`(F1 소유)에 job 을 더하면 path-guard 가 red 다.
+#   그래서 `.github/ci-budget.json` 에도 항목을 넣지 않는다 — F1 의 REQ-6 검사기는
+#   "예산 항목 ↔ ci.yml 의 job" 대응을 강제하므로, ci.yml 밖 job 을 예산에 넣으면
+#   그 검사가 드리프트로 판정해 red 가 된다(실측으로 확인했다).
+#
+# ★ 어댑터 태스크(C2·C3 및 파생)는 이 파일을 수정하지 않는다.
+#   가드 잡은 전부 `services/crawler/adapters/*` **글롭**으로 대상을 찾는다.
+#   어댑터 디렉터리를 하나 추가하면 그 순간부터 검사가 걸린다.
+#
+# ★ 마스킹 금지: 이 워크플로에는 종료 코드를 삼키는 구성이 없다.
+#   각 스텝은 검사기의 exit code 를 그대로 job 결과로 전파한다.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: crawler-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  # 가드 잡이 PR 라벨을 조회한다. 조회 실패는 통과가 아니라 exit 1 이다.
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # D3 산출물이 아직 main 에 없는 중간 상태에서도 대조 원천을 확보할 수 있게 한다.
+  # (머지 후에는 워킹트리 경로가 먼저 잡히므로 이 fetch 는 무해한 no-op 이 된다.)
+  D3_REF: feat/d3-source-dd
+
+jobs:
+  # ── 코어 테스트 + 금지 심볼 검사 ────────────────────────────────────────
+  crawler-ci:
+    name: crawler-ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - run: echo "규칙 REQ-1~REQ-7 FORBID-2~FORBID-6 — 코어 테스트 + 금지 심볼 검사"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - name: 'D3 대조 원천 확보 (머지 전 중간 상태 대비)'
+        run: git fetch --no-tags origin "+refs/heads/${D3_REF}:refs/remotes/origin/${D3_REF}"
+      - name: 의존 설치
+        working-directory: services/crawler
+        run: pip install --disable-pip-version-check -e '.[dev]'
+      - name: ruff
+        working-directory: services/crawler
+        run: ruff check .
+      - name: 'REQ-1~REQ-7 — 코어 테스트 (부하테스트 포함, deselect 없음)'
+        working-directory: services/crawler
+        run: python -m pytest tests/core -q
+      - name: 'REQ-6 — adapter_contract_suite 15 케이스 · skip 0건'
+        working-directory: services/crawler
+        run: python -m crawler.ci.contract_count
+      - name: 'FORBID-4 / FORBID-6(c) — 금지 심볼 · 원문 제거 우회 스캔'
+        run: python -m crawler.ci.symbol_guard
+
+  # ── allowlist 전사 대조 + 라벨 게이트 (FORBID-1) ────────────────────────
+  allowlist-guard:
+    name: allowlist-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "규칙 FORBID-1 — allowlist 는 D3 전사물이다. 승인·상한 변경은 라벨 + D3 갱신 필수"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - run: git fetch --no-tags origin "+refs/heads/${D3_REF}:refs/remotes/origin/${D3_REF}"
+      - name: 의존 설치
+        working-directory: services/crawler
+        run: pip install --disable-pip-version-check -e '.[dev]'
+      - name: 'FORBID-1 (a)(b) — D3 원천 대조 + d3-change-approved 라벨 검사'
+        run: python -m crawler.ci.allowlist_guard
+
+  # ── 어댑터 공용 가드 3종 (글롭 기반) ────────────────────────────────────
+  path-guard:
+    name: path-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "어댑터 PR 의 diff 가 자기 디렉터리 밖으로 나가지 않는지 (글롭 기반)"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - working-directory: services/crawler
+        run: pip install --disable-pip-version-check -e '.[dev]'
+      - run: python -m crawler.ci.adapter_guards --check path-guard
+
+  dataset-lock:
+    name: dataset-lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "dataset_manifest.json ↔ manifest.lock 일치 + dataset-change-approved 라벨"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - working-directory: services/crawler
+        run: pip install --disable-pip-version-check -e '.[dev]'
+      - run: python -m crawler.ci.adapter_guards --check dataset-lock
+
+  dataset-order:
+    name: dataset-order
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "manifest.lock 최초 커밋 ≤ extract*.py 최초 커밋 (홀드아웃 선행 고정)"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - working-directory: services/crawler
+        run: pip install --disable-pip-version-check -e '.[dev]'
+      - run: python -m crawler.ci.adapter_guards --check dataset-order
+
+  # ── 실수집 스모크 검증 (REQ-8) ──────────────────────────────────────────
+  #
+  # 판정 대상은 `artifacts/smoke.json` 이다.
+  #  · 리포지토리에 리포트가 있으면 그대로 검증한다 (generated_at 7일 이내 요구가 여기서 산다).
+  #  · 없으면 **실제로 수집해서** 만든다. 리포트가 없다는 이유로 검사를 건너뛰면
+  #    스모크를 지우는 것이 검사를 통과하는 가장 짧은 길이 된다.
+  #
+  # 수집은 D3 정책값(분당 6회 = 최소 간격 10초)을 지키며, 429/403 이 1건이라도 나오면
+  # 검증기가 exit 1 한다. 재시도로 뚫지 않는다.
+  crawler-smoke-verify:
+    name: crawler-smoke-verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - run: echo "규칙 REQ-8 — records ≥ 10 · sha256_mismatch = 0 · http_429_403 = 0 · 간격 ≥ 정책값 · 7일 이내"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - run: git fetch --no-tags origin "+refs/heads/${D3_REF}:refs/remotes/origin/${D3_REF}"
+      - name: 의존 설치
+        working-directory: services/crawler
+        run: pip install --disable-pip-version-check -e '.[dev]'
+      - name: '리포트 확보 — 없으면 실제로 수집한다'
+        run: |
+          set -euo pipefail
+          if [ -f artifacts/smoke.json ]; then
+            echo "커밋된 artifacts/smoke.json 을 검증한다 (신선도는 검증기가 판정)"
+          else
+            echo "리포트가 없다 — 실수집을 수행한다"
+            python -m crawler.smoke \
+              --source official_website \
+              --seed-file services/crawler/config/smoke_seeds.yaml \
+              --report artifacts/smoke.json
+          fi
+      - name: 'REQ-8 판정'
+        run: python -m crawler.ci.smoke_verify --report artifacts/smoke.json
+      - name: '리포트 첨부'
+        uses: actions/upload-artifact@v4
+        with:
+          name: crawler-smoke-report
+          path: artifacts/smoke.json
+          if-no-files-found: error
