@@ -28,6 +28,11 @@ permissions:
   contents: read
   pull-requests: read
   checks: read
+  actions: read
+  # REQ-6 (a) · REQ-7 (b) 는 브랜치 보호 설정을 GitHub API 로 조회한다.
+  # 그 엔드포인트는 admin 권한을 요구하므로 기본 GITHUB_TOKEN 으로는 404/403 이 난다.
+  # 이 스코프가 없으면 검사기가 "판정 불가"로 exit 1 하고 lint job 이 영구 red 다.
+  administration: read
 
 env:
   # 검사기들이 승인 리뷰·브랜치 보호를 조회한다. 조회 불가 시 검사기는 exit 1 한다(판정 불가 ≠ 통과).
@@ -161,8 +166,16 @@ jobs:
           useDefault = true
 
           [allowlist]
-          description = "자리표시자만 담은 예시 파일"
-          paths = ['''\.env\.example$''']
+          description = "자리표시자 예시 파일 · 위반 재현용 픽스처 원본"
+          paths = [
+            '''\.env\.example$''',
+            # 픽스처 원본은 의도적으로 가짜 자격증명을 담고 있다(REQ-5 픽스처 ⑤).
+            # 본 트리에서 이걸 잡으면 전 브랜치의 secret-scan 이 red 가 되어
+            # "대응 job 만 red" 가 깨진다 — eslint ignores·FORBID-2 제외와 같은 근거다.
+            # 픽스처 브랜치에서는 오버레이가 이 파일을 apps/web/src/lib/ 로 복사하므로
+            # 제외 경로 밖이 되어 정상적으로 red 가 된다.
+            '''^\.github/ci-fixtures/''',
+          ]
           TOML
       - name: 스캔
         run: gitleaks detect --no-banner --redact --config /tmp/gitleaks.toml --source .
