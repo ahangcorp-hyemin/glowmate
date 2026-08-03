@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
+import { cleanEnv } from './helpers/env.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ENTRY = path.resolve(HERE, '..', 'index.mjs');
@@ -64,8 +65,19 @@ function commitChanges(root, files) {
   git(root, 'commit', '-q', '-m', 'change');
 }
 
+/**
+ * CLI 실행. 이 파일의 모든 케이스는 **CI 환경변수가 하나도 없는** 상태를 전제한다
+ * (GITHUB_REF_NAME · GITHUB_HEAD_REF · GITHUB_EVENT_NAME 미주입 →
+ *  ref 는 임시 리포의 `git rev-parse --abbrev-ref HEAD` = `main` 으로 판정되고,
+ *  픽스처 완화 경로는 타지 않는다). 주변 job 의 값이 새면 결과가 바뀌므로
+ *  cleanEnv() 로 상속을 끊는다 — helpers/env.mjs 참조.
+ */
 function run(root) {
-  const res = spawnSync(process.execPath, [ENTRY], { cwd: root, encoding: 'utf8' });
+  const res = spawnSync(process.execPath, [ENTRY], {
+    cwd: root,
+    encoding: 'utf8',
+    env: cleanEnv(),
+  });
   return { code: res.status, out: res.stdout, err: res.stderr };
 }
 
