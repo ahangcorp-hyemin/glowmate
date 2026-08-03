@@ -1,0 +1,21 @@
+{
+  "_note": "DS0 SSR probe 전용. Next 15 가 자동 생성한 초기값은 moduleResolution: node 였고, 그 상태에서는 seed-design 하위 패키지(@seed-design/react-switch 등)의 exports 맵이 무시되어 타입이 어긋난다(ssr_probe.md '마찰' 절 참조). 제품 설정(packages/config/tsconfig.base.json)과 동일하게 Bundler 로 맞춘다.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "incremental": true,
+    "module": "esnext",
+    "esModuleInterop": true,
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "plugins": [{ "name": "next" }]
+  },
+  "include": ["next-env.d.ts", ".next/types/**/*.ts", "**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", ".next"]
+}

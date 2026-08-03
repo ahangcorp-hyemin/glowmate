@@ -1,0 +1,37 @@
+{
+  "purpose": "DS0 REQ-3 — Next App Router 서버 컴포넌트 트리에 렌더한 seed-design 컴포넌트 목록. verdict_rule.md 의 DS0-RULE-SSR-1 이 이 파일의 components[] 길이를 '컴포넌트 수'로, label 을 JS 비활성 HTML 노출 판정 문자열로 쓴다.",
+  "package": "@seed-design/react@2.1.0",
+  "page": "app/page.tsx",
+  "components": [
+    {
+      "symbol": "ActionButton",
+      "label": "DS0-PROBE-ACTIONBUTTON",
+      "note": "버튼. @seed-design/css/recipes/action-button 레시피 사용"
+    },
+    {
+      "symbol": "Badge",
+      "label": "DS0-PROBE-BADGE",
+      "note": "배지. Primitive.span 2단 구조"
+    },
+    {
+      "symbol": "Text",
+      "label": "DS0-PROBE-TEXT",
+      "note": "타이포그래피. CSS 변수 인라인 스타일을 계산해 붙인다 — 서버/클라이언트 계산이 어긋나면 hydration mismatch 로 드러난다"
+    },
+    {
+      "symbol": "Callout",
+      "label": "DS0-PROBE-CALLOUT",
+      "note": "compound(Root/Content/Title/Description). useDismissible 내부 상태를 가진다"
+    },
+    {
+      "symbol": "Chip",
+      "label": "DS0-PROBE-CHIP",
+      "note": "compound(Root/Label). slot recipe context 사용"
+    },
+    {
+      "symbol": "Switch",
+      "label": "DS0-PROBE-SWITCH",
+      "note": "compound(Root/Label/Control/Thumb/HiddenInput). @seed-design/react-switch 하위 패키지 — 제어 상태를 가지므로 hydration 관측에 가장 유효하다"
+    }
+  ]
+}

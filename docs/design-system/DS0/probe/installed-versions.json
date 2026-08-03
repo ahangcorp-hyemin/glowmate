@@ -1,0 +1,19 @@
+{
+  "_note": "DS0 REQ-3 — 로그를 산출한 실행의 실제 설치 버전. `npm ls --depth 0 --json` 실측값이다. package-lock.json 은 커밋하지 않고(107KB) 이 파일로 대체한다. package.json 의 의존은 전부 정확한 x.y.z 로 고정되어 있다.",
+  "measured_by": "npm ls --depth 0 --json (cwd: docs/design-system/DS0/probe)",
+  "node": "v24.13.0",
+  "npm": "11.6.2",
+  "browser": "Google Chrome (macOS 시스템 설치본) — puppeteer-core executablePath 로 구동",
+  "dependencies": {
+    "@seed-design/css": "2.3.0",
+    "@seed-design/react": "2.1.0",
+    "next": "15.5.22",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "20.17.6",
+    "@types/react": "19.2.18",
+    "puppeteer-core": "24.30.0"
+  }
+}
