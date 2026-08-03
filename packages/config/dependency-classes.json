@@ -22,6 +22,7 @@
     "@types/react-dom": "other",
     "typescript": "other",
     "eslint": "other",
-    "eslint-config-next": "other"
+    "eslint-config-next": "other",
+    "@radix-ui/react-dialog": "other"
   }
 }
