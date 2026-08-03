@@ -53,7 +53,9 @@ export const FIXTURES = [
   {
     job: 'python',
     label: '⑥ pytest 실패',
-    expect: ['REQ-4', 'FAILED', 'assert'],
+    // `assert` 처럼 일반적인 토큰은 ruff 실패로도 매칭되어 귀속이 공허해진다(검수 지적).
+    // pytest 고유 출력으로 좁힌다.
+    expect: ['FAILED services/crawler/tests/', 'FAILED tests/', '=== FAILURES ==='],
   },
   {
     job: 'discovery',
@@ -79,8 +81,86 @@ export const FIXTURES = [
  * 어느 쪽으로도 런을 특정하지 못하면 CI 에서 exit 1 이다 (미판정 ≠ 통과).
  */
 export const FIXTURE_MANIFEST_NAME = 'fixture.json';
+export const FIXTURE_ROOT = '.github/ci-fixtures';
+
 export function conventionalFixtureBranch(job) {
   return `ci-fixture/${job}`;
+}
+
+/**
+ * 귀속 검증에 쓰기에 **너무 일반적인** 토큰.
+ *
+ * 검수 지적: 픽스처 ⑥ 의 `expect` 에 `assert` 가 들어 있어 ruff 실패로도 매칭됐다.
+ * 그러면 "그 규칙 때문에 red 였다"가 증명되지 않는다. 기대 토큰이 아래에 해당하면
+ * 그 사실 자체를 실패로 드러낸다 — 파일 소유자가 누구든 규칙은 집행돼야 한다.
+ */
+export const GENERIC_EXPECT_TOKENS = new Set([
+  'assert',
+  'error',
+  'Error',
+  'ERROR',
+  'fail',
+  'Fail',
+  'FAIL',
+  'FAILED',
+  'failed',
+  'exit 1',
+  'true',
+  'false',
+]);
+
+/**
+ * `.github/ci-fixtures/*` 전량을 서술자로 만든다.
+ *
+ * REQ-5 필수 8종에 더해 **REQ-3 픽스처 ②③④**(`boundary-prisma`·`boundary-unclassified`·
+ * `boundary-ui-other`)도 검증 대상에 넣는다. 계약 FORBID-1 detect 가 요구한 메타테스트인데
+ * ①만 자동화돼 있었다(검수 차단 B-D).
+ *
+ * `expected_result` 는 `red`(대응 job 만 red) 또는 `green`(전 job green)이다.
+ * ④ `boundary-ui-other` 가 green 이어야 한다는 것이 특히 중요하다 —
+ * red 가 되는 회귀는 DS1·DS3 에 합법 경로가 0개가 됐다는 뜻이다(원칙 2.5).
+ *
+ * @param {(rel:string)=>({exists:boolean, json:any|null})} readManifest
+ * @param {string[]} dirNames `.github/ci-fixtures/` 하위 디렉터리 이름 목록
+ */
+export function discoverFixtureDescriptors(dirNames, readManifest) {
+  const byName = new Map();
+
+  // 1) 계약이 명시한 필수 8종 — 트리가 없어도 서술자는 만든다(부재를 실패로 드러내야 한다).
+  for (const fx of FIXTURES) {
+    byName.set(fx.job, {
+      name: fx.job,
+      job: fx.job,
+      label: fx.label,
+      expect: fx.expect,
+      expectedResult: 'red',
+      required: true,
+      manifest: null,
+      present: false,
+    });
+  }
+
+  // 2) 리포에 실재하는 픽스처 디렉터리를 덮어쓰거나 추가한다.
+  for (const name of dirNames) {
+    const { exists, json } = readManifest(`${FIXTURE_ROOT}/${name}/${FIXTURE_MANIFEST_NAME}`);
+    const base = byName.get(name);
+    const job = json?.job ?? base?.job ?? name;
+    const expectedResult = json?.expected_result ?? base?.expectedResult ?? 'red';
+    const expect = Array.isArray(json?.expect) ? json.expect : (base?.expect ?? []);
+    byName.set(name, {
+      name,
+      job,
+      label: json?.label ?? base?.label ?? '(추가 픽스처)',
+      expect,
+      expectedResult,
+      required: Boolean(base?.required),
+      manifest: exists ? json : null,
+      manifestExists: exists,
+      present: true,
+    });
+  }
+
+  return [...byName.values()];
 }
 
 /**
@@ -99,6 +179,50 @@ export function isFixtureBranch(branch) {
   if (typeof branch !== 'string') return false;
   const b = branch.trim().replace(/^refs\/heads\//, '');
   return b.startsWith(FIXTURE_BRANCH_PREFIX) && b.length > FIXTURE_BRANCH_PREFIX.length;
+}
+
+/**
+ * 면제가 허용되는 **이벤트 허용목록**.
+ *
+ * ★ PR 검수 차단 B-B: 브랜치 이름 접두사만 보면 하류 PR 이 소스 브랜치를 `ci-fixture/*` 로
+ *   짓는 것만으로 REQ-5(2)(3)·REQ-6(c) 런타임 검증 전체를 끌 수 있었다.
+ *   `GITHUB_HEAD_REF` 는 **pull_request 이벤트에서만** 설정되므로, 그것을 우선 읽는 구현은
+ *   PR 컨텍스트를 배제하기는커녕 우선적으로 면제해 준다.
+ *
+ * 픽스처 런은 `ci.yml` 의 `push: branches: ['ci-fixture/**']` 로 발생한다.
+ * 그래서 **push / workflow_dispatch 만** 면제 대상이며, `pull_request` 는 어떤 브랜치명이든 면제되지 않는다.
+ * 부인목록이 아니라 허용목록인 이유: 새 이벤트 타입이 생겨도 조용히 면제가 열리지 않게 하기 위해서다.
+ */
+export const FIXTURE_EXEMPT_EVENTS = new Set(['push', 'workflow_dispatch']);
+
+/**
+ * 픽스처 면제 허용 여부.
+ * @param {{branch:string|null, fromEnv:boolean}} branchInfo
+ * @param {string} eventName GITHUB_EVENT_NAME
+ * @returns {{allowed:boolean, reason:string}}
+ */
+export function fixtureExemptionAllowed(branchInfo, eventName) {
+  const event = String(eventName ?? '');
+  if (!isFixtureBranch(branchInfo?.branch)) {
+    return { allowed: false, reason: `브랜치 ${branchInfo?.branch ?? '<불명>'} 는 픽스처 브랜치가 아니다` };
+  }
+  if (!branchInfo.fromEnv) {
+    return {
+      allowed: false,
+      reason:
+        `브랜치를 워크플로 컨텍스트가 아니라 워킹트리에서 읽었다 — ` +
+        `드라이버가 중단돼 리포가 픽스처 브랜치에 남아 있을 수 있으므로 면제 근거가 되지 못한다`,
+    };
+  }
+  if (!FIXTURE_EXEMPT_EVENTS.has(event)) {
+    return {
+      allowed: false,
+      reason:
+        `이벤트 \`${event || '<없음>'}\` 는 면제 허용목록 {${[...FIXTURE_EXEMPT_EVENTS].join(', ')}} 에 없다 — ` +
+        `pull_request 는 브랜치명이 무엇이든 면제되지 않는다 (검수 차단 B-B)`,
+    };
+  }
+  return { allowed: true, reason: `이벤트 ${event} · 브랜치 ${branchInfo.branch}` };
 }
 
 /**

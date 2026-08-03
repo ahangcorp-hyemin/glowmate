@@ -90,6 +90,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:dep-graph
+      # 탐지력 증명 — 검사기가 위반을 실제로 잡는지 스스로 시험한다.
+      # 이게 CI 에서 안 돌면 `process.exit(code)` → `process.exit(0)` 한 줄로 위 검사가
+      # 죽어도 아무도 모른다. 검사기를 지키는 검사가 없으면 검사는 장식이다.
+      - run: pnpm test:selftest:dep-graph
 
   test:
     name: test
@@ -232,6 +236,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:path-guard
+      # 탐지력 증명 — 글롭 매칭·픽스처 브랜치 완화 6조건의 봉인 테스트 39건.
+      - run: pnpm test:selftest:path-guard
 
   # ─────────────────────────────────────────────────────────────────────
   # REQ-6 — 브랜치 보호의 유일한 필수 체크.

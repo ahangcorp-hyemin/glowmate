@@ -35,6 +35,8 @@ import {
   TEST_DECL_PATTERNS,
   PROSE_EXTENSIONS,
   TOKEN_CONTINUE_ON_ERROR,
+  CHECKER_FILE_RE,
+  UNCONDITIONAL_SUCCESS_EXIT_RE,
 } from '../forbid2-patterns.mjs';
 
 const RULE = 'FORBID-2';
@@ -144,6 +146,65 @@ export async function checkForbid2(report, ctx) {
 
   // 워크플로 전수: 검사 job 의 continue-on-error 는 diff 여부와 무관하게 현 상태로도 위반이다.
   scanWorkflowStateWide(report, root);
+
+  // 검사기 전수: 종료 코드 무력화는 diff 여부와 무관한 백스톱이어야 한다 (검수 차단 B-C).
+  scanCheckerExitMasking(report, root);
+}
+
+/**
+ * `tools/**` 검사기 본체의 **무조건 성공 종료**를 잡는다 (검수 차단 B-C).
+ *
+ * diff 스캔이 아니라 **현 상태 전수**다. diff 로만 보면 한 번 머지된 뒤에는 영영 잡히지 않고,
+ * 이 규칙의 목적이 정확히 "다음 PR 부터 검사가 영구 무력화되는 것"을 막는 백스톱이기 때문이다.
+ */
+export function scanCheckerExitMasking(report, root) {
+  let files;
+  try {
+    files = listWorkingFiles(root);
+  } catch (err) {
+    report.fail(RULE, '검사기 파일 목록을 산출할 수 없어 종료 코드 무력화를 판정할 수 없다', err.message);
+    return;
+  }
+  const targets = files.filter((f) => CHECKER_FILE_RE.test(f) && !isExcludedPath(f));
+  if (targets.length === 0) {
+    report.fail(
+      RULE,
+      'tools/** 에서 검사기 소스를 1건도 찾지 못했다 — 종료 코드 무력화 백스톱이 공허하다 (검사 대상 0건을 통과로 처리하지 않는다)',
+    );
+    return;
+  }
+
+  const hits = [];
+  for (const rel of targets) {
+    const abs = path.join(root, rel);
+    if (!existsSync(abs)) continue;
+    let text;
+    try {
+      text = readFileSync(abs, 'utf8');
+    } catch {
+      continue;
+    }
+    text.split('\n').forEach((line, i) => {
+      if (UNCONDITIONAL_SUCCESS_EXIT_RE.test(line)) {
+        hits.push({ rel, line: i + 1, text: line.trim() });
+      }
+    });
+  }
+
+  if (hits.length > 0) {
+    for (const h of hits) {
+      report.fail(
+        RULE,
+        `${h.rel}:${h.line} 검사기가 최상위에서 무조건 성공 종료한다 (\`${h.text}\`) — ` +
+          `"FAIL 이다"라고 출력하면서 exit 0 을 내면 그 검사는 영구 무력화된다. 종료 코드는 판정 결과여야 한다`,
+      );
+    }
+  } else {
+    report.pass(
+      RULE,
+      `검사기 ${targets.length}건에서 최상위 무조건 성공 종료 0건 (tools/** 의 .mjs·.js·.py 전수)`,
+    );
+  }
 }
 
 async function scanDiff(report, ctx) {

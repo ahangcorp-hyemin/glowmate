@@ -209,31 +209,63 @@ function overlayCommands(plan) {
 }
 
 await guard(report, RULE, '오버레이', async () => {
-  for (const { name, plan, label } of plans) {
-    if (dryRun) {
+  if (dryRun) {
+    for (const { name, plan, label } of plans) {
       report.info(
         RULE,
         `DRY-RUN ${name} → ${plan.branch} (${label})`,
         overlayCommands(plan).map((c) => `  $ ${c}`).join('\n'),
       );
-      continue;
     }
+    return;
+  }
 
-    const startBranch = exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root });
-    if (!startBranch.ok) {
-      report.fail(RULE, `${name}: 현재 브랜치를 확인할 수 없어 오버레이를 중단한다`, startBranch.stderr);
-      return;
-    }
-    const dirty = exec('git', ['status', '--porcelain'], { cwd: root });
-    if (!dirty.ok || dirty.stdout.trim() !== '') {
+  // 시작 브랜치를 **루프 밖에서 한 번** 잡고 finally 로 반드시 복귀한다.
+  // 루프 안에서 잡으면, 중간 실패로 조기 return 할 때 리포가 `ci-fixture/**` 에 남는다.
+  // 그 상태는 이후 로컬 실행·수동 작업의 기준 브랜치를 통째로 바꿔놓는다 (실제로 한 번 발생했다).
+  const startBranch = exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root });
+  if (!startBranch.ok || !startBranch.stdout.trim() || startBranch.stdout.trim() === 'HEAD') {
+    report.fail(RULE, '현재 브랜치를 확인할 수 없어 오버레이를 시작하지 않는다', startBranch.stderr);
+    return;
+  }
+  const origin = startBranch.stdout.trim();
+  if (origin.startsWith('ci-fixture/')) {
+    report.fail(
+      RULE,
+      `현재 브랜치가 이미 픽스처 브랜치다 (${origin}) — 이전 실행이 중단된 상태일 수 있다. ` +
+        `PR 브랜치로 복귀한 뒤 다시 실행하라 (\`git checkout <PR 브랜치>\`)`,
+    );
+    return;
+  }
+  const dirty = exec('git', ['status', '--porcelain'], { cwd: root });
+  if (!dirty.ok || dirty.stdout.trim() !== '') {
+    report.fail(
+      RULE,
+      '워킹트리가 깨끗하지 않아 오버레이를 시작하지 않는다 — 커밋되지 않은 변경이 픽스처 브랜치에 섞이면 귀속 검증이 깨진다',
+      dirty.stdout,
+    );
+    return;
+  }
+  report.info(RULE, `시작 브랜치=${origin} — 성공/실패와 무관하게 종료 시 이 브랜치로 복귀한다`);
+
+  try {
+    await overlayAll(report, root, plans, base, origin);
+  } finally {
+    const back = exec('git', ['checkout', origin], { cwd: root });
+    if (!back.ok) {
       report.fail(
         RULE,
-        `${name}: 워킹트리가 깨끗하지 않아 오버레이를 중단한다 — 커밋되지 않은 변경이 픽스처 브랜치에 섞이면 귀속 검증이 깨진다`,
-        dirty.stdout,
+        `원래 브랜치(${origin})로 복귀 실패 — 리포가 픽스처 브랜치에 남아 있다. 수동 복구 필요`,
+        back.stderr,
       );
-      return;
+    } else {
+      report.pass(RULE, `원래 브랜치(${origin})로 복귀 완료`);
     }
+  }
+});
 
+async function overlayAll(report, root, plans, base, origin) {
+  for (const { name, plan } of plans) {
     const co = exec('git', ['checkout', '-B', plan.branch, base], { cwd: root });
     if (!co.ok) {
       report.fail(RULE, `${name}: 브랜치 ${plan.branch} 생성 실패`, co.stderr);
@@ -273,14 +305,15 @@ await guard(report, RULE, '오버레이', async () => {
     }
     report.pass(RULE, `${name}: ${plan.branch} push 완료 (${plan.files.length}개 파일 오버레이)`);
 
-    const backTo = startBranch.stdout.trim();
-    const back = exec('git', ['checkout', backTo], { cwd: root });
+    // 다음 픽스처는 origin 기준으로 다시 오버레이해야 하므로 매번 복귀한다.
+    // (최종 복귀는 호출부의 finally 가 보장한다.)
+    const back = exec('git', ['checkout', origin], { cwd: root });
     if (!back.ok) {
-      report.fail(RULE, `${name}: 원래 브랜치(${backTo})로 복귀 실패 — 수동 복구 필요`, back.stderr);
+      report.fail(RULE, `${name}: 원래 브랜치(${origin})로 복귀 실패`, back.stderr);
       return;
     }
   }
-});
+}
 
 /* ── 런 URL 수집 ─────────────────────────────────────────────────────────── */
 
