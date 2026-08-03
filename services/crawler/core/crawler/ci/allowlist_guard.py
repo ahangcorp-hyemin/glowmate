@@ -182,8 +182,55 @@ def check_transcription(report: Report, root: Path, doc: dict) -> None:
             )
 
 
+def guarded_diff(base_doc: dict, head_doc: dict) -> list[str]:
+    """`approved` · `max_rps` · `per_host_concurrency` 의 변경 목록."""
+    before = _guarded_values(base_doc)
+    after = _guarded_values(head_doc)
+    changes = []
+    for key in sorted(set(before) | set(after)):
+        old = before.get(key)
+        new = after.get(key)
+        if old != new:
+            changes.append(f"{key[0]}.{key[1]}: {old!r} → {new!r}")
+    return changes
+
+
+def evaluate_label_gate(
+    report: Report,
+    *,
+    base_doc: dict,
+    head_doc: dict,
+    files: list[str],
+    labels,
+) -> None:
+    """(B) 의 판정 본체. git 접근 없이 순수하게 판정한다 (테스트가 이 함수를 직접 부른다)."""
+    changes = guarded_diff(base_doc, head_doc)
+    if not changes:
+        report.note(
+            f"{ALLOWLIST_REL} 가 바뀌었으나 {', '.join(GUARDED_KEYS)} 값 변경은 0건 — "
+            "라벨 게이트 미발동"
+        )
+        return
+
+    report.note(f"감시 대상 값 변경 {len(changes)}건: " + " · ".join(changes))
+    report.note(f"라벨 원천: {labels.origin} ({', '.join(sorted(labels.labels)) or '없음'})")
+    if not labels.has(LABEL):
+        report.fail(
+            f"`{LABEL}` 라벨 없이 approved·max_rps·per_host_concurrency 를 변경했다: "
+            + " · ".join(changes)
+        )
+    d3_touched = [f for f in files if f.startswith(f"{D3_DOC_DIR}/")]
+    if not d3_touched:
+        report.fail(
+            "allowlist 의 승인·상한 값이 바뀌었는데 "
+            "D3 산출물(docs/discovery/D3/**) 갱신이 diff 에 없다 — "
+            "실사 없이 숫자만 올리는 것이 가장 싼 지름길이고, "
+            "그 변경은 대상 서버 부하를 즉시 배가시킨다"
+        )
+
+
 def check_label_gate(report: Report, root: Path, base: str | None) -> None:
-    """(B) 라벨 게이트."""
+    """(B) 라벨 게이트. base 해석과 diff 수집만 하고 판정은 위 함수에 넘긴다."""
     base_sha = resolve_base(root, base)
     base_text = blob_at(root, base_sha, ALLOWLIST_REL)
     if base_text is None:
@@ -199,37 +246,13 @@ def check_label_gate(report: Report, root: Path, base: str | None) -> None:
         return
 
     head_text = (root / ALLOWLIST_REL).read_text(encoding="utf-8")
-    before = _guarded_values(_load_yaml(base_text))
-    after = _guarded_values(_load_yaml(head_text))
-    changes = []
-    for key in sorted(set(before) | set(after)):
-        old = before.get(key)
-        new = after.get(key)
-        if old != new:
-            changes.append(f"{key[0]}.{key[1]}: {old!r} → {new!r}")
-    if not changes:
-        report.note(
-            f"{ALLOWLIST_REL} 가 바뀌었으나 {', '.join(GUARDED_KEYS)} 값 변경은 0건 — "
-            "라벨 게이트 미발동"
-        )
-        return
-
-    report.note(f"감시 대상 값 변경 {len(changes)}건: " + " · ".join(changes))
-    labels = pr_labels(root)
-    report.note(f"라벨 원천: {labels.origin} ({', '.join(sorted(labels.labels)) or '없음'})")
-    if not labels.has(LABEL):
-        report.fail(
-            f"`{LABEL}` 라벨 없이 approved·max_rps·per_host_concurrency 를 변경했다: "
-            + " · ".join(changes)
-        )
-    d3_touched = [f for f in files if f.startswith(f"{D3_DOC_DIR}/")]
-    if not d3_touched:
-        report.fail(
-            "allowlist 의 승인·상한 값이 바뀌었는데 "
-            "D3 산출물(docs/discovery/D3/**) 갱신이 diff 에 없다 — "
-            "실사 없이 숫자만 올리는 것이 가장 싼 지름길이고, "
-            "그 변경은 대상 서버 부하를 즉시 배가시킨다"
-        )
+    evaluate_label_gate(
+        report,
+        base_doc=_load_yaml(base_text),
+        head_doc=_load_yaml(head_text),
+        files=files,
+        labels=pr_labels(root),
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

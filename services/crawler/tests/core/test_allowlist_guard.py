@@ -12,8 +12,13 @@ import pytest
 import yaml
 
 from _helpers import REPO_ROOT
-from crawler.ci._common import Report
-from crawler.ci.allowlist_guard import ALLOWLIST_REL, check_transcription
+from crawler.ci._common import LabelSet, Report
+from crawler.ci.allowlist_guard import (
+    ALLOWLIST_REL,
+    check_transcription,
+    evaluate_label_gate,
+    guarded_diff,
+)
 from crawler.d3 import (
     D3_PINNED_SHA256,
     ProvenanceError,
@@ -232,3 +237,90 @@ def test_deepcopy_helper_does_not_mutate_real_file() -> None:
     mutated = copy.deepcopy(doc)
     mutated["sources"]["official_website"]["max_rps"] = 99
     assert (REPO_ROOT / ALLOWLIST_REL).read_text(encoding="utf-8") == original
+
+
+# ── (B) 라벨 게이트 ──────────────────────────────────────────────────────────
+#
+# 이 PR 자신은 allowlist 를 **처음 도입**하므로 base 에 파일이 없어 게이트가 발동하지 않는다
+# (계약 자기 차단 방지). 그래서 게이트 판정 본체를 순수 함수로 분리해 직접 검증한다 —
+# 그러지 않으면 "머지 후에야 처음 실행되는 검사"가 되어 지금은 아무것도 증명하지 못한다.
+
+D3_TOUCH = "docs/discovery/D3/crawl_policy.yaml"
+
+
+def _labels(*names: str) -> LabelSet:
+    return LabelSet(frozenset(names), "test")
+
+
+def _gate(head_mutator, files, labels) -> Report:
+    base_doc = _doc()
+    head_doc = _doc()
+    head_mutator(head_doc)
+    report = Report("allowlist-guard")
+    evaluate_label_gate(
+        report, base_doc=base_doc, head_doc=head_doc, files=files, labels=labels
+    )
+    return report
+
+
+def _raise_rps(doc: dict) -> None:
+    doc["sources"]["official_website"]["max_rps"] = 1.0
+
+
+def _approve_forbidden(doc: dict) -> None:
+    doc["sources"]["naver_place"]["approved"] = True
+
+
+def _raise_concurrency(doc: dict) -> None:
+    doc["sources"]["official_website"]["per_host_concurrency"] = 4
+
+
+def _touch_comment(doc: dict) -> None:
+    doc["sources"]["official_website"]["reason"] = "주석만 바꿨다"
+
+
+def test_label_gate_blocks_raised_max_rps_without_label() -> None:
+    report = _gate(_raise_rps, [ALLOWLIST_REL, D3_TOUCH], _labels())
+    assert any("d3-change-approved" in f for f in report.failures), report.failures
+
+
+def test_label_gate_blocks_approving_forbidden_without_label() -> None:
+    report = _gate(_approve_forbidden, [ALLOWLIST_REL, D3_TOUCH], _labels())
+    assert any("d3-change-approved" in f for f in report.failures), report.failures
+
+
+def test_label_gate_blocks_raised_concurrency_without_label() -> None:
+    report = _gate(_raise_concurrency, [ALLOWLIST_REL, D3_TOUCH], _labels())
+    assert any("d3-change-approved" in f for f in report.failures), report.failures
+
+
+def test_label_gate_requires_d3_update_even_with_label() -> None:
+    """라벨만 붙이고 D3 산출물을 그대로 두는 우회를 막는다."""
+    report = _gate(_raise_rps, [ALLOWLIST_REL], _labels("d3-change-approved"))
+    assert any("D3 산출물" in f for f in report.failures), report.failures
+
+
+def test_label_gate_passes_with_label_and_d3_update() -> None:
+    """짝이 되는 정상 경로 — 라벨 + D3 갱신이 함께 있으면 통과한다."""
+    report = _gate(_raise_rps, [ALLOWLIST_REL, D3_TOUCH], _labels("d3-change-approved"))
+    assert report.failures == [], report.failures
+
+
+def test_label_gate_does_not_fire_on_unguarded_change() -> None:
+    """감시 대상 밖의 값(주석·사유 등) 변경은 라벨을 요구하지 않는다."""
+    report = _gate(_touch_comment, [ALLOWLIST_REL], _labels())
+    assert report.failures == [], report.failures
+    assert any("값 변경은 0건" in n for n in report.notes), report.notes
+
+
+def test_guarded_diff_lists_all_three_keys() -> None:
+    base_doc = _doc()
+    head_doc = _doc()
+    _raise_rps(head_doc)
+    _raise_concurrency(head_doc)
+    _approve_forbidden(head_doc)
+    changes = guarded_diff(base_doc, head_doc)
+    assert len(changes) == 3, changes
+    assert any("max_rps" in c for c in changes)
+    assert any("per_host_concurrency" in c for c in changes)
+    assert any("approved" in c for c in changes)

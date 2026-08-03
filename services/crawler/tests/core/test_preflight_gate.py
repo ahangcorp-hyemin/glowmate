@@ -98,11 +98,16 @@ def test_preflight_gate_unlisted_hosts_make_zero_requests(fixture_allowlist) -> 
     robots = RobotsEvaluator(_robots_transport(ALLOW_ROBOTS), clock=clock)
     gate = PreflightGate(fixture_allowlist, robots)
 
-    # (1) 게이트 판정만으로 20건 전부 거부되는가
+    # (1) 게이트 판정만으로 20건 전부 거부되는가.
+    #     **거부 사유가 host 검사여야 한다** — 사유를 보지 않으면 host 검사를 통째로 지워도
+    #     경로 글롭 검사가 대신 잡아주어 이 테스트가 초록으로 남는다(역케이스 실측으로 확인).
     for job in jobs:
         result = gate.check(job.source_id, job.url)
         assert not result.decision.allowed
         assert result.decision.status is JobStatus.SOURCE_NOT_ALLOWED
+        assert "allowlist 에 없다" in result.decision.reason, (
+            f"거부 사유가 host 검사가 아니다: {result.decision.reason}"
+        )
 
     # (2) 스케줄러 경로에서 큐에 실리더라도 요청은 0건인가
     content, _, worker = _run(fixture_allowlist, ALLOW_ROBOTS, jobs)
