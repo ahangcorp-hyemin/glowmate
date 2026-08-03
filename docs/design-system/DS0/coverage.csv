@@ -1,0 +1,13 @@
+component,present,evidence_ref
+Button,true,"symbol:ActionButton"
+Card,false,"absent-scan:@seed-design/react@2.1.0#lib/**/*.d.ts symbols~/Card/i=0,lib/components/dir~/Card/i=0"
+Badge,true,"symbol:Badge"
+Chip,true,"symbol:ChipRoot"
+Input,true,"symbol:TextFieldInput"
+Select,true,"symbol:SelectRoot"
+Checkbox,true,"symbol:CheckboxRoot"
+Radio,true,"symbol:RadioGroupRoot"
+Tabs,true,"symbol:TabsRoot"
+Dialog,true,"symbol:DialogRoot"
+Tooltip,true,"symbol:HelpBubbleTooltipRoot"
+Pagination,false,"absent-scan:@seed-design/react@2.1.0#lib/**/*.d.ts symbols~/Pagination/i=0,lib/components/dir~/Pagination/i=0"

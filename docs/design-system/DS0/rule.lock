@@ -1,0 +1,19 @@
+# DS0 rule lock — 계약 DS0-SEED-DUE-DILIGENCE / REQ-1 · FORBID-5
+#
+# 이 파일은 판정 룰(verdict_rule.md)의 sha256 을 잠근다.
+# 잠긴 뒤 룰을 고치면 `validate_ds0.mjs --check rule-lock` 이 non-zero 로 종료한다.
+#
+# 또한 이 lock 이 담긴 커밋의 시각은 실측 산출물
+#   - probe/logs/*  (ssr_probe 로그)
+#   - coverage.csv
+#   - extracted_tokens.json
+# 의 최초 커밋 시각보다 **앞서야** 한다. 순서 역시 같은 검사가 git 이력에서 확인한다.
+#
+# 형식: `key: value` (# 주석 허용)
+
+file: verdict_rule.md
+algorithm: sha256
+sha256: e3a726cba31b274dfdb3e499fc4af6b5eeb220612d610d4ac7a2868d382ce91c
+rule_set_version: 1
+locked_at_utc: 2026-08-03
+measurement_artifacts: probe/logs/build.log, probe/logs/console.log, probe/logs/nojs.html, coverage.csv, extracted_tokens.json

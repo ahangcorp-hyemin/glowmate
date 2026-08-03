@@ -1,0 +1,5 @@
+# [FIXTURE] rule lock
+file: verdict_rule.md
+algorithm: sha256
+sha256: 955b901f0b0be19a25c61a4debd05e12b7a45359eecf5ab55d5d67196e21fdbb
+rule_set_version: 1

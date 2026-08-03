@@ -1,0 +1,3 @@
+# [FIXTURE] 합성 콘솔 로그 — hydration 관련 메시지 0건
+[production][console.error] Failed to load resource: the server responded with a status of 404 (Not Found)
+[development][console.info] Download the React DevTools for a better development experience

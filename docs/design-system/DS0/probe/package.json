@@ -1,0 +1,23 @@
+{
+  "name": "ds0-ssr-probe",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "DS0 REQ-3 판정용 일회성 Next.js App Router 재현 앱. 제품 코드가 아니며 pnpm workspace 멤버가 아니다 (pnpm-workspace.yaml 은 apps/* · packages/* 만 포함).",
+  "scripts": {
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@seed-design/css": "2.3.0",
+    "@seed-design/react": "2.1.0",
+    "next": "15.5.22",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "20.17.6",
+    "@types/react": "19.2.18",
+    "puppeteer-core": "24.30.0"
+  }
+}

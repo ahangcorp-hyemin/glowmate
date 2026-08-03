@@ -1,0 +1,5 @@
+EXAMPLE OPEN SOURCE LICENSE (FIXTURE)
+Copyright 2026 Example Org
+
+이 파일은 검사기 탐지력 증명용 합성 스냅샷이다. 실제 상류 라이선스 원문이 아니다.
+Permission is granted to use, modify and redistribute, including for commercial purposes.

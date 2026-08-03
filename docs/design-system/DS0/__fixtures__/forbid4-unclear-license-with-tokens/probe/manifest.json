@@ -1,0 +1,26 @@
+{
+  "purpose": "[FIXTURE] 합성 probe manifest",
+  "package": "example-ds/react@1.0.0",
+  "components": [
+    {
+      "symbol": "FxComponent1",
+      "label": "FX-PROBE-ALPHA"
+    },
+    {
+      "symbol": "FxComponent2",
+      "label": "FX-PROBE-BRAVO"
+    },
+    {
+      "symbol": "FxComponent3",
+      "label": "FX-PROBE-CHARLIE"
+    },
+    {
+      "symbol": "FxComponent4",
+      "label": "FX-PROBE-DELTA"
+    },
+    {
+      "symbol": "FxComponent5",
+      "label": "FX-PROBE-ECHO"
+    }
+  ]
+}

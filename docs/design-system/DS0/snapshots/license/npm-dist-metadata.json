@@ -1,0 +1,44 @@
+{
+  "_note": "DS0 REQ-2 근거. npm registry 메타데이터 실측값이며, tarball 을 직접 내려받아 integrity(sha512) 와 shasum(sha1) 이 여기 기록된 값과 일치함을 확인했다(3종 전부 일치).",
+  "measured_at_utc": "2026-08-03",
+  "source": "https://registry.npmjs.org/<pkg> (dist-tags.latest)",
+  "packages": {
+    "@seed-design/css": {
+      "version": "2.3.0",
+      "license": "Apache-2.0",
+      "published": "2026-07-28T10:07:26.301Z",
+      "tarball": "https://registry.npmjs.org/@seed-design/css/-/css-2.3.0.tgz",
+      "integrity": "sha512-O5cOcr+yECVrySl7AlHj4xRMEGqehFkDlI3rjvMrIBrMEw/xM9QEhG5vy9Yyfq0mjIsNSXIdpEbabaqT8Ovd/A==",
+      "shasum": "67aa8b63d5146c41e5c9a3d8a5842b08e5b393fc",
+      "bytes": 337845,
+      "integrity_verified": true
+    },
+    "@seed-design/react": {
+      "version": "2.1.0",
+      "license": "Apache-2.0",
+      "published": "2026-07-28T10:07:27.486Z",
+      "tarball": "https://registry.npmjs.org/@seed-design/react/-/react-2.1.0.tgz",
+      "integrity": "sha512-xJxxDCM1F8Qo2osbn5nmADTYwdlRkyvaNiADw74/IqOnP+B31AdQxW/P3YWNl3olYVkCMakrES2RpmK4B7PYmA==",
+      "shasum": "0e7f0328677c7dbe2eb26fb51c5ec0cf37f2a663",
+      "bytes": 338755,
+      "integrity_verified": true
+    },
+    "@seed-design/tailwind4-theme": {
+      "version": "2.3.0",
+      "license": "Apache-2.0",
+      "published": "2026-07-28T10:33:36.606Z",
+      "tarball": "https://registry.npmjs.org/@seed-design/tailwind4-theme/-/tailwind4-theme-2.3.0.tgz",
+      "integrity": "sha512-gJ1fJcuJ7JNKkBoBiQJr5+7csGlzVc9Y3B5iX3UTExHx3WezbrCpDMLFI+BDmmMw/TkokYK+S3qT2gg0NfXGkA==",
+      "shasum": "85bb9e7ee9025a2c187412d221f1686e9443d6cc",
+      "bytes": 11247,
+      "integrity_verified": true
+    }
+  },
+  "repository": {
+    "url": "https://github.com/daangn/seed-design",
+    "branch": "dev",
+    "commit_sha": "9e6cbb9501d73f548d270df268edd72a96bf9161",
+    "committed_at_utc": "2026-08-02T16:24:41Z",
+    "commit_subject": "fix(docs): render token tables in llms.txt (#1879)"
+  }
+}

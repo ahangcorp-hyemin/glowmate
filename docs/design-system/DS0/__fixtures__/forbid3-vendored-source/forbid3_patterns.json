@@ -1,0 +1,58 @@
+{
+  "_note": "FORBID-3 (`--check no-vendored`)의 탐지 정의. 검사기(scripts/design-system/validate_ds0.mjs)가 이 파일을 읽어 스캔한다. 패턴을 검사기 본문에 두면 검사기 자신이 자기 패턴에 걸려(P7 자기차단) 우회 관용구를 학습하게 되므로 데이터로 분리했다. 이 파일은 패턴을 정규식 소스로만 담으며(슬래시를 이스케이프한 형태) 원본 자산을 담지 않는다.",
+  "_tiers": {
+    "A": "SEED 소스가 복사된 흔적. 확장자와 무관하게 잡는다. 허용 목록에 등재된 파일에도 그대로 적용된다.",
+    "B": "패키지명 참조. 코드 파일에서만 잡고 vendoring_allowlist.json 에 사유와 함께 등재된 파일만 통과시킨다. 등재된 파일이라도 패키지명은 따옴표 안(문자열 리터럴)에만 나타날 수 있다."
+  },
+  "package_ref_pattern": "@seed[-]design\\/",
+  "code_extensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".css", ".json"],
+  "secondary_note": "아래 seed_unique_symbols 는 SEED 카탈로그에만 존재하는 컴포넌트 이름이다. 이 이름들을 이 리포에서 export 한다면 소스를 옮겨 온 것이다.",
+  "seed_unique_symbols": [
+    "MannerTemp",
+    "MannerTempBadge",
+    "SwipeableMenuSheet",
+    "ExtendedActionSheet",
+    "ExtendedFab",
+    "ContextualFloatingButton",
+    "ChipTabs",
+    "ControlChip",
+    "ActionChip",
+    "HelpBubbleTooltip",
+    "BottomSheetHandle",
+    "PullToRefresh",
+    "ResponsiveSidePanel"
+  ],
+  "tier_a": [
+    {
+      "id": "A1-recipe-import",
+      "why": "컴포넌트 소스만 쓰는 내부 레시피 CSS 를 import 하고 있다",
+      "kind": "regex",
+      "pattern": "(from|import|require)\\s*\\(?\\s*['\"]@seed[-]design\\/css\\/recipes\\/"
+    },
+    {
+      "id": "A2-recipe-css-rule",
+      "why": ".css 파일에서 seed 레시피 클래스를 **정의**하고 있다 (사용이 아니라 정의)",
+      "kind": "regex",
+      "extensions": [".css"],
+      "pattern": "(^|\\n)\\s*\\.seed-[a-z0-9_-]+\\s*[,{]"
+    },
+    {
+      "id": "A3-unique-export",
+      "why": "SEED 고유 컴포넌트 심볼을 이 리포에서 export 하고 있다",
+      "kind": "unique_export"
+    },
+    {
+      "id": "A4-attribution-header",
+      "why": "코드 파일에 상류 저작권/라이선스 헤더가 붙어 있다 (원본 파일 복사의 표지)",
+      "kind": "attribution",
+      "extensions": ["*code*"],
+      "identity_pattern": "seed[- ]design",
+      "attribution_patterns": [
+        "Licensed under the Apache License",
+        "Copyright\\s+\\d{4}\\s+주식회사 당근마켓",
+        "Copyright\\s+\\d{4}\\s+Danggeun"
+      ]
+    }
+  ],
+  "allowed_reference_note": "허용 목록에 등재된 파일에서는, 패키지명이 등장하는 각 줄에서 따옴표로 감싼 문자열을 제거한 뒤에도 패키지명이 남으면 위반으로 본다. 즉 패키지명은 import 지정자·의존 선언·설정 값 같은 문자열 리터럴로만 나타날 수 있다."
+}

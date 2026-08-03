@@ -1,0 +1,39 @@
+# DS0 probe build log — `npx next build` (cwd: docs/design-system/DS0/probe)
+# 생성: run-probe.mjs
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/yimminseo/orca/projects/glowmate/pnpm-lock.yaml as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * /Users/yimminseo/orca/projects/glowmate/.claude/worktrees/agent-a3d9522d6c24eaaa5/docs/design-system/DS0/probe/package-lock.json
+   * /Users/yimminseo/orca/projects/glowmate/.claude/worktrees/agent-a3d9522d6c24eaaa5/pnpm-lock.yaml
+
+   ▲ Next.js 15.5.22
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 1078ms
+   Linting and checking validity of types ...
+
+ ⚠ The Next.js plugin was not detected in your ESLint configuration. See https://nextjs.org/docs/app/api-reference/config/eslint#migrating-existing-config
+   Collecting page data ...
+   Generating static pages (0/4) ...
+   Generating static pages (1/4) 
+   Generating static pages (2/4) 
+   Generating static pages (3/4) 
+ ✓ Generating static pages (4/4)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+┌ ○ /                                     145 kB         247 kB
+└ ○ /_not-found                            997 B         103 kB
++ First Load JS shared by all             102 kB
+  ├ chunks/255-fd23c1ca0966ed5f.js         46 kB
+  ├ chunks/4bd1b696-409494caf8c83275.js  54.2 kB
+  └ other shared chunks (total)          1.94 kB
+
+
+○  (Static)  prerendered as static content
+
+DS0_PROBE_BUILD_EXIT=0
