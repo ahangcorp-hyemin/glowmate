@@ -17,6 +17,7 @@
     "secret-scan": 4,
     "discovery": 4,
     "path-guard": 3,
+    "db-schema": 8,
     "ci-required": 2
   }
 }

@@ -1,0 +1,16 @@
+{
+  "_note": [
+    "위반 픽스처 — FORBID-3 '금지 축 사전 등재'. 이 파일은 검사기가 실제로 실패를 내는지",
+    "확인하기 위한 **의도적 위반**이며 어떤 마이그레이션에도 적용되지 않는다.",
+    "정규식 금지만으로는 뚫리는 경로(`target_audience ENUM('women','men')`)를 그대로 담았다."
+  ],
+  "tables": {
+    "venue": ["id", "slug", "gender", "age_band", "target_audience"],
+    "price_plan": ["id", "user_agent", "device_id"]
+  },
+  "enums": {
+    "target_audience": ["women", "men"],
+    "age_group": ["30대", "40대", "50대"]
+  },
+  "reserved_for_f2b": ["venue.visibility", "price_plan.visibility", "price_plan.confidence"]
+}

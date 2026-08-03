@@ -233,6 +233,73 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:path-guard
 
+  # F2a-CORE-SCHEMA — core 스키마 마이그레이션 · 제약 · PostGIS · append-only · 왕복 동일성.
+  #
+  # 실제 PostGIS 컨테이너에서만 판정한다(mock 금지, REQ-2 acceptance).
+  # DB 없이 초록인 스키마 검사는 아무것도 검사하지 않는 검사이고, 그 위에 C1·C4·C5·C6·C7 의
+  # detect 가 얹힌다.
+  db-schema:
+    name: db-schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: glowmate_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/glowmate_test
+      # FORBID-1 (a) — 머지된 up 파일 동결의 기준. 해석 실패 시 검사기가 exit 1 한다.
+      DB_MIGRATION_BASE_REF: origin/main
+    steps:
+      - run: echo "규칙 F2a REQ-1..REQ-7 FORBID-1..FORBID-5 — core 스키마 · 제약 · PostGIS · append-only · 왕복"
+      - uses: actions/checkout@v4
+        with:
+          # FORBID-1 (a) 는 base(origin/main) 원본과 대조한다. 얕은 체크아웃이면 판정 불가다.
+          fetch-depth: 0
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 'REQ-7 / FORBID-1 — 마이그레이션 무결성 (머지분 동결 + 신규 up 의 손실형 DDL)'
+        working-directory: packages/db
+        run: pnpm db:check-migrations
+      - name: 'REQ-1 — 마이그레이션 적용'
+        working-directory: packages/db
+        run: pnpm db:migrate
+      - name: 'REQ-1 · REQ-4 · REQ-6 / FORBID-2 · FORBID-3 · FORBID-4'
+        working-directory: packages/db
+        run: pnpm test:schema-core
+      - name: 'REQ-3 — 제약 3종 + C4 불변식 정합 픽스처'
+        working-directory: packages/db
+        run: pnpm test:constraints-core
+      - name: 'REQ-2 — PostGIS 반경 검색 인덱스 (시드 50,000행)'
+        working-directory: packages/db
+        run: pnpm test:geo
+      - name: 'REQ-5 / FORBID-5 — source_record append-only + tombstone'
+        working-directory: packages/db
+        run: pnpm test:append-only
+      - name: '위반 픽스처 — 각 검사가 실제로 red 가 되는지 (no-op down 포함)'
+        working-directory: packages/db
+        run: pnpm test:violations-core
+      - name: 'REQ-7 — up → down → up 왕복 덤프 sha256 동일성'
+        working-directory: packages/db
+        run: pnpm db:roundtrip
+      - name: 'types.ts 가 마이그레이션 재생성물과 동일'
+        working-directory: packages/db
+        run: pnpm db:generate-types --check
+
   # ─────────────────────────────────────────────────────────────────────
   # REQ-6 — 브랜치 보호의 유일한 필수 체크.
   #
@@ -257,6 +324,9 @@ jobs:
       - secret-scan
       - discovery
       - path-guard
+      # F2a-CORE-SCHEMA 가 추가한 검사 job. REQ-6 (b) 는 `ci-required.needs` 가
+      # ci.yml 의 전 검사 job 을 포함할 것을 요구한다 — 빠지면 이 job 이 red 여도 머지가 열린다.
+      - db-schema
     steps:
       - name: 'REQ-6 — 선행 job 결과 집계 (실패 전파)'
         env:

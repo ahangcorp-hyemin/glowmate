@@ -1,0 +1,10 @@
+{
+  "_note": [
+    "F2a FORBID-1 (a) — 머지된 up 마이그레이션의 sha256 매니페스트.",
+    "`pnpm db:check-migrations` 가 이 값과 현재 파일, 그리고 base(origin/main) 원본을 함께 대조한다.",
+    "갱신: `pnpm db:check-migrations --write-manifest` (신규 마이그레이션 추가 시에만)."
+  ],
+  "files": {
+    "0001_core_schema.up.sql": "23c6f73c00a42ea216bea2e82a090dbc755b6b4cc126de2f12fc49b511147db9"
+  }
+}

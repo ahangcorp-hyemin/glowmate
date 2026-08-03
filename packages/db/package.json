@@ -5,11 +5,26 @@
   "type": "module",
   "main": "./src/client.ts",
   "exports": {
-    ".": "./src/client.ts"
+    ".": "./src/client.ts",
+    "./types": "./src/types.ts"
   },
   "scripts": {
     "build": "echo '@glowmate/db 는 타입 전용 스캐폴드다 — 산출물이 없다. 타입 검사는 typecheck job 이 담당한다'",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test --experimental-strip-types"
+    "test": "node --test --experimental-strip-types test/core/unit/*.test.mjs",
+    "db:migrate": "node schema/core/bin/migrate.mjs up",
+    "db:migrate:down": "node schema/core/bin/migrate.mjs down",
+    "db:migrate:status": "node schema/core/bin/migrate.mjs status",
+    "db:roundtrip": "node schema/core/bin/roundtrip.mjs",
+    "db:check-migrations": "node schema/core/bin/check-migrations.mjs",
+    "db:generate-types": "node schema/core/bin/generate-types.mjs",
+    "test:schema-core": "node --test test/core/db/schema-core.test.mjs",
+    "test:constraints-core": "node --test test/core/db/constraints-core.test.mjs",
+    "test:geo": "node --test test/core/db/geo.test.mjs",
+    "test:append-only": "node --test test/core/db/append-only.test.mjs",
+    "test:violations-core": "node --test test/core/db/violations.test.mjs"
+  },
+  "dependencies": {
+    "pg": "8.16.3"
   }
 }
