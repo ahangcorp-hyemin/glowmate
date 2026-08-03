@@ -1,0 +1,8 @@
+{
+  "job": "test",
+  "label": "③ force-dynamic 페이지 라우트",
+  "expect": ["FORBID-3","REQ-8"],
+  "branch": "ci-fixture/test",
+  "overlay": "overlay/",
+  "note": "overlay/ 이하를 리포 루트에 덮어쓴 브랜치를 push 하면 대응 job 만 red 가 된다."
+}

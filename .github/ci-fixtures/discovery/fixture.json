@@ -1,0 +1,8 @@
+{
+  "job": "discovery",
+  "label": "⑦ 항상 exit 0 인 스텁 validate 스크립트",
+  "expect": ["FORBID-6"],
+  "branch": "ci-fixture/discovery",
+  "overlay": "overlay/",
+  "note": "overlay/ 이하를 리포 루트에 덮어쓴 브랜치를 push 하면 대응 job 만 red 가 된다."
+}

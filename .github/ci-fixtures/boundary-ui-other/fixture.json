@@ -1,0 +1,9 @@
+{
+  "job": "boundary",
+  "label": "REQ-3 ④ 순수 UI 의존을 other 로 등재 — 합법 경로",
+  "expect": [],
+  "branch": "ci-fixture/boundary-ui-other",
+  "overlay": "overlay/",
+  "expected_result": "green",
+  "note": "이 트리가 red 면 DS1·DS3 에 합법 경로가 0개라는 뜻이다 (감사 B-3b · 원칙 2.5). 짝 없는 금지는 제품을 없앤다."
+}

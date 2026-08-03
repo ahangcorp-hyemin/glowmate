@@ -1,0 +1,54 @@
+[project]
+name = "glowmate-crawler"
+version = "0.0.0"
+description = "glowmate 크롤러 — Playwright 기반 스모크 추출기 (F1-REPO-SCAFFOLD REQ-4)"
+readme = "README.md"
+# 루트 `.python-version` 이 3.12 로 고정돼 있다. CI python job 은 3.12 로 실행한다.
+requires-python = ">=3.12"
+dependencies = [
+  "playwright>=1.47",
+]
+
+[project.optional-dependencies]
+# CI `python` job 이 실행하는 순서 (working-directory: services/crawler):
+#   pip install --disable-pip-version-check -e '.[dev]'
+#   ruff check .
+#   python -m playwright install --with-deps chromium   # ← 브라우저 바이너리. 없으면 테스트는 skip 이 아니라 실패한다
+#   python -m pytest -q
+#
+# `playwright` 는 런타임 의존이라 dependencies 에도 있지만, job 이 `.[dev]` 한 번으로
+# 검사 도구 3종(ruff · pytest · playwright)을 모두 얻는다는 계약을 명시적으로 남긴다.
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.6",
+  "playwright>=1.47",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/glowmate_crawler"]
+
+# ─── pytest ────────────────────────────────────────────────────────────────
+# addopts 에 종료 코드를 마스킹하거나 수집 대상을 축소하는 옵션을 넣지 않는다 (F1 FORBID-2).
+# 수집 0건이면 pytest 는 exit 5 로 끝나며, REQ-4 의 "수집 테스트 수 ≥ 1" 은
+# tests/test_suite_integrity.py 가 노드 ID 단위로 추가 검증한다.
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra --strict-markers --strict-config"
+
+# ─── ruff ──────────────────────────────────────────────────────────────────
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["glowmate_crawler"]

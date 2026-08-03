@@ -1,0 +1,8 @@
+{
+  "job": "lint",
+  "label": "② 사유 주석 없는 lint disable 지시자",
+  "expect": ["FORBID-2"],
+  "branch": "ci-fixture/lint",
+  "overlay": "overlay/",
+  "note": "overlay/ 이하를 리포 루트에 덮어쓴 브랜치를 push 하면 대응 job 만 red 가 된다."
+}
