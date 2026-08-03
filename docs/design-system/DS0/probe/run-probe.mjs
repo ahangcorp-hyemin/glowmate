@@ -1,4 +1,4 @@
-/* global process, console, fetch, setTimeout, AbortController */
+/* global process, console, fetch, setTimeout, clearTimeout, AbortController */
 /**
  * DS0 SSR probe 실행기 — REQ-3.
  *

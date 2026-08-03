@@ -146,5 +146,6 @@ node run-probe.mjs          # logs/build.log · logs/console.log · logs/nojs.ht
 - 빌드가 실패하면 로그를 남긴 뒤 **exit 1 로 중단**한다. 실패를 성공으로 삼키지 않는다.
 - 로그를 다시 생성하면 `build.log` 의 sha256 이 바뀐다. `verdict.md` 의 evidence sha256 도 함께 갱신해야
   `--check evidence` 가 통과한다(근거 무결성을 실제로 검사하기 때문이다).
-- `node_modules` · `.next` · `package-lock.json` 은 커밋하지 않는다. 실제 설치 버전은
+- `node_modules` · `.next` · `package-lock.json` · `next-env.d.ts` 는 커밋하지 않는다
+  (앞의 셋은 `.gitignore` 대상이고 `next-env.d.ts` 는 `next build` 가 다시 만든다). 실제 설치 버전은
   [`probe/installed-versions.json`](./probe/installed-versions.json) 에 남겼다.

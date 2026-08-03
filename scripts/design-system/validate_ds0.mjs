@@ -569,7 +569,7 @@ function checkVerdict(root, log) {
 
 /** REQ-7 */
 function checkAppendix(root, log) {
-  const { rules } = loadRules(root);
+  loadRules(root); // 룰 블록이 없으면 여기서 실패시킨다 (판정 불가는 통과가 아니다)
   const md = mustRead(root, 'verdict.md', 'appendix');
   const doc = parseJsonBlock(md, 'DS0-VERDICT');
 
