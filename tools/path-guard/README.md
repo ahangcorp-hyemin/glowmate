@@ -4,9 +4,16 @@ CI job 이름: **`path-guard`** (고정. C2·C3 계약이 이 이름을 인용�
 계약: `docs/tasks/F1.md` FORBID-4 · 감사 `docs/audit/f1-gate2.md` §1 B-5 / B-3b′
 
 ```bash
-pnpm test:path-guard                        # = node tools/path-guard/index.mjs
-node --test "tools/path-guard/test/*.test.mjs"   # 검사기 자체의 자기 테스트 (31건)
+pnpm test:path-guard          # = node tools/path-guard/index.mjs  (FORBID-4 판정)
+pnpm test:selftest:path-guard # = node --test tools/path-guard/test/*.test.mjs (자기 테스트 40건)
 ```
+
+**자기 테스트는 환경 독립이다.** 판정 축이 되는 CI 변수(`GITHUB_REF_NAME` · `GITHUB_HEAD_REF` ·
+`GITHUB_EVENT_NAME` · `GITHUB_ACTIONS` · `CI` 등)는 자식 CLI 에 **상속시키지 않고**
+(`test/helpers/env.mjs` 의 화이트리스트 방식 `cleanEnv()`), 각 케이스가 필요한 값만 명시 주입한다.
+그렇지 않으면 selftest 를 `path-guard` job 안에서 돌릴 때 그 job 의 `GITHUB_REF_NAME=ci-fixture/*`
+가 자식에게 새어 임시 리포의 브랜치와 무관하게 픽스처 판정 경로를 타고, **통과 이유가 코드가 아니라
+주변 환경**이 된다. 회귀 방어 테스트 1건이 이 상태를 직접 감시한다.
 
 ## 무엇을 판정하는가
 
@@ -96,7 +103,8 @@ lib/glob.mjs        touches 글롭 → 정규식
 lib/base-ref.mjs    비교 기준 선택 (기본 origin/main · ci-fixture/** 만 분기점)
 lib/git.mjs         ref 해석 · merge-base · 변경 파일 목록 (실패는 전부 예외)
 lib/errors.mjs      PathGuardError · FORBID-4 토큰
-test/*.test.mjs     자기 테스트 39건 (node:test, 외부 의존 없음)
+test/*.test.mjs     자기 테스트 40건 (node:test, 외부 의존 없음)
+test/helpers/env.mjs  자식 CLI 환경 통제 — CI 변수 상속 차단 + 명시 주입
 ```
 
 Node 24 ESM. **새 의존 없음** (`node:` 내장 모듈과 `git` 만 사용).
