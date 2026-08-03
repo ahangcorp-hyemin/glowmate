@@ -117,13 +117,48 @@ export const TRAILING_EXIT_ZERO_RE = /^\s*exit\s+0\s*(#.*)?$/;
  * 기존 `TRAILING_EXIT_ZERO_RE` 는 `.sh/.bash/.zsh` 와 워크플로 `run:` 블록에만 적용돼
  * 검사기 본체(`.mjs`)가 대상 밖이었다. 그 백스톱을 채운다.
  *
- * 판정 범위를 **최상위(들여쓰기 0) 리터럴 0 종료**로 한정하는 이유:
- * 조건 분기 안의 정당한 성공 종료(`if (ok) process.exit(0)`)나 `process.exit(code)` 를 잡으면
- * 오탐이 나고, 오탐이 나는 규칙은 결국 꺼진다. 무조건 실행되는 성공 종료만 위반이다.
+ * **판정 방식 — 파일 단위 핀(pin).**
+ * 처음에는 "최상위(들여쓰기 0) 리터럴 0 종료"로 좁혔으나, 실제 공격 지점
+ * (`dep-graph/index.mjs:485` 의 `  process.exit(code);`)은 함수 안이라 들여쓰기돼 있어 **못 잡았다**.
+ * 반대로 들여쓰기를 무시하면 `path-guard/index.mjs:15`(예외 기반 구조에서 위반 0건일 때만
+ * 도달하는 성공 종료)를 오탐한다. 조건부인지 아닌지를 정적으로 가르는 것은 신뢰할 수 없다.
+ *
+ * 그래서 **리터럴 `exit(0)` 을 갖는 파일 자체를 핀으로 고정**한다.
+ *   · 아래 허용목록에 없는 검사기 파일에 리터럴 `exit(0)` 이 나타나면 위반이다.
+ *   · 허용 항목은 **사유를 함께 적는다.** 목록이 늘어나는 것은 diff 에 드러나고,
+ *     `tools/**` 는 CODEOWNERS 소유 경로다.
+ * 검사기의 종료 코드는 **판정 결과에서 파생**되어야 한다(`process.exit(report.print())` ·
+ * `process.exit(code)`). 리터럴 0 은 판정과 무관한 성공 선언이므로 기본이 금지다.
  */
 export const CHECKER_FILE_RE = /^tools\/.*\.(mjs|cjs|js|py)$/;
-export const UNCONDITIONAL_SUCCESS_EXIT_RE =
-  /^(?:process|sys|os)\.(?:exit|_exit)\s*\(\s*0\s*\)\s*;?\s*$/;
+export const LITERAL_ZERO_EXIT_RE = /(?:process|sys|os)\.(?:exit|_exit)\s*\(\s*0\s*\)/;
+
+/**
+ * 리터럴 `exit(0)` 이 허용되는 검사기 파일 (사유 필수).
+ * 항목 추가는 "이 검사기는 왜 판정과 무관하게 성공을 선언해도 되는가"를 설명해야 한다.
+ */
+export const CHECKER_LITERAL_EXIT_ALLOWLIST = [
+  {
+    file: 'tools/path-guard/index.mjs',
+    reason:
+      'runCheck() 가 위반·판정불가에 예외를 던지는 구조라 이 지점 도달 자체가 "위반 0건" 판정이다. ' +
+      '종료 코드가 판정에서 파생된다는 성질이 예외 흐름으로 보장된다.',
+  },
+];
+
+/** 소스 라인에서 문자열 리터럴·주석을 제거한다 (문자열 안의 exit(0) 오탐 방지). */
+export function stripLiteralsAndComments(line, lang) {
+  const trimmed = line.trimStart();
+  if (trimmed.startsWith('*') || trimmed.startsWith('/*') || trimmed.startsWith('//')) return '';
+  if (lang === 'py' && trimmed.startsWith('#')) return '';
+  let s = line
+    .replace(/'(?:\\.|[^'\\])*'/g, "''")
+    .replace(/"(?:\\.|[^"\\])*"/g, '""')
+    .replace(/`(?:\\.|[^`\\])*`/g, '``');
+  const cut = lang === 'py' ? s.indexOf('#') : s.indexOf('//');
+  if (cut >= 0) s = s.slice(0, cut);
+  return s;
+}
 
 /** eslint / depcruise disable 지시자 */
 export const DISABLE_DIRECTIVE_RE =

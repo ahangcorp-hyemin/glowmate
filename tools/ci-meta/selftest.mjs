@@ -10,7 +10,15 @@
 // 하나라도 어긋나면 그 자체로 exit 1 이다.
 //
 // 특히 B-8: `needs:` 만 선언한 순진한 애그리게이터가 R6C-1 에서 실제로 걸리는지를 여기서 못박는다.
+//
+// 두 가지 방식으로 실행된다:
+//   1. `index.mjs` 가 import 해서 `pnpm test:ci-meta` 마다 (기본 경로)
+//   2. `node tools/ci-meta/selftest.mjs` 단독 실행 — 파일 말미의 main 가드가 처리한다.
+//      가드가 없으면 단독 실행이 **출력 없이 exit 0** 이 되어, 검증 명령 자체가 조용한 통과가 된다.
 
+import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
+import path from 'node:path';
 import YAML from 'yaml';
 import { Report } from './lib/util.mjs';
 import { isFixtureBranch, fixtureExemptionAllowed } from './fixture-rules.mjs';
@@ -39,7 +47,9 @@ import {
   DISABLE_REASON_RE,
   TOKEN_CONTINUE_ON_ERROR,
   CHECKER_FILE_RE,
-  UNCONDITIONAL_SUCCESS_EXIT_RE,
+  LITERAL_ZERO_EXIT_RE,
+  CHECKER_LITERAL_EXIT_ALLOWLIST,
+  stripLiteralsAndComments,
 } from './forbid2-patterns.mjs';
 
 const NEEDS = ['typecheck', 'lint', 'boundary', 'test', 'python', 'secret-scan', 'discovery', 'path-guard'];
@@ -201,20 +211,42 @@ export function runSelfTests() {
 
   // ── 검사기 종료 코드 무력화 백스톱 (검수 차단 B-C) ────────────────────
   {
-    const mustFlag = ['process.exit(0)', 'process.exit(0);', 'sys.exit(0)', 'os._exit(0)', 'process.exit( 0 );'];
+    const hit = (line, lang = 'js') =>
+      LITERAL_ZERO_EXIT_RE.test(stripLiteralsAndComments(line, lang));
+
+    // ★ 검수관이 실증한 공격: dep-graph/index.mjs 의 `  process.exit(code);` → `  process.exit(0);`
+    //   함수 안이라 들여쓰기돼 있다. 최상위 한정 규칙은 이걸 못 잡았다.
+    const mustFlag = [
+      '  process.exit(0);',
+      'process.exit(0)',
+      '    sys.exit(0)',
+      '  os._exit(0);',
+      'process.exit( 0 );',
+      '  if (ok) process.exit(0);',
+    ];
     const mustNotFlag = [
-      'process.exit(report.print());',   // 판정 결과로 종료 — 정상
-      'process.exit(code);',             // 변수 종료 — 정상
-      'process.exit(1);',                // 실패 종료 — 정상
-      '  if (ok) process.exit(0);',      // 조건 분기 안의 성공 종료 — 정상
-      '    process.exit(0);',            // 들여쓰기 = 최상위 아님 — 정상
-      "  writeFileSync(p, 'import sys\\nsys.exit(0)\\n');", // 문자열 리터럴 — 정상
+      'process.exit(report.print());',
+      '  process.exit(code);',
+      'process.exit(1);',
+      "  writeFileSync(p, 'import sys\\nsys.exit(0)\\n');", // 문자열 리터럴
+      ' * `process.exit(0)` 한 줄이면 검사가 죽는다', // JSDoc 주석
+      '// process.exit(0) 은 금지다', // 라인 주석
+      "        'sys.exit(0)',", // 배열 안 문자열
     ];
     for (const l of mustFlag) {
-      if (!UNCONDITIONAL_SUCCESS_EXIT_RE.test(l)) bad('FORBID-2', `자기검사 — 무조건 성공 종료를 잡지 못했다: ${l}`);
+      if (!hit(l)) bad('FORBID-2', `자기검사 — 검사기 리터럴 exit(0) 을 잡지 못했다: ${l.trim()}`);
     }
     for (const l of mustNotFlag) {
-      if (UNCONDITIONAL_SUCCESS_EXIT_RE.test(l)) bad('FORBID-2', `자기검사 — 정당한 종료를 오탐했다: ${l}`);
+      if (hit(l)) bad('FORBID-2', `자기검사 — 정당한 종료/문자열을 오탐했다: ${l.trim()}`);
+    }
+    if (!hit('    sys.exit(0)', 'py') || hit('# sys.exit(0)', 'py')) {
+      bad('FORBID-2', '자기검사 — python 주석/코드 구분이 잘못됐다');
+    }
+    // 허용목록은 사유가 반드시 있어야 한다 (사유 없는 예외는 다음 항목의 선례가 된다)
+    for (const a of CHECKER_LITERAL_EXIT_ALLOWLIST) {
+      if (!a.file || !a.reason || a.reason.trim().length < 20) {
+        bad('FORBID-2', `자기검사 — 허용목록 항목에 충분한 사유가 없다: ${JSON.stringify(a)}`);
+      }
     }
     const pathOk =
       CHECKER_FILE_RE.test('tools/dep-graph/index.mjs') &&
@@ -541,4 +573,32 @@ export function runSelfTests() {
   }
 
   return out;
+}
+
+/* ── 단독 실행 진입점 ────────────────────────────────────────────────────
+ * `node tools/ci-meta/selftest.mjs` 로 직접 돌렸을 때만 실행된다.
+ * import 경로(index.mjs)에서는 실행되지 않는다.
+ * 케이스가 0건이면 그 자체를 실패로 본다 — 조용히 통과하는 자기검사는 자기검사가 아니다.
+ * ──────────────────────────────────────────────────────────────────────── */
+function isDirectRun() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(path.resolve(entry));
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectRun()) {
+  const report = new Report('ci-meta selftest (판정기 자기검사)');
+  const results = runSelfTests();
+  if (results.length === 0) {
+    report.fail('ci-meta', '자기검사 케이스가 0건이다 — 판정기의 탐지력이 입증되지 않았다');
+  }
+  for (const r of results) {
+    if (r.ok) report.pass(r.rule, r.message);
+    else report.fail(r.rule, r.message);
+  }
+  process.exit(report.print());
 }

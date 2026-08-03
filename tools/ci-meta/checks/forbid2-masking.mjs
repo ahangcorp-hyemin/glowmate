@@ -36,7 +36,9 @@ import {
   PROSE_EXTENSIONS,
   TOKEN_CONTINUE_ON_ERROR,
   CHECKER_FILE_RE,
-  UNCONDITIONAL_SUCCESS_EXIT_RE,
+  LITERAL_ZERO_EXIT_RE,
+  CHECKER_LITERAL_EXIT_ALLOWLIST,
+  stripLiteralsAndComments,
 } from '../forbid2-patterns.mjs';
 
 const RULE = 'FORBID-2';
@@ -174,7 +176,10 @@ export function scanCheckerExitMasking(report, root) {
     return;
   }
 
-  const hits = [];
+  const allow = new Map(CHECKER_LITERAL_EXIT_ALLOWLIST.map((a) => [a.file, a.reason]));
+  /** @type {Map<string, number[]>} */
+  const hitsByFile = new Map();
+
   for (const rel of targets) {
     const abs = path.join(root, rel);
     if (!existsSync(abs)) continue;
@@ -184,25 +189,48 @@ export function scanCheckerExitMasking(report, root) {
     } catch {
       continue;
     }
+    const lang = rel.endsWith('.py') ? 'py' : 'js';
     text.split('\n').forEach((line, i) => {
-      if (UNCONDITIONAL_SUCCESS_EXIT_RE.test(line)) {
-        hits.push({ rel, line: i + 1, text: line.trim() });
+      const code = stripLiteralsAndComments(line, lang);
+      if (LITERAL_ZERO_EXIT_RE.test(code)) {
+        if (!hitsByFile.has(rel)) hitsByFile.set(rel, []);
+        hitsByFile.get(rel).push(i + 1);
       }
     });
   }
 
-  if (hits.length > 0) {
-    for (const h of hits) {
-      report.fail(
+  let violations = 0;
+  for (const [rel, lines] of hitsByFile) {
+    if (allow.has(rel)) {
+      report.pass(
         RULE,
-        `${h.rel}:${h.line} 검사기가 최상위에서 무조건 성공 종료한다 (\`${h.text}\`) — ` +
-          `"FAIL 이다"라고 출력하면서 exit 0 을 내면 그 검사는 영구 무력화된다. 종료 코드는 판정 결과여야 한다`,
+        `${rel}:${lines.join(',')} 리터럴 exit(0) — 허용목록 등재분: ${allow.get(rel)}`,
+      );
+      continue;
+    }
+    violations += 1;
+    report.fail(
+      RULE,
+      `${rel}:${lines.join(',')} 검사기가 리터럴 \`exit(0)\` 으로 성공을 선언한다 — ` +
+        `검사기의 종료 코드는 **판정 결과에서 파생**되어야 한다(process.exit(report.print()) · process.exit(code)). ` +
+        `"FAIL 이다"라고 출력하면서 exit 0 을 내면 그 검사는 영구 무력화된다. ` +
+        `정당한 사유가 있으면 tools/ci-meta/forbid2-patterns.mjs 의 CHECKER_LITERAL_EXIT_ALLOWLIST 에 사유와 함께 등재하라`,
+    );
+  }
+
+  for (const [file, reason] of allow) {
+    if (!hitsByFile.has(file)) {
+      report.info(
+        RULE,
+        `허용목록 항목 \`${file}\` 에 리터럴 exit(0) 이 더 이상 없다 — 항목을 제거해 허용 범위를 좁힐 것 (사유: ${reason})`,
       );
     }
-  } else {
+  }
+
+  if (violations === 0) {
     report.pass(
       RULE,
-      `검사기 ${targets.length}건에서 최상위 무조건 성공 종료 0건 (tools/** 의 .mjs·.js·.py 전수)`,
+      `검사기 ${targets.length}건 전수 — 허용목록 밖 리터럴 exit(0) 0건 (tools/** 의 .mjs·.js·.py)`,
     );
   }
 }
