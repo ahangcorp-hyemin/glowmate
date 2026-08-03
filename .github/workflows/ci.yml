@@ -168,7 +168,7 @@ jobs:
           useDefault = true
 
           [allowlist]
-          description = "자리표시자 예시 파일 · 위반 재현용 픽스처 원본"
+          description = "자리표시자 예시 파일 · 위반 재현용 픽스처 원본 · 빌드 산출물"
           paths = [
             '''\.env\.example$''',
             # 픽스처 원본은 의도적으로 가짜 자격증명을 담고 있다(REQ-5 픽스처 ⑤).
@@ -177,10 +177,24 @@ jobs:
             # 픽스처 브랜치에서는 오버레이가 이 파일을 apps/web/src/lib/ 로 복사하므로
             # 제외 경로 밖이 되어 정상적으로 red 가 된다.
             '''^\.github/ci-fixtures/''',
+            '''(^|/)\.next/''',
+            '''(^|/)node_modules/''',
+            '''(^|/)(dist|out)/''',
           ]
           TOML
-      - name: 스캔
-        run: gitleaks detect --no-banner --redact --config /tmp/gitleaks.toml --source .
+      # 스캔을 두 번 돌린다. 어느 한쪽도 생략하지 않는다.
+      #
+      # (1) 이력 — 범위를 `origin/main..HEAD` 로 한정한다. 범위를 주지 않으면 gitleaks 가
+      #     리포에 도달 가능한 **전 브랜치의 커밋**을 스캔한다. `ci-fixture/secret-scan` 의
+      #     오버레이 커밋에는 가짜 자격증명이 apps/web/src/lib/ 에 있으므로,
+      #     범위 없이 돌리면 무관한 브랜치의 픽스처 때문에 본 PR 이 red 가 된다(실측).
+      #     PR 안에서 넣었다 지운 비밀값은 이 스캔이 잡는다.
+      # (2) 워킹트리 — 지금 트리에 실제로 존재하는 값을 잡는다. 이력 범위가 비는
+      #     상황(예: main 직접 push)에서 검사가 공허해지지 않게 한다.
+      - name: '스캔 (1) 이 브랜치가 더한 커밋'
+        run: gitleaks detect --no-banner --redact --config /tmp/gitleaks.toml --source . --log-opts="origin/main..HEAD"
+      - name: '스캔 (2) 워킹트리'
+        run: gitleaks detect --no-git --no-banner --redact --config /tmp/gitleaks.toml --source .
 
   discovery:
     name: discovery

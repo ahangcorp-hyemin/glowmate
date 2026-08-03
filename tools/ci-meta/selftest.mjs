@@ -15,6 +15,12 @@ import YAML from 'yaml';
 import { Report } from './lib/util.mjs';
 import { isFixtureBranch } from './fixture-rules.mjs';
 import { GitHubError, isPlanLimited } from './lib/github.mjs';
+import {
+  resolveRequiredContexts,
+  resolveRequireCodeOwnerReviews,
+  SOURCE_RULESET,
+  SOURCE_LEGACY,
+} from './lib/branch-protection.mjs';
 import { analyzeEnforcementJob } from './checks/req6-aggregator.mjs';
 import { computeRaised } from './checks/forbid5-budget.mjs';
 import { isProseFile, isExcludedPath } from './checks/forbid2-masking.mjs';
@@ -401,6 +407,86 @@ export function runSelfTests() {
       bad('REQ-6', `자기검사 — PLAN_LIMITED 판정 오류: ${problems.join(' / ')}`);
     } else {
       ok('REQ-6', 'PLAN_LIMITED 자기검사 통과 — 플랜 제약 403 만 분리 인식 (판정은 FAIL 유지)');
+    }
+  }
+
+  // REQ-6 (a) / REQ-7 (b) — 보호 설정 원천 해석 (ruleset 1차 · legacy 2차)
+  {
+    const problems = [];
+    // 실제 ruleset 응답 모양: parameters.required_status_checks = [{context}]
+    const rulesetRules = [
+      {
+        type: 'pull_request',
+        parameters: { require_code_owner_review: true, required_approving_review_count: 0 },
+      },
+      {
+        type: 'required_status_checks',
+        parameters: {
+          required_status_checks: [{ context: 'ci-required', integration_id: 15368 }],
+          strict_required_status_checks_policy: false,
+        },
+      },
+    ];
+    // legacy 응답 모양: contexts 는 문자열 배열
+    const legacyData = {
+      required_status_checks: { contexts: ['ci-required'] },
+      required_pull_request_reviews: { require_code_owner_reviews: true },
+    };
+    const S = (ruleset, legacy) => ({
+      ruleset: { ok: Boolean(ruleset), rules: ruleset ?? null, error: null },
+      legacy: { ok: Boolean(legacy), data: legacy ?? null, error: null },
+    });
+
+    // ruleset 단독 — 객체 배열이 문자열로 정규화돼야 한다
+    const a = resolveRequiredContexts(S(rulesetRules, null));
+    if (!a.found || a.source !== SOURCE_RULESET || a.contexts.join() !== 'ci-required') {
+      problems.push(`ruleset 필수체크 정규화 실패: ${JSON.stringify(a)}`);
+    }
+    const b = resolveRequireCodeOwnerReviews(S(rulesetRules, null));
+    if (!b.found || b.value !== true || b.source !== SOURCE_RULESET) {
+      problems.push(`ruleset code owner 판정 실패: ${JSON.stringify(b)}`);
+    }
+    // legacy 폴백 — ruleset 이 비었을 때만
+    const c = resolveRequiredContexts(S([], legacyData));
+    if (!c.found || c.source !== SOURCE_LEGACY || c.contexts.join() !== 'ci-required') {
+      problems.push(`legacy 폴백 실패: ${JSON.stringify(c)}`);
+    }
+    const d = resolveRequireCodeOwnerReviews(S([], legacyData));
+    if (!d.found || d.value !== true || d.source !== SOURCE_LEGACY) {
+      problems.push(`legacy code owner 폴백 실패: ${JSON.stringify(d)}`);
+    }
+    // legacy 의 checks 배열 형태도 지원
+    const e = resolveRequiredContexts(S([], { required_status_checks: { checks: [{ context: 'ci-required' }] } }));
+    if (!e.found || e.contexts.join() !== 'ci-required') problems.push('legacy checks[] 형태 미지원');
+    // 우선순위: 둘 다 있으면 ruleset
+    const f = resolveRequiredContexts(S(rulesetRules, { required_status_checks: { contexts: ['other'] } }));
+    if (f.source !== SOURCE_RULESET) problems.push('원천 우선순위가 ruleset 이 아니다');
+    // 둘 다 없으면 found=false → 호출부가 FAIL 로 만든다 (통과로 새면 안 된다)
+    const g = resolveRequiredContexts(S([], {}));
+    const h = resolveRequireCodeOwnerReviews(S([], {}));
+    if (g.found || h.found) problems.push('원천 부재인데 found=true (판정 불가가 통과로 샌다)');
+    // code owner 가 꺼져 있으면 found=true, value=false 로 구분돼야 한다
+    const i = resolveRequireCodeOwnerReviews(
+      S([{ type: 'pull_request', parameters: { require_code_owner_review: false } }], null),
+    );
+    if (!i.found || i.value !== false) problems.push('code owner 비활성 상태를 구분하지 못했다');
+    // bypass_actors 는 판정 대상이 아니다 — 있어도 결과가 달라지면 안 된다
+    const withBypass = [
+      ...rulesetRules.map((r) => ({ ...r })),
+    ];
+    const j = resolveRequiredContexts({
+      ruleset: { ok: true, rules: withBypass, error: null },
+      legacy: { ok: false, data: null, error: null },
+    });
+    if (j.contexts.join() !== 'ci-required') problems.push('bypass_actors 존재 시 판정이 흔들린다');
+
+    if (problems.length > 0) {
+      bad('REQ-6', `자기검사 — 보호 설정 원천 해석 오류: ${problems.join(' / ')}`);
+    } else {
+      ok(
+        'REQ-6',
+        '자기검사 통과 — ruleset(객체 배열)/legacy(문자열 배열) 정규화 · 원천 우선순위 · 원천 부재 시 미판정 유지',
+      );
     }
   }
 

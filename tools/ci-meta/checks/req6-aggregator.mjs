@@ -18,6 +18,11 @@ import { Workflow, CI_WORKFLOW, normalizeExpression } from '../lib/workflow.mjs'
 import { fmtSet, CheckError } from '../lib/util.mjs';
 import { REQUIRED_JOBS, AGGREGATOR_JOB } from '../fixture-rules.mjs';
 import { baseBranchName, isPlanLimited, PLAN_LIMITED_TOKEN } from '../lib/github.mjs';
+import {
+  loadProtectionSources,
+  resolveRequiredContexts,
+  sourceErrorDetail,
+} from '../lib/branch-protection.mjs';
 
 const RULE = 'REQ-6';
 const BUDGET_PATH = '.github/ci-budget.json';
@@ -344,38 +349,40 @@ export async function checkReq6(report, ctx) {
   }
 
   const branch = baseBranchName();
-  let protection;
-  try {
-    protection = await gh.client.branchProtection(branch);
-  } catch (err) {
-    if (isPlanLimited(err)) {
+  const sources = await loadProtectionSources(gh.client, branch);
+  const resolved = resolveRequiredContexts(sources);
+
+  if (!resolved.found) {
+    const planErr = [sources.ruleset.error, sources.legacy.error].find((e) => e && isPlanLimited(e));
+    if (planErr) {
       report.fail(
         RULE,
-        `(a) ${PLAN_LIMITED_TOKEN} — 이 리포지토리에서는 브랜치 보호를 켤 수 없다 (private + free 플랜). ` +
+        `(a) ${PLAN_LIMITED_TOKEN} — 이 리포지토리에서는 브랜치 보호를 켤 수 없다. ` +
           `required status checks 를 {${AGGREGATOR_JOB}} 로 등록하는 것이 **설정 자체로 불가능**하므로 ` +
           `REQ-6 (a) 를 충족할 수 없다. 조회 실패가 아니라 기능 부재다 — 통과로 처리하지 않는다`,
-        `${err.message}\n${err.body ?? ''}`,
+        sourceErrorDetail(sources),
       );
       return;
     }
     report.fail(
       RULE,
-      `(a) 브랜치 \`${branch}\` 의 보호 설정을 조회할 수 없다 — 판정 불가는 통과가 아니다`,
-      `${err.message}\n${err.body ?? ''}`,
+      `(a) 브랜치 \`${branch}\` 의 필수 상태 체크를 ruleset·legacy 어느 원천으로도 판정할 수 없다 — 판정 불가는 통과가 아니다`,
+      sourceErrorDetail(sources),
     );
     return;
   }
 
-  const contexts =
-    protection?.required_status_checks?.contexts ??
-    (protection?.required_status_checks?.checks ?? []).map((c) => c.context);
-  const set = new Set(contexts ?? []);
+  const set = new Set(resolved.contexts);
   if (set.size === 1 && set.has(AGGREGATOR_JOB)) {
-    report.pass(RULE, `(a) required status checks == {${AGGREGATOR_JOB}}`);
+    report.pass(
+      RULE,
+      `(a) required status checks == {${AGGREGATOR_JOB}} (source=${resolved.source}, branch=${branch})`,
+    );
   } else {
     report.fail(
       RULE,
-      `(a) 브랜치 보호 required status checks 집합이 {${AGGREGATOR_JOB}} 이 아니다: ${fmtSet(set)}`,
+      `(a) 브랜치 보호 required status checks 집합이 {${AGGREGATOR_JOB}} 와 다르다: ${fmtSet(set)} ` +
+        `(source=${resolved.source}, branch=${branch}) — 계약은 포함이 아니라 **집합 동등**을 요구한다`,
     );
   }
 }

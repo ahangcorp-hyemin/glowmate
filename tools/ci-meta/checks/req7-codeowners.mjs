@@ -22,6 +22,11 @@ import {
   PLAN_LIMITED_TOKEN,
 } from '../lib/github.mjs';
 import {
+  loadProtectionSources,
+  resolveRequireCodeOwnerReviews,
+  sourceErrorDetail,
+} from '../lib/branch-protection.mjs';
+import {
   detectMaintainerMode,
   checkRelaxationWindow,
   checkIndependentPr,
@@ -146,34 +151,38 @@ export async function checkReq7(report, ctx) {
     return;
   }
   const branch = baseBranchName();
-  let protection;
-  try {
-    protection = await gh.client.branchProtection(branch);
-  } catch (err) {
-    if (isPlanLimited(err)) {
+  const sources = await loadProtectionSources(gh.client, branch);
+  const resolved = resolveRequireCodeOwnerReviews(sources);
+
+  if (!resolved.found) {
+    const planErr = [sources.ruleset.error, sources.legacy.error].find((e) => e && isPlanLimited(e));
+    if (planErr) {
       report.fail(
         RULE,
-        `(b) ${PLAN_LIMITED_TOKEN} — 이 리포지토리에서는 브랜치 보호를 켤 수 없다 (private + free 플랜). ` +
+        `(b) ${PLAN_LIMITED_TOKEN} — 이 리포지토리에서는 브랜치 보호를 켤 수 없다. ` +
           `"Require review from Code Owners" 활성화가 **설정 자체로 불가능**하므로 REQ-7 (b) 를 충족할 수 없다. ` +
           `CODEOWNERS 7경로는 등록돼 있으나 집행 수단이 없다 — 조회 실패가 아니라 기능 부재이며 통과로 처리하지 않는다`,
-        `${err.message}\n${err.body ?? ''}`,
+        sourceErrorDetail(sources),
       );
       return;
     }
     report.fail(
       RULE,
-      `(b) 브랜치 \`${branch}\` 보호 설정 조회 실패 — 판정 불가는 통과가 아니다`,
-      `${err.message}\n${err.body ?? ''}`,
+      `(b) 브랜치 \`${branch}\` 의 code owner 리뷰 필수 여부를 ruleset·legacy 어느 원천으로도 판정할 수 없다 — 판정 불가는 통과가 아니다`,
+      sourceErrorDetail(sources),
     );
     return;
   }
-  const flag = protection?.required_pull_request_reviews?.require_code_owner_reviews;
-  if (flag === true) {
-    report.pass(RULE, `(b) ${branch} 브랜치 보호: require_code_owner_reviews == true`);
+
+  if (resolved.value === true) {
+    report.pass(
+      RULE,
+      `(b) ${branch} — code owner 리뷰 필수 활성 (source=${resolved.source})`,
+    );
   } else {
     report.fail(
       RULE,
-      `(b) ${branch} 브랜치 보호의 require_code_owner_reviews 가 true 가 아니다 (실제값: ${JSON.stringify(flag)}) — CODEOWNERS 가 파일 속 문자열로만 남는다`,
+      `(b) ${branch} 의 code owner 리뷰 필수가 켜져 있지 않다 (실제값: ${JSON.stringify(resolved.value)}, source=${resolved.source}) — CODEOWNERS 가 파일 속 문자열로만 남는다`,
     );
   }
 }

@@ -86,9 +86,24 @@ class GitHubClient {
     return out;
   }
 
+  /**
+   * legacy branch protection. **admin 권한**을 요구하므로 Actions 기본 GITHUB_TOKEN 으로는 403 이다.
+   * 2차 원천으로만 쓴다.
+   */
   branchProtection(branch) {
     return this.request(
       `/repos/${this.slug}/branches/${encodeURIComponent(branch)}/protection`,
+    );
+  }
+
+  /**
+   * repository ruleset — 브랜치에 적용되는 규칙 목록. **읽기 권한만으로 조회된다.**
+   * 보호 설정 판정의 1차 원천이다.
+   */
+  branchRules(branch) {
+    return this.request(
+      `/repos/${this.slug}/rules/branches/${encodeURIComponent(branch)}`,
+      { allow404: true },
     );
   }
 

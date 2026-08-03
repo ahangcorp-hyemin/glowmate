@@ -90,12 +90,31 @@ REQ-5 (2)(3) 과 REQ-6 (c) 런타임은 **PR 의 메타 검증**이지 픽스처
 - 접두사는 정확히 `ci-fixture/` 다. `feat/ci-fixture-like` · `ci-fixtures/lint` 같은 위장은 면제되지 않으며,
   selftest 가 인식 3건 / 무탐 9건을 매 실행 검증한다. **PR 브랜치에서는 면제 없이 엄격 판정한다.**
 
-### `PLAN_LIMITED` — 브랜치 보호 API 403
+### 브랜치 보호 판정 원천 (REQ-6 (a) · REQ-7 (b))
 
-private + free 플랜 리포에서는 브랜치 보호 API 가 403 + "Upgrade to GitHub Pro" 를 반환한다.
-이는 "일시적 조회 실패"가 아니라 **설정 자체가 불가능**한 상태다. 둘을 구분해 출력하되
-**판정은 FAIL 그대로 유지한다** — 계약 요구(REQ-6 (a) · REQ-7 (b))를 충족할 수 없는 상태이기 때문이다.
-통과로 바꾸는 것은 계약 개정 또는 플랜 변경 사안이지 검사기가 결정할 일이 아니다.
+| 순위 | 원천 | 엔드포인트 | 권한 |
+|---|---|---|---|
+| 1차 | ruleset | `GET /repos/{o}/{r}/rules/branches/{branch}` | **읽기 권한만으로 조회된다** |
+| 2차 | legacy branch protection | `GET /repos/{o}/{r}/branches/{b}/protection` | **admin 필요** — Actions 기본 `GITHUB_TOKEN` 으로는 403 |
+
+응답 모양이 다르므로 문자열 집합으로 정규화해 비교한다.
+
+```
+ruleset : parameters.required_status_checks = [{ "context": "ci-required" }]   ← 객체 배열
+legacy  : required_status_checks.contexts   = ["ci-required"]                  ← 문자열 배열 (.checks[] 도 지원)
+```
+
+- REQ-6 (a) 는 **집합 동등**(`== {ci-required}`)이다. 포함이 아니다.
+- REQ-7 (b) 는 ruleset 의 `pull_request.parameters.require_code_owner_review`,
+  legacy 의 `required_pull_request_reviews.require_code_owner_reviews`.
+- 어느 원천으로 판정했는지 `source=ruleset` / `source=legacy-protection` 으로 **명시 출력**한다.
+- **둘 다 판정 불가면 FAIL.** 통과로 바꾸지 않는다.
+- ruleset 의 `bypass_actors` 는 판정 대상이 아니다 — 계약이 요구하는 것은 필수 체크 집합과
+  code owner 리뷰 활성 여부뿐이다.
+
+`PLAN_LIMITED`: private + free 플랜에서는 두 원천 모두 403 + "Upgrade to GitHub Pro" 를 반환한다.
+"일시적 조회 실패"와 구분해 출력하되 **판정은 FAIL 그대로**다 — 설정 자체가 불가능해 계약 요구를
+충족할 수 없는 상태이며, 통과로 바꾸는 것은 계약 개정 또는 플랜 변경 사안이지 검사기가 결정할 일이 아니다.
 
 ## 픽스처 실행 드라이버 — `fixtures-run.mjs`
 
