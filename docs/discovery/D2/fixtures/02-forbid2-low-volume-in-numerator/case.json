@@ -1,0 +1,13 @@
+{
+  "id": "02-forbid2-low-volume-in-numerator",
+  "why": "'강남구 필라테스 허리통증 가격' 의 검색량 합을 12 로 내렸는데도 serp csv 와 enterable 집계에 그대로 남아 있는 트리. 검색량 하한 없이 초장문 조합으로 상위 100 을 경쟁 없는 구간으로 옮기는 경로.",
+  "base": "00-valid",
+  "checks": [
+    "serp"
+  ],
+  "expect": "fail",
+  "expect_rule": "FORBID-2",
+  "env": {
+    "D2_CONTROL_KEY": "fixturekey"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "06-forbid6-blocked-pair-has-serp-row",
+  "why": "'강남구 필라테스 허리통증 가격'/naver 가 403 캡차로 차단됐다고 기록되어 있는데 serp_naver.csv 에 그 조합의 행이 manual_recheck 표기도 차단 이후 재캡처 스냅샷도 없이 존재하는 트리 — 프록시·캡차 우회 수집의 흔적.",
+  "base": "00-valid",
+  "checks": [
+    "blocked"
+  ],
+  "expect": "fail",
+  "expect_rule": "FORBID-6",
+  "env": {
+    "D2_CONTROL_KEY": "fixturekey"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "07-forbid3-csv-domain-mismatch",
+  "why": "'강남구 필라테스 허리통증 가격'/google rank 1 의 domain 을 스냅샷에 없는 독립 도메인으로 바꿔 적은 트리. 스냅샷은 그대로 두고 csv 만 고치면 대형 플랫폼 결과가 독립 도메인으로 둔갑해 independent_domains 가 부풀려진다. 자기신고 컬럼이 아니라 원본 파싱과 대조해야 잡힌다.",
+  "base": "00-valid",
+  "checks": [
+    "capture-integrity"
+  ],
+  "expect": "fail",
+  "expect_rule": "FORBID-3",
+  "env": {
+    "D2_CONTROL_KEY": "fixturekey"
+  }
+}

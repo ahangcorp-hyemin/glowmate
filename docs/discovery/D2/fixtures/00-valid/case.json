@@ -1,0 +1,20 @@
+{
+  "id": "00-valid",
+  "why": "위반이 없는 합성 트리. 전 검사가 exit 0 이어야 한다 — 무조건 실패하는 검사기는 위반과 정상을 구분하지 못하므로 검사기가 아니다(원칙 2.5).",
+  "checks": [
+    "keywords",
+    "volume",
+    "serp",
+    "capture-integrity",
+    "difficulty",
+    "control",
+    "blocked-cap",
+    "blocked",
+    "verdict"
+  ],
+  "expect": "pass",
+  "expect_rule": null,
+  "env": {
+    "D2_CONTROL_KEY": "fixturekey"
+  }
+}

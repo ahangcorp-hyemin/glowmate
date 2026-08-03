@@ -1,0 +1,13 @@
+{
+  "id": "01-forbid1-min-independent-domains-1",
+  "why": "difficulty_rule 의 min_independent_domains 를 K-1 하한(3) 아래인 1 로 낮춘 트리. '비-포털 도메인 1개면 enterable' 로 잠그면 전 키워드가 enterable 이 되어 G2 가 거짓 통과한다.",
+  "base": "00-valid",
+  "checks": [
+    "difficulty"
+  ],
+  "expect": "fail",
+  "expect_rule": "FORBID-1",
+  "env": {
+    "D2_CONTROL_KEY": "fixturekey"
+  }
+}

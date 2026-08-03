@@ -1,0 +1,13 @@
+{
+  "id": "03-forbid3-logged-in-snapshot",
+  "why": "'강남구 필라테스 허리통증 가격' 구글 스냅샷에 accounts.google.com/SignOutOptions 노드가 들어 있는 트리. 개인화 SERP 는 신규 방문자가 보는 결과와 다르므로 enterable 이 부풀려진다. capture_mode 컬럼은 'clean_profile' 로 자기신고되어 있으며, 그 자기신고는 근거가 되지 못한다.",
+  "base": "00-valid",
+  "checks": [
+    "capture-integrity"
+  ],
+  "expect": "fail",
+  "expect_rule": "FORBID-3",
+  "env": {
+    "D2_CONTROL_KEY": "fixturekey"
+  }
+}

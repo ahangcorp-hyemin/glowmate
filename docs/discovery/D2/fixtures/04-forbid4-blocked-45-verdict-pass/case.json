@@ -1,0 +1,13 @@
+{
+  "id": "04-forbid4-blocked-45-verdict-pass",
+  "why": "네이버 blocked 를 47건(> 상한 20)으로 신고하고도 naver_verdict=pass 를 유지한 트리. 캡처가 까다로운 네이버를 대량 blocked 로 신고하면 G2 가 사실상 구글 단독 판정이 된다.",
+  "base": "00-valid",
+  "checks": [
+    "blocked-cap"
+  ],
+  "expect": "fail",
+  "expect_rule": "FORBID-4",
+  "env": {
+    "D2_CONTROL_KEY": "fixturekey"
+  }
+}

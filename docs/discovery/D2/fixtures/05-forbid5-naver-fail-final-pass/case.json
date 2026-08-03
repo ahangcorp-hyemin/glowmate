@@ -1,0 +1,13 @@
+{
+  "id": "05-forbid5-naver-fail-final-pass",
+  "why": "naver_verdict=fail 인데 docs/gates/G2.md 의 final 을 pass 로 기록한 트리. 결합 규칙이 집행되지 않으면 '구글에서는 되니까 진행'이 네이버 트래픽 부재를 은폐한다.",
+  "base": "00-valid",
+  "checks": [
+    "verdict"
+  ],
+  "expect": "fail",
+  "expect_rule": "FORBID-5",
+  "env": {
+    "D2_CONTROL_KEY": "fixturekey"
+  }
+}
