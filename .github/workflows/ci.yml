@@ -29,10 +29,12 @@ permissions:
   pull-requests: read
   checks: read
   actions: read
-  # REQ-6 (a) · REQ-7 (b) 는 브랜치 보호 설정을 GitHub API 로 조회한다.
-  # 그 엔드포인트는 admin 권한을 요구하므로 기본 GITHUB_TOKEN 으로는 404/403 이 난다.
-  # 이 스코프가 없으면 검사기가 "판정 불가"로 exit 1 하고 lint job 이 영구 red 다.
-  administration: read
+  # 주의: `administration` 은 GITHUB_TOKEN 의 유효한 permission 스코프가 아니다.
+  # 넣으면 워크플로 파일 자체가 무효가 되어 job 이 0개 실행된다(실측으로 확인했다).
+  #
+  # REQ-6 (a)·REQ-7 (b) 의 보호 설정 조회는 legacy branch protection 엔드포인트
+  # (`/branches/{b}/protection`, admin 필요) 대신 **ruleset 엔드포인트**
+  # (`/repos/{o}/{r}/rules/branches/{b}`)를 쓴다 — 읽기 권한만으로 조회된다.
 
 env:
   # 검사기들이 승인 리뷰·브랜치 보호를 조회한다. 조회 불가 시 검사기는 exit 1 한다(판정 불가 ≠ 통과).
