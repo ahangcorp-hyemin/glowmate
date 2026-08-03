@@ -109,6 +109,22 @@ export const FORBID2_WORKFLOW_IF_PATTERNS = [
 /** 스크립트 말미 `exit 0` (성공 강제 종료) */
 export const TRAILING_EXIT_ZERO_RE = /^\s*exit\s+0\s*(#.*)?$/;
 
+/**
+ * ★ PR 검수 차단 B-C — **검사기 자신의 종료 코드 무력화**.
+ *
+ * `tools/dep-graph/index.mjs` 의 `process.exit(code)` → `process.exit(0)` 한 줄이면
+ * "FAIL 이다"라고 출력하면서 exit 0 을 내고, boundary 검사 전체가 죽는다.
+ * 기존 `TRAILING_EXIT_ZERO_RE` 는 `.sh/.bash/.zsh` 와 워크플로 `run:` 블록에만 적용돼
+ * 검사기 본체(`.mjs`)가 대상 밖이었다. 그 백스톱을 채운다.
+ *
+ * 판정 범위를 **최상위(들여쓰기 0) 리터럴 0 종료**로 한정하는 이유:
+ * 조건 분기 안의 정당한 성공 종료(`if (ok) process.exit(0)`)나 `process.exit(code)` 를 잡으면
+ * 오탐이 나고, 오탐이 나는 규칙은 결국 꺼진다. 무조건 실행되는 성공 종료만 위반이다.
+ */
+export const CHECKER_FILE_RE = /^tools\/.*\.(mjs|cjs|js|py)$/;
+export const UNCONDITIONAL_SUCCESS_EXIT_RE =
+  /^(?:process|sys|os)\.(?:exit|_exit)\s*\(\s*0\s*\)\s*;?\s*$/;
+
 /** eslint / depcruise disable 지시자 */
 export const DISABLE_DIRECTIVE_RE =
   /(eslint-disable(-next-line|-line)?|depcruise-disable|dependency-cruiser-disable)\b/;

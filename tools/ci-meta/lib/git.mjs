@@ -42,21 +42,24 @@ export function resolveBase(root) {
  */
 export function currentBranch(root) {
   if (process.env.GITHUB_HEAD_REF) {
-    return { branch: process.env.GITHUB_HEAD_REF, source: 'GITHUB_HEAD_REF (PR 소스 브랜치)' };
+    return { branch: process.env.GITHUB_HEAD_REF, source: 'GITHUB_HEAD_REF (PR 소스 브랜치)', fromEnv: true };
   }
   if (process.env.GITHUB_REF_NAME) {
-    return { branch: process.env.GITHUB_REF_NAME, source: 'GITHUB_REF_NAME' };
+    return { branch: process.env.GITHUB_REF_NAME, source: 'GITHUB_REF_NAME', fromEnv: true };
   }
   const ref = process.env.GITHUB_REF;
   if (ref && ref.startsWith('refs/heads/')) {
-    return { branch: ref.slice('refs/heads/'.length), source: 'GITHUB_REF' };
+    return { branch: ref.slice('refs/heads/'.length), source: 'GITHUB_REF', fromEnv: true };
   }
+  // 워킹트리 브랜치는 **면제 근거가 되지 못한다**(fromEnv=false).
+  // 픽스처 드라이버가 중간에 멈춰 리포가 `ci-fixture/**` 에 남아 있을 수 있고,
+  // 그 상태에서 로컬 실행이 REQ-5 를 조용히 면제받으면 그게 곧 미탐이다.
   const r = exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root });
   if (r.ok) {
     const b = r.stdout.trim();
-    return { branch: b === 'HEAD' ? null : b, source: 'git rev-parse --abbrev-ref HEAD' };
+    return { branch: b === 'HEAD' ? null : b, source: 'git rev-parse --abbrev-ref HEAD', fromEnv: false };
   }
-  return { branch: null, source: '판정 불가' };
+  return { branch: null, source: '판정 불가', fromEnv: false };
 }
 
 /** <rev>:<path> 의 blob 내용. 없으면 null. */

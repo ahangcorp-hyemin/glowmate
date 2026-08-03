@@ -13,7 +13,7 @@
 
 import YAML from 'yaml';
 import { Report } from './lib/util.mjs';
-import { isFixtureBranch } from './fixture-rules.mjs';
+import { isFixtureBranch, fixtureExemptionAllowed } from './fixture-rules.mjs';
 import { GitHubError, isPlanLimited } from './lib/github.mjs';
 import {
   resolveRequiredContexts,
@@ -38,6 +38,8 @@ import {
   DISABLE_DIRECTIVE_RE,
   DISABLE_REASON_RE,
   TOKEN_CONTINUE_ON_ERROR,
+  CHECKER_FILE_RE,
+  UNCONDITIONAL_SUCCESS_EXIT_RE,
 } from './forbid2-patterns.mjs';
 
 const NEEDS = ['typecheck', 'lint', 'boundary', 'test', 'python', 'secret-scan', 'discovery', 'path-guard'];
@@ -195,6 +197,31 @@ export function runSelfTests() {
   }
   if (!isExcludedPath('.github/ci-fixtures/lint/x.ts') || isExcludedPath('apps/web/src/x.ts')) {
     bad('FORBID-2', '자기검사 — 계약 명시 제외① 판정이 잘못됐다');
+  }
+
+  // ── 검사기 종료 코드 무력화 백스톱 (검수 차단 B-C) ────────────────────
+  {
+    const mustFlag = ['process.exit(0)', 'process.exit(0);', 'sys.exit(0)', 'os._exit(0)', 'process.exit( 0 );'];
+    const mustNotFlag = [
+      'process.exit(report.print());',   // 판정 결과로 종료 — 정상
+      'process.exit(code);',             // 변수 종료 — 정상
+      'process.exit(1);',                // 실패 종료 — 정상
+      '  if (ok) process.exit(0);',      // 조건 분기 안의 성공 종료 — 정상
+      '    process.exit(0);',            // 들여쓰기 = 최상위 아님 — 정상
+      "  writeFileSync(p, 'import sys\\nsys.exit(0)\\n');", // 문자열 리터럴 — 정상
+    ];
+    for (const l of mustFlag) {
+      if (!UNCONDITIONAL_SUCCESS_EXIT_RE.test(l)) bad('FORBID-2', `자기검사 — 무조건 성공 종료를 잡지 못했다: ${l}`);
+    }
+    for (const l of mustNotFlag) {
+      if (UNCONDITIONAL_SUCCESS_EXIT_RE.test(l)) bad('FORBID-2', `자기검사 — 정당한 종료를 오탐했다: ${l}`);
+    }
+    const pathOk =
+      CHECKER_FILE_RE.test('tools/dep-graph/index.mjs') &&
+      CHECKER_FILE_RE.test('tools/ci-meta/lib/util.mjs') &&
+      CHECKER_FILE_RE.test('services/x.py') === false &&
+      CHECKER_FILE_RE.test('tools/readme.md') === false;
+    if (!pathOk) bad('FORBID-2', '자기검사 — 검사기 파일 범위 판정이 잘못됐다');
   }
   if (!out.some((e) => !e.ok && e.rule === 'FORBID-2')) {
     ok('FORBID-2', `자기검사 통과 — 패턴 ${F2_POSITIVE.length + 1}종 탐지 · 정상 라인 ${F2_NEGATIVE.length}건 무탐 · 제외 규칙 정합`);
@@ -368,6 +395,28 @@ export function runSelfTests() {
       if (isFixtureBranch(b)) problems.push(`면제가 새어나감: ${String(b)}`);
     }
 
+    // ── 이벤트 축 (검수 차단 B-B) ─────────────────────────────────────────
+    // 접두사 매칭만 검사하면 이 회귀를 못 잡는다. `GITHUB_HEAD_REF` 는 pull_request 에서만
+    // 설정되므로, 브랜치명만 보는 구현은 PR 을 배제하기는커녕 우선 면제해 준다.
+    const env = (branch, fromEnv = true) => ({ branch, fromEnv });
+    const cases = [
+      { desc: 'push + 픽스처 브랜치', info: env('ci-fixture/lint'), event: 'push', want: true },
+      { desc: 'workflow_dispatch + 픽스처 브랜치', info: env('ci-fixture/lint'), event: 'workflow_dispatch', want: true },
+      // ★ B-B 본체: 하류 PR 이 소스 브랜치를 ci-fixture/* 로 지어도 면제되면 안 된다
+      { desc: 'pull_request + ci-fixture/sneaky', info: env('ci-fixture/sneaky'), event: 'pull_request', want: false },
+      { desc: 'pull_request_target + 픽스처 브랜치', info: env('ci-fixture/x'), event: 'pull_request_target', want: false },
+      { desc: '이벤트 없음(로컬) + 픽스처 브랜치', info: env('ci-fixture/x'), event: '', want: false },
+      { desc: '미지의 이벤트 + 픽스처 브랜치', info: env('ci-fixture/x'), event: 'merge_group', want: false },
+      { desc: 'push + 워킹트리 브랜치(fromEnv=false)', info: env('ci-fixture/x', false), event: 'push', want: false },
+      { desc: 'push + 일반 브랜치', info: env('feat/f1'), event: 'push', want: false },
+    ];
+    for (const c of cases) {
+      const got = fixtureExemptionAllowed(c.info, c.event).allowed;
+      if (got !== c.want) {
+        problems.push(`이벤트 축 오판 — ${c.desc}: 기대 ${c.want}, 실제 ${got}`);
+      }
+    }
+
     // 면제 조건 미충족 시 exempt() 는 FAIL 로 되돌아야 한다 (검사 무력화 경로 차단)
     const probe = new Report('probe');
     probe.exempt('REQ-5', 'x', { allowed: false, branch: 'main', why: 'y' });
@@ -381,7 +430,8 @@ export function runSelfTests() {
     } else {
       ok(
         'REQ-5',
-        `자기검사 통과 — 면제는 \`ci-fixture/\` 접두사에만 적용(${mustMatch.length}건 인식 / ${mustNotMatch.length}건 무탐) · allowed=false 면 FAIL 로 되돌림`,
+        `자기검사 통과 — 접두사 ${mustMatch.length}건 인식 / ${mustNotMatch.length}건 무탐 · ` +
+          `**이벤트 축 ${cases.length}케이스**(pull_request 는 어떤 브랜치명이든 면제 없음 — 검수 B-B) · allowed=false 면 FAIL 로 되돌림`,
       );
     }
   }
