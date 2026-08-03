@@ -223,6 +223,10 @@ jobs:
           python-version-file: .python-version
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:discovery
+      # 각 Discovery·DS 계약의 REQ acceptance("job `discovery` 에서 --check X exit 0")를
+      # 실제로 실행한다. 위 test:discovery 는 검증기의 존재·비스텁만 보므로,
+      # 이 스텝이 없으면 검증기가 리포에 있어도 아무도 돌리지 않는 상태가 된다.
+      - run: pnpm test:discovery-checks
 
   path-guard:
     name: path-guard

@@ -31,7 +31,7 @@ import {
 } from './lib/branch-protection.mjs';
 import { analyzeEnforcementJob } from './checks/req6-aggregator.mjs';
 import { computeRaised } from './checks/forbid5-budget.mjs';
-import { isProseFile, isExcludedPath } from './checks/forbid2-masking.mjs';
+import { isProseFile, isExcludedPath, isDataFile, scanLine } from './checks/forbid2-masking.mjs';
 import { normalizePattern, matchesPattern, ownersForPath } from './lib/codeowners.mjs';
 import { evaluateRelaxationWindow, checkIndependentPr } from './lib/maintainer.mjs';
 import {
@@ -289,6 +289,98 @@ export function runSelfTests() {
   }
   if (!isExcludedPath('.github/ci-fixtures/lint/x.ts') || isExcludedPath('apps/web/src/x.ts')) {
     bad('FORBID-2', '자기검사 — 계약 명시 제외① 판정이 잘못됐다');
+  }
+
+  // ── 데이터 파일 면제: 오탐 방지 ↔ 미탐 방지 (D1a 실데이터 차단 사건 회귀) ────
+  //
+  // 사건: 인허가 대장 `docs/discovery/D1a/population.csv:2553` 의 실제 상호명
+  //       (아래 csvRow 가 재현하는 `Hoon f-i-t(훈핏)`)이 `test-x-prefix` 에 걸려
+  //       D1a·D1b·D2·D3·D4 의 lint job 을 영구 차단했다.
+  //       데이터 행은 어떤 검사도 무력화하지 않으므로 `구성`이 아니다.
+  // 이 블록은 **판정 경로 자체**(`scanLine`)를 호출한다. 판정을 재구현하면
+  // "검사기는 약해졌는데 자기검사는 통과"가 성립하기 때문이다.
+  {
+    const problems = [];
+    // 리터럴 회피: 이 파일도 FORBID-2 스캔 대상이다
+    const FIT = `f${'i'}t`;
+    const XIT = `x${'i'}t`;
+    const CSV_PATH = 'docs/discovery/D1a/population.csv';
+    const csvRow = `VDD0E945B83AC,Hoon ${FIT}(훈핏),강남구,exercise_body,37.4979,127.0276`;
+
+    // (1) 오탐 방지 — 데이터 행은 잡히지 않는다
+    const csv = scanLine({ rel: CSV_PATH, line: 2553, text: csvRow });
+    if (csv.findings.length > 0) {
+      problems.push(`.csv 실데이터 행이 여전히 잡힌다: ${csv.findings.map((f) => f.id).join(',')}`);
+    }
+    // …단 조용히 넘어가지 않는다. 면제는 반드시 기록으로 남아야 한다
+    if (!csv.notes.some((n) => n.kind === 'data-exempt' && n.id === 'test-x-prefix')) {
+      problems.push('면제가 기록되지 않았다 — 조용한 통과는 면제가 아니다');
+    }
+    for (const rel of ['docs/discovery/D2/serp.tsv', 'docs/discovery/D3/sources.jsonl']) {
+      if (scanLine({ rel, line: 1, text: csvRow }).findings.length > 0) {
+        problems.push(`데이터 확장자 오탐: ${rel}`);
+      }
+    }
+
+    // (2) 미탐 방지 — 코드·워크플로에서는 그대로 잡힌다
+    const mustCatch = [
+      { rel: 'apps/web/src/venues.test.mjs', text: `${FIT}('renders', () => {})` },
+      { rel: 'packages/api/src/x.test.ts', text: `${XIT}('renders', () => {})` },
+      { rel: 'services/crawler/run.sh', text: `${FIT}('x', () => {})` },
+      { rel: '.github/workflows/ci.yml', text: `          ${XIT}('x', () => {})`, isWorkflow: true },
+    ];
+    for (const c of mustCatch) {
+      const r = scanLine({ rel: c.rel, line: 10, text: c.text, isWorkflow: c.isWorkflow === true });
+      if (!r.findings.some((f) => f.id === 'test-x-prefix')) {
+        problems.push(`미탐 — ${c.rel} 의 x/f 프리픽스를 잡지 못했다`);
+      }
+    }
+
+    // (3) 데이터 파일이라도 **통째 면제는 아니다** — disable 지시자는 그대로 적용된다
+    const smuggled = scanLine({
+      rel: CSV_PATH,
+      line: 1,
+      text: `# es${'lint-disable'} no-console`,
+    });
+    if (!smuggled.findings.some((f) => f.id === 'disable-without-reason')) {
+      problems.push('데이터 파일에서 disable 지시자까지 면제됐다 — 통째 면제로 새어나갔다');
+    }
+
+    // (4) 구성 파일은 데이터가 아니다 — .json/.yml 을 데이터로 보면 예산·분류·워크플로가 뚫린다
+    for (const rel of [
+      '.github/ci-budget.json',
+      'packages/config/dependency-classes.json',
+      '.github/workflows/ci.yml',
+      'apps/web/src/a.ts',
+      'docs/tasks/F1.md',
+    ]) {
+      if (isDataFile(rel)) problems.push(`구성/소스 확장자를 데이터로 오판: ${rel}`);
+    }
+    for (const rel of [CSV_PATH, 'a/b.TSV', 'x.jsonl', 'x.ndjson', 'x.psv']) {
+      if (!isDataFile(rel)) problems.push(`데이터 확장자 미인식: ${rel}`);
+    }
+
+    // (5) 면제는 **패턴별 opt-in** 이고 사유가 필수다 (사유 없는 면제는 다음 항목의 선례가 된다)
+    const allPatterns = [...FORBID2_LINE_PATTERNS, ...FORBID2_WORKFLOW_IF_PATTERNS];
+    for (const p of allPatterns) {
+      if (!('dataExempt' in p)) continue;
+      if (typeof p.dataExempt !== 'string' || p.dataExempt.trim().length < 20) {
+        problems.push(`패턴 \`${p.id}\` 의 dataExempt 사유가 없거나 너무 짧다`);
+      }
+    }
+    if (!allPatterns.some((p) => !('dataExempt' in p))) {
+      problems.push('전 패턴이 데이터 파일에서 면제됐다 — 코드 구성 패턴 한정 면제가 아니라 통째 면제다');
+    }
+
+    if (problems.length > 0) {
+      bad('FORBID-2', `자기검사 — 데이터 파일 면제 범위 오류: ${problems.join(' / ')}`);
+    } else {
+      ok(
+        'FORBID-2',
+        `자기검사 통과 — 데이터 행 오탐 0건(csv/tsv/jsonl) · 코드·워크플로 미탐 0건(${mustCatch.length}케이스) · ` +
+          'disable 지시자 및 구성 확장자(.json/.yml)는 면제 밖 · 면제 사유 전건 기재',
+      );
+    }
   }
 
   // ── 검사기 종료 코드 무력화 백스톱 (검수 차단 B-C) ────────────────────

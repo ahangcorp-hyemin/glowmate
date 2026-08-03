@@ -10,6 +10,7 @@
 | `pnpm test:workspace` | `workspace-members.mjs` | REQ-1 |
 | `pnpm test:ci-meta` | `index.mjs` | REQ-5 · REQ-6 · REQ-7 · FORBID-2 · FORBID-5 + 판정기 자기검사 |
 | `pnpm test:discovery` | `discovery.mjs` | FORBID-6 (a) 존재 요구 / (b) 비스텁 요구 |
+| `pnpm test:discovery-checks` | `discovery-checks.mjs` | 각 Discovery·DS 계약의 REQ acceptance — 존재하는 전 검증기를 `--all` 로 **실제 실행** |
 | `pnpm test:routes` | `next-routes.mjs` | REQ-8 · FORBID-3 (`next build` 요약 파싱 + 페이지 라우트 토큰 grep) |
 
 ## 판정 원칙
@@ -147,6 +148,28 @@ node tools/ci-meta/fixtures-run.mjs --push --collect   # push 후 런 URL·신�
 **인용**하는 것은 어떤 검사도 무력화하지 않는다. 확장자 기준이므로 `docs/foo.sh` 는 그대로 대상이다.
 (이 규칙이 없으면 F1 자기 PR 이 자신의 계약 문서 때문에 차단된다 — 규격 §3.4 안티패턴.)
 
+### 행 지향 데이터 파일 (`.csv` `.tsv` `.psv` `.jsonl` `.ndjson`)
+
+산문 파일과 달리 **스캔 대상으로 남는다.** 면제되는 것은 패턴 사전에서 `dataExempt` 사유를
+명시한 **코드 구성 패턴뿐**이다(`forbid2-patterns.mjs`). 데이터 행은 셸·테스트 러너·워크플로
+어디에도 전달되지 않으므로 그 패턴들이 매칭돼도 무엇도 무력화하지 않는다.
+
+- 계기: 인허가 대장 CSV 의 실제 상호명이 `test-x-prefix`(`fit(`)에 걸려
+  Discovery PR 전체(D1a·D1b·D2·D3·D4)의 `lint` job 을 영구 차단했다 — 오탐이다.
+- 면제는 **패턴별 opt-in** 이다. 새 패턴은 사유를 쓰지 않으면 데이터 파일에도 그대로 적용된다.
+- 면제 적용은 매 실행 `INFO [FORBID-2] 데이터 파일 면제 적용: …` 으로 출력된다(조용한 통과 금지).
+- **면제 밖으로 남는 것:** `eslint-disable`·`depcruise-disable` 지시자(데이터 행에 나타날
+  정당한 사유가 0이므로 오탐 비용 없이 "확장자로 위장한 소스"를 잡는다) ·
+  `ci-required.needs` 축소 · 테스트 수집 건수 감소 · 검사기 리터럴 `exit(0)`.
+- **데이터가 아닌 것:** `.json` `.yaml` `.yml` `.toml`. 이 리포에서 그 확장자는
+  `ci-budget.json` · `dependency-classes.json` · 워크플로처럼 **동작을 규정하는 구성**이다.
+- 데이터 파일의 다른 위험은 FORBID-2 소관이 아니다 — 자격증명은 `secret-scan` job,
+  기대값 조작은 각 계약의 픽스처 동결 규칙이 본다.
+
+`selftest.mjs` 가 이 경계를 양방향으로 못박는다: CSV 데이터 행 **무탐** ·
+동일 문자열이 `.mjs`/`.ts`/`.sh`/워크플로 `run:` 안에 있으면 **탐지** ·
+데이터 파일에서도 disable 지시자는 탐지 · 전 패턴 면제 시 실패.
+
 ## FORBID-6 스텁 판정 프로브
 
 존재하는 전 `scripts/discovery/validate_d*.py` 에 결손 입력을 주입한다.
@@ -164,6 +187,28 @@ Discovery 계약 저자에게: 인자 검증(미지의 `--check` 는 non-zero)�
 (a) 존재 요구의 판정 원천은 **base 브랜치의 `.github/pr-task` 이력**이다 —
 각 PR 이 자신의 계약 ID 를 그 파일에 1줄로 기재하므로, 그 파일을 건드린 전 커밋의 값 집합이
 "머지된 계약 ID 집합"이다. F1b 의 `docs/tasks.json` 에 의존하지 않는 자립 경로다.
+
+## 검증기 실행 — `discovery-checks.mjs`
+
+`discovery.mjs` 는 검증기가 **있는가 / 스텁이 아닌가**만 본다. 그것만으로는 각 Discovery·DS
+계약의 acceptance("CI job `discovery` 에서 `--check X` exit 0")를 **아무도 실행하지 않는다.**
+`discovery-checks.mjs` 가 그 공백을 메운다.
+
+| 계열 | 경로 | 파일 패턴 | 실행 |
+|---|---|---|---|
+| Discovery 증거 검증기 | `scripts/discovery/` | `validate_d*.py` | `python3 <파일> --all` |
+| Design System 검증기 | `scripts/design-system/` | `validate_ds*.mjs` | `node <파일> --all` |
+
+- 목록은 **디렉터리 스캔**이다. 손으로 관리하면 하류가 검증기를 추가하고 등재를 잊는 순간
+  다시 "탐지 허구"가 된다.
+- 하나라도 non-zero 면 job 이 red 이며, 실패 출력에 **어느 검증기가 어떤 코드로 죽었는지**를 명시한다.
+- 검증기당 상한 **90초**. 초과는 SIGKILL 후 **실패**로 처리한다(타임아웃을 통과로 처리하면
+  무한 루프 검증기가 영구 초록이 된다). `.github/ci-budget.json` 의 `discovery` 예산은 4분이므로,
+  검증기가 늘어 예산을 압박하면 **상한을 올리지 말고**(FORBID-5) 검증기를 빠르게 하거나 job 을 분리하라.
+- 검증기가 **0건이면 그 사실을 명시 출력하고 통과**한다. F1 머지 시점의 정상 상태이며, 이 상태의
+  탐지력은 FORBID-6 (a) 존재 요구와 REQ-5 픽스처 ⑦ 이 별도로 담보한다.
+- 검증기가 python 패키지(`jsonschema` 등)를 요구하면 **그 설치 스텝은 검증기를 도입하는 계약이
+  자기 PR 에서 추가**한다. `discovery` job 에는 `actions/setup-python` 만 있고 pip 설치는 없다.
 
 ## REQ-8 · FORBID-3 — `next-routes.mjs`
 

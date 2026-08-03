@@ -32,6 +32,41 @@ export const SELF_EXCLUDED_PATHS = ['tools/ci-meta/forbid2-patterns.mjs'];
 export const PROSE_EXTENSIONS = ['.md', '.mdx', '.txt', '.rst', '.adoc', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.lock'];
 
 /**
+ * 행 지향 **데이터 파일** 확장자.
+ *
+ * `PROSE_EXTENSIONS`(파일 통째 스캔 제외)와 성질이 **다르다.**
+ * 데이터 파일은 스캔 대상으로 남되, **`dataExempt` 가 명시된 코드 구성 패턴만** 면제된다.
+ * 즉 여기 등재는 "통째 면제"가 아니라 "코드 구성 패턴 한정 면제"다.
+ *
+ * ── 근거 ─────────────────────────────────────────────────────────────────
+ * FORBID-2 when 은 "diff 가 CI 스텝의 **종료 코드를 마스킹하거나 검사 대상을 축소하는 구성**을
+ * 신규 도입하는 경우"다. `.md` 가 금지 관용구를 **인용**하는 것이 어떤 검사도 무력화하지 않아
+ * `구성`이 아니듯, 인허가 대장 CSV 의 **데이터 행**도 무엇도 무력화하지 않는다.
+ * 실제로 D1a 의 실데이터 행 `VDD0E945B83AC,Hoon fit(훈핏),강남구,…` 이
+ * `test-x-prefix`(`fit(`)에 걸려 Discovery PR 전체(D1a·D1b·D2·D3·D4)를 `lint` job 에서
+ * 영구 차단했다 — 오탐이다.
+ *
+ * ── 등재하지 않는 것 ─────────────────────────────────────────────────────
+ * `.json` · `.yaml` · `.yml` · `.toml` 은 **여기 없다.** 이 리포에서 그 확장자들은
+ * `ci-budget.json` · `dependency-classes.json` · `.github/workflows/*.yml` 처럼
+ * **실제로 동작을 규정하는 구성 파일**이며, 데이터 행이 아니라 구성이다.
+ * 여기 있는 확장자는 "행 = 관측 레코드"인 형식만이다.
+ *
+ * ── 데이터 파일에서 여전히 유효한 검사 ───────────────────────────────────
+ *  · `disable-without-reason` (아래 DISABLE_DIRECTIVE_RE) — `dataExempt` 를 붙이지 않는다.
+ *    스캐너 지시자가 데이터 파일에 나타날 정당한 사유는 0이며, 나타났다면 그 파일은
+ *    데이터가 아니라 확장자로 위장한 소스다. 오탐 비용 0, 미탐 방지 이득 있음.
+ *  · `scanRequiredCheckExclusion` · `scanTestCountRegression` · `scanCheckerExitMasking`
+ *    — 파일 확장자와 무관한 리포 전역 검사이므로 그대로 적용된다.
+ *  · 자격증명 유출은 `secret-scan` job 소관(FORBID-2 아님).
+ *  · 데이터의 **기대값 조작**은 각 계약의 픽스처 동결 규칙 소관(FORBID-2 아님).
+ *
+ * ※ `dataExempt` 는 **패턴별 opt-in** 이다. 새 패턴은 기본적으로 데이터 파일에도 적용되며,
+ *   면제하려면 사유 문자열을 명시해야 한다(selftest 가 사유 길이를 검사한다).
+ */
+export const DATA_EXTENSIONS = ['.csv', '.tsv', '.psv', '.jsonl', '.ndjson'];
+
+/**
  * 메시지 조립용 토큰.
  * 마스킹 관용구의 **문자열 리터럴은 이 파일에만 존재**해야 하므로,
  * 다른 검사기 파일은 리터럴을 직접 쓰지 않고 이 상수를 보간한다.
@@ -40,56 +75,72 @@ export const TOKEN_CONTINUE_ON_ERROR = 'continue-on-error';
 
 /**
  * 라인 단위 패턴 사전.
- *  - id:      실패 출력에 찍히는 하위 식별자
- *  - re:      추가된 라인에 대한 정규식
- *  - files:   대상 파일 판정 (null = 전체)
- *  - why:     성질 설명 (마스킹인가 / 대상 축소인가)
+ *  - id:         실패 출력에 찍히는 하위 식별자
+ *  - re:         추가된 라인에 대한 정규식
+ *  - why:        성질 설명 (마스킹인가 / 대상 축소인가)
+ *  - dataExempt: (선택) `DATA_EXTENSIONS` 파일에서 이 패턴을 면제하는 **사유**.
+ *                생략 = 데이터 파일에도 적용(기본값). 면제는 opt-in 이며 사유가 필수다.
  */
 export const FORBID2_LINE_PATTERNS = [
   {
     id: 'continue-on-error',
     re: /continue-on-error\s*:\s*(true|['"]true['"])/i,
     why: '스텝/잡 실패를 성공으로 마스킹',
+    dataExempt:
+      'GitHub Actions 스텝/잡 키다. 데이터 행에 같은 문자열이 있어도 어떤 워크플로도 그것을 읽지 않는다',
   },
   {
     id: 'or-true',
     re: /\|\|\s*true(\s|$|;|&|\)|`|"|')/,
     why: '종료 코드 마스킹',
+    dataExempt:
+      '셸 제어 연산자다. 데이터 행의 파이프 문자는 구분자·자유 텍스트이며 실행되지 않는다',
   },
   {
     id: 'or-colon',
     re: /\|\|\s*:(\s|$|;|&|\)|`|"|')/,
     why: '종료 코드 마스킹 (: 는 no-op 성공 커맨드)',
+    dataExempt:
+      '셸 제어 연산자다. 데이터 행의 파이프 문자는 구분자·자유 텍스트이며 실행되지 않는다',
   },
   {
     id: 'set-plus-e',
     re: /(^|[\s;&|])set\s+\+e(\s|$|;|&)/,
     why: '이후 전 명령의 실패 전파 해제',
+    dataExempt: '셸 옵션 구성이다. 데이터 행은 셸에 의해 해석되지 않는다',
   },
   {
     id: 'pass-with-no-tests',
     re: /--passWithNoTests\b/,
     why: '검사 대상 0건을 통과로 처리',
+    dataExempt: '테스트 러너 CLI 플래그다. 데이터 행은 러너 인자로 전달되지 않는다',
   },
   {
     id: 'test-skip-only',
     re: /(^|[^.\w$])(describe|it|test|suite|context)\s*\.\s*(skip|only|todo|failing)\s*\(/,
     why: '테스트 대상 축소 (skip/only)',
+    dataExempt:
+      '테스트 프레임워크 호출 구문이다. 데이터 파일은 테스트 수집 대상이 아니므로 스킵될 테스트가 존재하지 않는다',
   },
   {
     id: 'test-x-prefix',
     re: /(^|[^.\w$])(xdescribe|xit|xtest|fdescribe|fit)\s*\(/,
     why: '테스트 대상 축소 (x/f 프리픽스)',
+    dataExempt:
+      '테스트 프레임워크 호출 구문이다. 데이터 파일은 테스트 수집 대상이 아니다. ' +
+      '실제 오탐 사례: 인허가 대장 상호명 `Hoon fit(훈핏)` 이 `fit(` 으로 매칭돼 D 배치 전체를 차단했다',
   },
   {
     id: 'pytest-skip',
     re: /@pytest\.mark\.(skip|skipif|xfail)\b|pytest\.skip\s*\(|@unittest\.skip/,
     why: '테스트 대상 축소 (pytest/unittest skip)',
+    dataExempt: 'pytest/unittest 데코레이터다. 데이터 파일은 pytest 수집 대상이 아니다',
   },
   {
     id: 'node-test-skip',
     re: /(^|[^.\w$])(test|it|describe)\s*\([^)]*\{\s*skip\s*:\s*true/,
     why: '테스트 대상 축소 (node:test skip 옵션)',
+    dataExempt: 'node:test 호출 옵션이다. 데이터 파일은 node:test 수집 대상이 아니다',
   },
 ];
 
@@ -97,6 +148,9 @@ export const FORBID2_LINE_PATTERNS = [
  * `if:` 조건 패턴. 워크플로 파일에만 적용하며,
  * 계약 명시 제외 2종 중 ② — job 이름이 정확히 `ci-required` 인 단 하나의 job 의 `if:` 라인은
  * 호출부에서 라인 범위로 제외된다. 검사 job 8개의 `if:` 는 그대로 대상이다.
+ *
+ * `dataExempt` 를 붙이지 않는다 — 이 패턴은 애초에 워크플로 파일에만 적용되고,
+ * 워크플로 확장자(`.yml`)는 `DATA_EXTENSIONS` 에 없다. 면제할 이유가 없다.
  */
 export const FORBID2_WORKFLOW_IF_PATTERNS = [
   {
@@ -160,7 +214,13 @@ export function stripLiteralsAndComments(line, lang) {
   return s;
 }
 
-/** eslint / depcruise disable 지시자 */
+/**
+ * eslint / depcruise disable 지시자.
+ *
+ * ★ 데이터 파일에서도 **면제하지 않는다**(`dataExempt` 없음). 근거는 `DATA_EXTENSIONS` 주석 참조 —
+ *   스캐너 지시자가 데이터 행에 나타날 정당한 사유가 0이므로 오탐 비용이 없고,
+ *   나타났다면 그 파일은 데이터가 아니라 확장자로 위장한 소스라는 신호다.
+ */
 export const DISABLE_DIRECTIVE_RE =
   /(eslint-disable(-next-line|-line)?|depcruise-disable|dependency-cruiser-disable)\b/;
 

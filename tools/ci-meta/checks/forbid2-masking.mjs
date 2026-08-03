@@ -34,6 +34,7 @@ import {
   TEST_FILE_MATCHERS,
   TEST_DECL_PATTERNS,
   PROSE_EXTENSIONS,
+  DATA_EXTENSIONS,
   TOKEN_CONTINUE_ON_ERROR,
   CHECKER_FILE_RE,
   LITERAL_ZERO_EXIT_RE,
@@ -52,6 +53,71 @@ export function isExcludedPath(rel) {
 export function isProseFile(rel) {
   const lower = rel.toLowerCase();
   return PROSE_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
+/**
+ * 행 지향 데이터 파일인가.
+ *
+ * 산문 파일과 달리 **스캔은 계속한다.** 다만 `dataExempt` 가 명시된 코드 구성 패턴만
+ * 면제된다 (근거·제외 범위는 forbid2-patterns.mjs 의 `DATA_EXTENSIONS` 주석).
+ */
+export function isDataFile(rel) {
+  const lower = rel.toLowerCase();
+  return DATA_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
+/**
+ * 한 줄에 대한 FORBID-2 판정 — **순수 함수**.
+ *
+ * scanDiff 의 실제 판정 경로이며 selftest 가 이 함수를 직접 호출해 회귀를 못박는다.
+ * (판정 로직을 selftest 가 재구현하면 "검사기는 약해졌는데 자기검사는 통과"가 가능해진다.)
+ *
+ * @returns {{findings: Array<object>, notes: Array<object>}}
+ *   notes 는 "매칭됐으나 면제된" 기록이다 — 면제는 조용히 넘어가지 않고 반드시 출력된다.
+ */
+export function scanLine({ rel, line, text, isWorkflow = false, inAggregatorIf = false }) {
+  const findings = [];
+  const notes = [];
+  const isData = isDataFile(rel);
+
+  const consider = (p) => {
+    if (!p.re.test(text)) return;
+    if (isData && p.dataExempt) {
+      notes.push({ kind: 'data-exempt', rel, line, id: p.id, why: p.dataExempt });
+      return;
+    }
+    findings.push({ rel, line, text, id: p.id, why: p.why });
+  };
+
+  for (const p of FORBID2_LINE_PATTERNS) consider(p);
+
+  if (isWorkflow) {
+    for (const p of FORBID2_WORKFLOW_IF_PATTERNS) {
+      if (!p.re.test(text)) continue;
+      if (inAggregatorIf) {
+        notes.push({ kind: 'aggregator-if', rel, line, id: p.id });
+        continue;
+      }
+      consider(p);
+    }
+  }
+
+  // ★ disable 지시자는 데이터 파일에서도 면제되지 않는다 (dataExempt 미부여).
+  if (DISABLE_DIRECTIVE_RE.test(text)) {
+    if (DISABLE_REASON_RE.test(text)) {
+      notes.push({ kind: 'disable-with-reason', rel, line, text });
+    } else {
+      findings.push({
+        rel,
+        line,
+        text,
+        id: 'disable-without-reason',
+        why: '사유 주석(`-- reason: <이슈 URL>`) 없는 disable 지시자 = 검사 대상 축소',
+      });
+    }
+  }
+
+  return { findings, notes };
 }
 
 /** 워크플로 파일에서 `ci-required` job 의 `if:` 가 차지하는 라인 범위 (제외 ②) */
@@ -244,8 +310,10 @@ async function scanDiff(report, ctx) {
 
   const findings = [];
   const disablesWithReason = [];
+  const dataExemptions = new Map(); // patternId -> [{rel, line, why}]
   let scannedFiles = 0;
   let proseSkipped = 0;
+  let dataFiles = 0;
 
   for (const [rel, lines] of added) {
     if (isExcludedPath(rel)) continue;
@@ -254,6 +322,7 @@ async function scanDiff(report, ctx) {
       continue;
     }
     scannedFiles += 1;
+    if (isDataFile(rel)) dataFiles += 1;
     const isWorkflow = workflowFiles.has(rel);
     const aggIf = aggregatorIfRanges.get(rel) ?? null;
 
@@ -261,37 +330,19 @@ async function scanDiff(report, ctx) {
       const inAggregatorIf =
         isWorkflow && aggIf != null && line >= aggIf[0] && line <= aggIf[1];
 
-      for (const p of FORBID2_LINE_PATTERNS) {
-        if (p.re.test(text)) {
-          findings.push({ rel, line, text, id: p.id, why: p.why });
-        }
-      }
-
-      if (isWorkflow) {
-        for (const p of FORBID2_WORKFLOW_IF_PATTERNS) {
-          if (!p.re.test(text)) continue;
-          if (inAggregatorIf) {
-            report.info(
-              RULE,
-              `제외② 적용: ${rel}:${line} 은 애그리게이터 \`${AGGREGATOR_JOB}\` 의 if: 조건이다 (REQ-6 실패 전파 요구를 만족시키는 수단)`,
-            );
-            continue;
-          }
-          findings.push({ rel, line, text, id: p.id, why: p.why });
-        }
-      }
-
-      if (DISABLE_DIRECTIVE_RE.test(text)) {
-        if (DISABLE_REASON_RE.test(text)) {
-          disablesWithReason.push({ rel, line, text });
-        } else {
-          findings.push({
-            rel,
-            line,
-            text,
-            id: 'disable-without-reason',
-            why: '사유 주석(`-- reason: <이슈 URL>`) 없는 disable 지시자 = 검사 대상 축소',
-          });
+      const res = scanLine({ rel, line, text, isWorkflow, inAggregatorIf });
+      findings.push(...res.findings);
+      for (const n of res.notes) {
+        if (n.kind === 'disable-with-reason') {
+          disablesWithReason.push({ rel: n.rel, line: n.line, text: n.text });
+        } else if (n.kind === 'aggregator-if') {
+          report.info(
+            RULE,
+            `제외② 적용: ${rel}:${line} 은 애그리게이터 \`${AGGREGATOR_JOB}\` 의 if: 조건이다 (REQ-6 실패 전파 요구를 만족시키는 수단)`,
+          );
+        } else if (n.kind === 'data-exempt') {
+          if (!dataExemptions.has(n.id)) dataExemptions.set(n.id, []);
+          dataExemptions.get(n.id).push(n);
         }
       }
     }
@@ -313,8 +364,17 @@ async function scanDiff(report, ctx) {
 
   report.info(
     RULE,
-    `diff 스캔 대상 파일 ${scannedFiles}건 (base=${ctx.base.ref} ${ctx.base.mergeBase.slice(0, 8)}) · 비실행 산문 파일 ${proseSkipped}건 제외`,
+    `diff 스캔 대상 파일 ${scannedFiles}건 (base=${ctx.base.ref} ${ctx.base.mergeBase.slice(0, 8)}) · ` +
+      `비실행 산문 파일 ${proseSkipped}건 제외 · 그중 행 지향 데이터 파일 ${dataFiles}건 (코드 구성 패턴만 면제, disable 지시자는 그대로 적용)`,
   );
+  // 면제는 조용히 넘어가지 않는다 — 무엇이 왜 면제됐는지 매 실행 출력한다.
+  for (const [id, hits] of dataExemptions) {
+    const sample = hits.slice(0, 3).map((h) => `${h.rel}:${h.line}`).join(', ');
+    report.info(
+      RULE,
+      `데이터 파일 면제 적용: 패턴 \`${id}\` ${hits.length}건 (${sample}${hits.length > 3 ? ', …' : ''}) — ${hits[0].why}`,
+    );
+  }
   if (scannedFiles === 0 && proseSkipped === 0) {
     report.fail(
       RULE,
