@@ -13,8 +13,12 @@ import {
   normalizeOwner,
   CODEOWNERS_PATH,
 } from '../lib/codeowners.mjs';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { fmtSet } from '../lib/util.mjs';
 import { changedFiles, showBlob } from '../lib/git.mjs';
+// (c-3) 게이트는 FORBID-5 의 판정을 그대로 재사용한다 — 같은 diff 를 두 검사가 다르게 보면 그 틈이 우회로가 된다.
+import { computeRaised, parseBudgetText } from './forbid5-budget.mjs';
 import {
   baseBranchName,
   currentPullAuthor,
@@ -46,9 +50,49 @@ const RULE = 'REQ-7';
  */
 const C3_TARGETS = [
   { path: 'packages/config/db-driver-exceptions.json', owned: true },
-  { path: '.github/ci-budget.json', owned: true },
+  // 계약 REQ-7 (c-3)·FORBID-5 는 이 파일을 **"기존 항목 상향"** 으로 한정한다.
+  // "신규 job 항목 추가는 해당하지 않는다"가 FORBID-5 문면이다.
+  // 상향 여부를 보지 않고 무조건 독립 PR 을 요구하면 **CI job 을 추가하는 모든 하류 계약이 차단된다**
+  // — F2a(db-schema)·F5·F4·C1 등. 그 계약들은 pr_count:1 이라 분리도 불가하고, 예산 항목을 빼면
+  // REQ-6(job timeout ↔ 예산 일치)이 red 라 합법 경로가 0개가 된다(감사 B-3b′ 와 같은 데드락).
+  { path: '.github/ci-budget.json', owned: true, gate: budgetRaiseGate },
   { path: 'packages/config/dependency-classes.json', owned: false, ownerNote: 'REQ-3 / tools/dep-graph 소관' },
 ];
+
+/**
+ * `.github/ci-budget.json` 의 (c-3) 발동 조건 — **기존 항목 상향일 때만**.
+ *
+ * 판정은 FORBID-5 의 `computeRaised`/`parseBudgetText` 를 그대로 재사용한다. 여기서 따로
+ * 구현하면 두 검사가 같은 diff 를 다르게 보고, 그 틈이 곧 우회로가 된다.
+ *
+ * @returns {{ apply: boolean, why: string }}
+ */
+function budgetRaiseGate(root, base, targetPath) {
+  const headPath = path.join(root, targetPath);
+  const head = existsSync(headPath) ? parseBudgetText(readFileSync(headPath, 'utf8')) : null;
+  const baseBudget = parseBudgetText(showBlob(root, base.mergeBase, targetPath));
+
+  if (head == null || baseBudget == null) {
+    // 판정 불가를 통과로 처리하지 않는다 — 파싱이 깨지면 보수적으로 발동시킨다.
+    return { apply: true, why: '예산 파일을 파싱할 수 없어 상향 여부를 판정할 수 없다 (보수적 발동)' };
+  }
+
+  const raised = computeRaised(baseBudget, head);
+  if (raised.length === 0) {
+    const added = [...head.keys()].filter((k) => !baseBudget.has(k));
+    return {
+      apply: false,
+      why:
+        added.length > 0
+          ? `신규 job 예산 항목 ${fmtSet(added)} 추가뿐 — 계약상 "기존 항목 상향"이 아니다`
+          : '기존 항목 상향 0건 — 계약상 (c-3) 대상이 아니다',
+    };
+  }
+  return {
+    apply: true,
+    why: `기존 항목 상향 ${raised.map((r) => `${r.job} ${r.from}→${r.to}`).join(', ')}`,
+  };
+}
 
 /** 계약이 지정한 7경로 */
 export const REQUIRED_OWNER_PATHS = [
@@ -260,6 +304,18 @@ function checkSingleMaintainerRelaxation(report, ctx) {
           `이 검사기는 그 판정을 대신하지 않는다 (무조건 독립 PR 을 요구하면 DS1·DS3 의 합법 경로가 0개가 된다)`,
       );
       continue;
+    }
+
+    if (typeof t.gate === 'function') {
+      const g = t.gate(root, base, t.path);
+      if (!g.apply) {
+        report.pass(
+          RULE,
+          `(c-3) ${SINGLE_MAINTAINER_TOKEN} ${t.path} 는 독립 PR 요구 대상이 아니다 — ${g.why}`,
+        );
+        continue;
+      }
+      report.info(RULE, `(c-3) ${t.path} 독립 PR 요구 발동 — ${g.why}`);
     }
 
     anyTarget = true;
