@@ -3,6 +3,12 @@
 > 계약 규격: [02-task-contract-spec.md](../02-task-contract-spec.md) §1 (원칙 2.5 · R-6 · R-7 포함)
 > 상태: **재작성본 (2차 감사 REJECT 반영)** · ⛔G5 = 옵션 A (shadcn/ui 기반)
 > 어휘 정본: [03-task-dag.md](../03-task-dag.md) "가격 상태 어휘 정본 (정정 #10)"
+>
+> 개정 2026-08-03 (경로 정합) — D4 v2.1 로 K-1 정본이 `packages/legal/medical/{src/index.ts, dist/exported_rules.json}` →
+> 워크스페이스 패키지 `@glowmate/legal-medical`(발행물 `packages/legal-medical/exported_rules.json`) 로 이전되어,
+> dag_amendment (2) · shared_contract · REQ-8 · FORBID-5 의 판정 함수/발행물 인용을 워크스페이스 import 로
+> 정정하고 `packages/ui/package.json` 의존 1줄을 touches 에 등재했다. **인용은 `rule_id` 문자열로만 한다는
+> 원칙과 픽스처 건수·금지 조건은 변경하지 않았다.**
 
 ## 설계 전제 — 이 컴포넌트는 "가격 신뢰"의 마지막 관문이다
 
@@ -70,8 +76,9 @@ gate:          null      # ⛔G5 는 DS0 산출로 해소됨(옵션 A)
 #       병렬로 두면 DS4 가 먼저 머지될 때 detect 2건과 acceptance 1건이 "존재하지 않는 명령"이 되어
 #       공허하게 통과한다(2차 감사 P3).
 #   (2) D4-MEDICAL-AD-GUARDRAIL 을 depends_on 에 추가.
-#       FORBID-5 · REQ-8 이 D4 의 판정 함수(packages/legal/medical/src/index.ts)와
-#       정본 발행물(packages/legal/medical/dist/exported_rules.json)을 호출한다. 대상 부재 시 공허 통과.
+#       FORBID-5 · REQ-8 이 D4 의 판정 함수(`@glowmate/legal-medical` 기본 export = packages/legal-medical/src/index.ts)와
+#       정본 발행물(서브패스 `@glowmate/legal-medical/rules.json` = packages/legal-medical/exported_rules.json)을 호출한다.
+#       패키지 부재 시 모듈 해석 실패로 즉시 red 이며, 스텁으로 대체하면 공허 통과가 된다.
 #   F6-PRICE-STATE 는 Phase 2 라 의존 불가 — 어휘를 문서 레벨에서 고정하는 것으로 대체한다(REQ-1).
 
 # ─── 산출물 ─────────────────────────────
@@ -83,6 +90,7 @@ deliverable:
     - packages/ui/src/cases/types.ts                   # ↓ 공유 규약 참조
     - packages/ui/test/price/**
     - packages/ui/test/price/fixtures/**
+    - packages/ui/package.json                         # `@glowmate/legal-medical` 워크스페이스 의존 1줄 추가만 (REQ-8·FORBID-5 판정 함수 해석용. 기존 키 수정·삭제 금지)
   artifacts:
     - "PriceCompareCard — 정본 4상태 discriminated union props (shadcn Card/Badge 기반)"
     - "PriceStateBadge — 비확정 3상태의 가시 배지 (badgeKey → 문구 매핑 테이블은 본 태스크 소유)"
@@ -101,9 +109,10 @@ shared_contract:
      **F6 머지 후 props 타입을 F6 export 타입으로 교체하는 후속 PR 을 상신한다**(done_when 참조)."
   - "가격 상태 시각 토큰(color.price.{confirmed,conflict,low_confidence,unavailable}.{fg,bg,stroke} 12개)은
      DS1 산출물이다. 본 태스크는 참조만 한다."
-  - "medical 표기 판정의 정본은 D4 의 `packages/legal/medical/dist/exported_rules.json` 이며,
-     인용은 `rule_id` 문자열로만 한다(파일명·자연어 인용 금지). 판정은 `packages/legal/medical/src/index.ts`
-     의 함수 호출로 수행하고 사전 raw grep 을 하지 않는다."
+  - "medical 표기 판정의 정본은 D4 워크스페이스 패키지 `@glowmate/legal-medical` 이 발행하는
+     `packages/legal-medical/exported_rules.json`(서브패스 `@glowmate/legal-medical/rules.json`) 이며,
+     인용은 `rule_id` 문자열로만 한다(파일명·자연어 인용 금지). 판정은 `@glowmate/legal-medical` 의
+     export 함수 호출로 수행하고, 상대 경로 import·`dist/` 산출물 참조·사전 raw grep 을 하지 않는다."
 
 # ─── 요구사항 ───────────────────────────
 requirements:
@@ -160,7 +169,7 @@ requirements:
     statement: >
       category='medical_wellness' 이고 D4 판정 함수가 `show` 를 반환하는 고신뢰 픽스처 8건 전건에서
       금액 노드가 렌더된다. (숨김 FORBID 의 짝 · 원칙 2.5)
-    acceptance: "`pnpm test:ds-price-card --check medical-render` — D4 `src/index.ts` 판정이 show 인 8건 전건에서 금액 노드 존재 assert, show 판정 건수가 8 미만이면 픽스처 오류로 exit 1"
+    acceptance: "`pnpm test:ds-price-card --check medical-render` — `@glowmate/legal-medical` export 판정 함수가 show 를 반환하는 8건 전건에서 금액 노드 존재 assert, show 판정 건수가 8 미만이면 픽스처 오류로 exit 1"
 
 # ─── 조건부 금지사항 ────────────────────
 forbid:
@@ -240,10 +249,11 @@ forbid:
       서비스 전체가 중단될 수 있다. 반대로 사전 전체를 무차별 grep 해 과차단하면 D4 가 `applies_to`
       스코핑으로 설계한 판정 체계를 어기고 정상 표시까지 사라진다(REQ-8 과 짝을 이룬다).
     detect: >
-      `pnpm test:ds-price-card --check medical-guard` — D4 `packages/legal/medical/src/index.ts` 판정이
-      hide/needs_review 인 픽스처 8건에서 금액 노드 0건 assert + 금액 노드와 시술명 노드가 서로 다른
-      DOM 노드임을 assert. 판정은 함수 호출로만 수행하며 lexicon raw grep 을 사용하지 않는다
-      (사용 시 메타 테스트가 실패)
+      `pnpm test:ds-price-card --check medical-guard` — 워크스페이스 패키지 `@glowmate/legal-medical`
+      (D4 K-1 정본, 발행물 `packages/legal-medical/exported_rules.json`) 의 export 판정 함수가
+      hide/needs_review 를 반환하는 픽스처 8건에서 금액 노드 0건 assert + 금액 노드와 시술명 노드가 서로 다른
+      DOM 노드임을 assert. 판정은 워크스페이스 이름 import 의 함수 호출로만 수행하며, 상대 경로·`dist/`
+      참조와 lexicon raw grep 을 사용하지 않는다 (사용 시 메타 테스트가 실패)
     on_violation: block_merge
 
   - id: FORBID-6
