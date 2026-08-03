@@ -17,7 +17,7 @@
   },
   "scripts": {
     "build": "node -e \"for (const f of ['tsconfig.base.json','dependency-classes.json','data-access-names.json','db-driver-exceptions.json']) JSON.parse(require('fs').readFileSync(f,'utf8'))\"",
-    "typecheck": "node -e \"process.exit(0)\"",
-    "test": "node -e \"process.exit(0)\""
+    "typecheck": "node -e \"console.log('@glowmate/config 는 TS 소스가 없다 — REQ-2 세 플래그 계약 검사는 test 스크립트(req2-tsconfig.test.mjs)가 수행한다')\"",
+    "test": "node req2-tsconfig.test.mjs"
   }
 }

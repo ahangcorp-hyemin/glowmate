@@ -16,7 +16,10 @@
     "test:ci-meta": "node tools/ci-meta/index.mjs",
     "test:path-guard": "node tools/path-guard/index.mjs",
     "test:routes": "node tools/ci-meta/next-routes.mjs",
-    "test:discovery": "node tools/ci-meta/discovery.mjs"
+    "test:selftest:dep-graph": "node tools/dep-graph/selftest.mjs",
+    "test:selftest:path-guard": "node --test tools/path-guard/test/*.test.mjs",
+    "test:discovery": "node tools/ci-meta/discovery.mjs",
+    "test:discovery-checks": "node tools/ci-meta/discovery-checks.mjs"
   },
   "devDependencies": {
     "@eslint/js": "9.39.1",

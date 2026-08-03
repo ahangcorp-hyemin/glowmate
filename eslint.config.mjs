@@ -18,6 +18,9 @@ export default tseslint.config(
       '**/dist/**',
       '.github/ci-fixtures/**',
       'services/crawler/**',
+      // 병렬 에이전트용 git 워크트리. 리포 안에 생기지만 각자 자기 브랜치에서
+      // 별도로 검사받으므로 여기서 중복 검사하면 남의 작업 중 상태로 lint 가 깨진다.
+      '.claude/worktrees/**',
       // next build 가 매 빌드마다 다시 쓰는 생성 파일. 손으로 고칠 수 없으므로 규칙 대상이 아니다.
       '**/next-env.d.ts',
     ],
@@ -48,8 +51,12 @@ export default tseslint.config(
   },
 
   {
-    // 검사기·설정 스크립트는 Node 런타임 전역을 쓴다.
-    files: ['tools/**/*.mjs', '*.mjs', '*.cjs'],
+    // 검사기·설정·계약 테스트 스크립트는 Node 런타임 전역을 쓴다.
+    // `packages/**/*.mjs` 를 포함하는 이유: REQ-2 계약 테스트가 packages/config 에 있다.
+    // 이 목록이 좁으면 검사기를 추가할 때마다 lint 가 깨지고, 그때의 최단 경로는
+    // 사유 주석 없는 lint 억제 지시자를 심는 것이다 — FORBID-2 위반이다.
+    // (이 주석에 그 지시자 리터럴을 쓰지 않는 이유: 이 파일이 FORBID-2 스캔 대상이다.)
+    files: ['tools/**/*.mjs', 'packages/**/*.mjs', 'apps/**/*.mjs', '*.mjs', '*.cjs'],
     languageOptions: {
       globals: {
         process: 'readonly',

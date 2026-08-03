@@ -4,6 +4,19 @@
  * 핵심은 두 방향이다:
  *   (1) 픽스처 ⑦ 형태(오버레이가 `.github/pr-task` 를 다른 계약으로 교체)에서 green 이 되는가
  *   (2) 그 완화가 PR 브랜치·위장 브랜치로 새지 않는가 (픽스처 ⑧ 은 여전히 red)
+ *
+ * 환경변수 통제: 자식 CLI 는 주변 프로세스의 CI 변수를 **상속하지 않는다**(helpers/env.mjs).
+ * 각 케이스가 주입하는 값은 다음과 같다.
+ *
+ *   | 케이스                         | GITHUB_REF_NAME      | GITHUB_HEAD_REF     | GITHUB_EVENT_NAME |
+ *   |--------------------------------|----------------------|---------------------|-------------------|
+ *   | 픽스처 ⑦ green                 | ci-fixture/discovery | (없음)              | push              |
+ *   | 픽스처 ⑧ red                   | ci-fixture/path-guard| (없음)              | push              |
+ *   | PR 이벤트 완화 차단            | (없음)               | ci-fixture/discovery| pull_request      |
+ *   | 위장 브랜치 / 없는 픽스처 / 2커밋| ci-fixture/<각각>    | (없음)              | push              |
+ *   | 일반 브랜치                    | feat/f1-repo-scaffold| (없음)              | pull_request      |
+ *   | 로컬 실행                      | (없음)               | (없음)              | (없음)            |
+ *   | 오염 회귀 테스트               | (없음 — 주변에만 존재) | (없음)            | (없음)            |
  */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -12,6 +25,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
+import { cleanEnv, JUDGEMENT_ENV_KEYS } from './helpers/env.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ENTRY = path.resolve(HERE, '..', 'index.mjs');
@@ -84,11 +98,15 @@ function overlay(root, { branch, name, files, subject }) {
   git(root, 'commit', '-q', '-m', subject ?? `ci-fixture(${name}): REQ-5 위반 픽스처 오버레이`);
 }
 
-function run(root, env = {}) {
+/**
+ * CLI 실행. 판정 축이 되는 CI 환경변수는 상속하지 않고(helpers/env.mjs),
+ * 각 케이스가 **필요한 값만 명시 주입**한다. 주입값은 각 테스트 이름·인자에 드러난다.
+ */
+function run(root, inject = {}) {
   const res = spawnSync(process.execPath, [ENTRY], {
     cwd: root,
     encoding: 'utf8',
-    env: { ...process.env, GITHUB_REF_NAME: '', GITHUB_HEAD_REF: '', GITHUB_EVENT_NAME: '', ...env },
+    env: cleanEnv(inject),
   });
   return { code: res.status, out: res.stdout, err: res.stderr };
 }
@@ -211,6 +229,34 @@ test('일반 브랜치는 origin/main 기준을 쓰고 그 사실을 출력한�
   assert.equal(code, 0, `stderr: ${err}`);
   assert.match(out, /기준: origin\/main\.\.\.HEAD/);
   assert.match(out, /ref=feat\/f1-repo-scaffold \(GITHUB_REF_NAME\)/);
+});
+
+test('주변 CI 환경변수(GITHUB_REF_NAME=ci-fixture/lint 등) 오염이 selftest 판정에 새지 않는다', () => {
+  // 회귀 방어: selftest 를 `path-guard` job 안에서 돌리면 그 job 의 GITHUB_* 가 자식에게
+  // 상속되어, 임시 리포의 브랜치가 main 이어도 픽스처 판정 경로를 타 버렸다.
+  // run() 이 cleanEnv() 를 쓰지 않게 되돌아가면 이 테스트가 즉시 깨진다.
+  const root = makePrRepo();
+  const saved = Object.fromEntries(JUDGEMENT_ENV_KEYS.map((k) => [k, process.env[k]]));
+  Object.assign(process.env, {
+    GITHUB_ACTIONS: 'true',
+    GITHUB_EVENT_NAME: 'push',
+    GITHUB_REF_NAME: 'ci-fixture/lint',
+    GITHUB_HEAD_REF: 'ci-fixture/lint',
+    GITHUB_REPOSITORY: 'ahangcorp-hyemin/glowmate',
+    CI: 'true',
+  });
+  try {
+    const { code, out, err } = run(root); // 주입 없음 → 임시 리포 브랜치(main) 기준이어야 한다
+    assert.equal(code, 0, `stderr: ${err}`);
+    assert.match(out, /기준: origin\/main\.\.\.HEAD/);
+    assert.doesNotMatch(out + err, /픽스처 분기점/);
+    assert.doesNotMatch(out + err, /ci-fixture\/lint/);
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
 });
 
 test('로컬 실행(환경변수 없음)에서도 브랜치 이름으로 픽스처 모드가 결정된다', () => {

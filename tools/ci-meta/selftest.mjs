@@ -10,10 +10,18 @@
 // 하나라도 어긋나면 그 자체로 exit 1 이다.
 //
 // 특히 B-8: `needs:` 만 선언한 순진한 애그리게이터가 R6C-1 에서 실제로 걸리는지를 여기서 못박는다.
+//
+// 두 가지 방식으로 실행된다:
+//   1. `index.mjs` 가 import 해서 `pnpm test:ci-meta` 마다 (기본 경로)
+//   2. `node tools/ci-meta/selftest.mjs` 단독 실행 — 파일 말미의 main 가드가 처리한다.
+//      가드가 없으면 단독 실행이 **출력 없이 exit 0** 이 되어, 검증 명령 자체가 조용한 통과가 된다.
 
+import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
+import path from 'node:path';
 import YAML from 'yaml';
 import { Report } from './lib/util.mjs';
-import { isFixtureBranch } from './fixture-rules.mjs';
+import { isFixtureBranch, fixtureExemptionAllowed } from './fixture-rules.mjs';
 import { GitHubError, isPlanLimited } from './lib/github.mjs';
 import {
   resolveRequiredContexts,
@@ -23,7 +31,7 @@ import {
 } from './lib/branch-protection.mjs';
 import { analyzeEnforcementJob } from './checks/req6-aggregator.mjs';
 import { computeRaised } from './checks/forbid5-budget.mjs';
-import { isProseFile, isExcludedPath } from './checks/forbid2-masking.mjs';
+import { isProseFile, isExcludedPath, isDataFile, scanLine } from './checks/forbid2-masking.mjs';
 import { normalizePattern, matchesPattern, ownersForPath } from './lib/codeowners.mjs';
 import { evaluateRelaxationWindow, checkIndependentPr } from './lib/maintainer.mjs';
 import {
@@ -38,6 +46,10 @@ import {
   DISABLE_DIRECTIVE_RE,
   DISABLE_REASON_RE,
   TOKEN_CONTINUE_ON_ERROR,
+  CHECKER_FILE_RE,
+  LITERAL_ZERO_EXIT_RE,
+  CHECKER_LITERAL_EXIT_ALLOWLIST,
+  stripLiteralsAndComments,
 } from './forbid2-patterns.mjs';
 
 const NEEDS = ['typecheck', 'lint', 'boundary', 'test', 'python', 'secret-scan', 'discovery', 'path-guard'];
@@ -94,7 +106,89 @@ const AGGREGATOR_CASES = [
     yaml: `    runs-on: ubuntu-latest\n    if: always()\n    needs:\n${NEEDS_YAML}\n    env:\n      N: \${{ toJSON(needs) }}\n    steps:\n      - run: |\n          node -e "const n=JSON.parse(process.env.N);const b=Object.entries(n).filter(([,v])=>v.result!=='success');if(b.length)process.exit(1)"`,
     expectFail: [],
   },
+  // ── R6C-5 연결성 (f1-pr-review §10 권고 7) ──────────────────────────────
+  // "non-zero 종료가 어딘가 있는가" 로는 아래 반례가 통과한다. 그 형태의 ci-required 는
+  // 선행 8개 job 이 전부 red 여도 success 로 끝나고 머지가 열린다 — B-8 이 막으려던 상태다.
+  // 이 두 케이스(반례 FAIL · 정상 PASS)가 없으면 판정을 되돌려도 아무도 알아채지 못한다.
+  {
+    name: '반례 — non-zero 종료는 있으나 non-success 판정에 연결되지 않는다 (권고 7)',
+    yaml: stepRun(
+      [
+        "const needs = JSON.parse(process.env.NEEDS_JSON);",
+        'const entries = Object.entries(needs);',
+        "const bad = entries.filter(([, v]) => v.result !== 'success');",
+        'if (entries.length === 0) {',
+        '  process.exit(1);', // ← non-zero 는 존재한다
+        '}',
+        'console.log(`${bad.length}건 실패`);', // ← 그러나 bad 에 대해서는 종료하지 않는다
+      ],
+      'NEEDS_JSON',
+    ),
+    expectFail: ['R6C-5'],
+  },
+  {
+    name: '정상 — 다행 if 블록 안에서 non-success 판정 결과로 종료 (ci.yml 실물 형태)',
+    yaml: stepRun(
+      [
+        'const needs = JSON.parse(process.env.NEEDS_JSON);',
+        'const entries = Object.entries(needs);',
+        'if (entries.length === 0) {',
+        '  process.exit(1);',
+        '}',
+        "const bad = entries.filter(([, v]) => v.result !== 'success');",
+        'if (bad.length > 0) {',
+        '  console.error("REQ-6: ci-required 실패");',
+        '  process.exit(1);',
+        '}',
+      ],
+      'NEEDS_JSON',
+    ),
+    expectFail: [],
+  },
+  {
+    name: '정상 — else 분기에서 종료 (success 전량 확인 형태)',
+    yaml: stepRun(
+      [
+        'const n = JSON.parse(process.env.NEEDS_JSON);',
+        "const allOk = Object.values(n).every((v) => v.result === 'success');",
+        'if (allOk) {',
+        '  console.log("all green");',
+        '} else {',
+        '  process.exit(1);',
+        '}',
+      ],
+      'NEEDS_JSON',
+    ),
+    expectFail: [],
+  },
+  {
+    // 판정 불가를 통과로 처리하지 않는다 — 종료 형태가 산문 문자열 안에만 있고
+    // 실행 경로상의 종료 지점으로 읽히지 않으면 R6C-5 는 실패한다.
+    name: '판정 불가 — 종료 형태가 문자열 안에만 있다 (통과 아님)',
+    yaml:
+      `    runs-on: ubuntu-latest\n    if: always()\n    needs:\n${NEEDS_YAML}\n` +
+      `    env:\n      N: \${{ toJSON(needs) }}\n    steps:\n` +
+      `      - run: echo "success 가 아닌 job 이 있으면 exit 1 해야 한다"`,
+    expectFail: ['R6C-5'],
+  },
+  {
+    name: '정상 — 스텝 `if:` 가 non-success 를 판정하고 run 이 종료 (셸 형태)',
+    yaml:
+      `    runs-on: ubuntu-latest\n    if: always()\n    needs:\n${NEEDS_YAML}\n` +
+      `    steps:\n      - if: \${{ !contains(needs.*.result, 'success') || contains(needs.*.result, 'failure') }}\n        run: exit 1`,
+    expectFail: [],
+  },
 ];
+
+/** 여러 줄 node 스크립트를 실행하는 애그리게이터 스텝 1개짜리 job YAML 을 만든다. */
+function stepRun(jsLines, envName) {
+  const body = jsLines.map((l) => `          ${l}`).join('\n');
+  return (
+    `    runs-on: ubuntu-latest\n    if: always()\n    needs:\n${NEEDS_YAML}\n` +
+    `    steps:\n      - env:\n          ${envName}: \${{ toJSON(needs) }}\n` +
+    `        run: |\n          node - <<'JS'\n${body}\n          JS`
+  );
+}
 
 /* ── FORBID-2 패턴 사전 케이스 ──────────────────────────────────────────── */
 
@@ -195,6 +289,145 @@ export function runSelfTests() {
   }
   if (!isExcludedPath('.github/ci-fixtures/lint/x.ts') || isExcludedPath('apps/web/src/x.ts')) {
     bad('FORBID-2', '자기검사 — 계약 명시 제외① 판정이 잘못됐다');
+  }
+
+  // ── 데이터 파일 면제: 오탐 방지 ↔ 미탐 방지 (D1a 실데이터 차단 사건 회귀) ────
+  //
+  // 사건: 인허가 대장 `docs/discovery/D1a/population.csv:2553` 의 실제 상호명
+  //       (아래 csvRow 가 재현하는 `Hoon f-i-t(훈핏)`)이 `test-x-prefix` 에 걸려
+  //       D1a·D1b·D2·D3·D4 의 lint job 을 영구 차단했다.
+  //       데이터 행은 어떤 검사도 무력화하지 않으므로 `구성`이 아니다.
+  // 이 블록은 **판정 경로 자체**(`scanLine`)를 호출한다. 판정을 재구현하면
+  // "검사기는 약해졌는데 자기검사는 통과"가 성립하기 때문이다.
+  {
+    const problems = [];
+    // 리터럴 회피: 이 파일도 FORBID-2 스캔 대상이다
+    const FIT = `f${'i'}t`;
+    const XIT = `x${'i'}t`;
+    const CSV_PATH = 'docs/discovery/D1a/population.csv';
+    const csvRow = `VDD0E945B83AC,Hoon ${FIT}(훈핏),강남구,exercise_body,37.4979,127.0276`;
+
+    // (1) 오탐 방지 — 데이터 행은 잡히지 않는다
+    const csv = scanLine({ rel: CSV_PATH, line: 2553, text: csvRow });
+    if (csv.findings.length > 0) {
+      problems.push(`.csv 실데이터 행이 여전히 잡힌다: ${csv.findings.map((f) => f.id).join(',')}`);
+    }
+    // …단 조용히 넘어가지 않는다. 면제는 반드시 기록으로 남아야 한다
+    if (!csv.notes.some((n) => n.kind === 'data-exempt' && n.id === 'test-x-prefix')) {
+      problems.push('면제가 기록되지 않았다 — 조용한 통과는 면제가 아니다');
+    }
+    for (const rel of ['docs/discovery/D2/serp.tsv', 'docs/discovery/D3/sources.jsonl']) {
+      if (scanLine({ rel, line: 1, text: csvRow }).findings.length > 0) {
+        problems.push(`데이터 확장자 오탐: ${rel}`);
+      }
+    }
+
+    // (2) 미탐 방지 — 코드·워크플로에서는 그대로 잡힌다
+    const mustCatch = [
+      { rel: 'apps/web/src/venues.test.mjs', text: `${FIT}('renders', () => {})` },
+      { rel: 'packages/api/src/x.test.ts', text: `${XIT}('renders', () => {})` },
+      { rel: 'services/crawler/run.sh', text: `${FIT}('x', () => {})` },
+      { rel: '.github/workflows/ci.yml', text: `          ${XIT}('x', () => {})`, isWorkflow: true },
+    ];
+    for (const c of mustCatch) {
+      const r = scanLine({ rel: c.rel, line: 10, text: c.text, isWorkflow: c.isWorkflow === true });
+      if (!r.findings.some((f) => f.id === 'test-x-prefix')) {
+        problems.push(`미탐 — ${c.rel} 의 x/f 프리픽스를 잡지 못했다`);
+      }
+    }
+
+    // (3) 데이터 파일이라도 **통째 면제는 아니다** — disable 지시자는 그대로 적용된다
+    const smuggled = scanLine({
+      rel: CSV_PATH,
+      line: 1,
+      text: `# es${'lint-disable'} no-console`,
+    });
+    if (!smuggled.findings.some((f) => f.id === 'disable-without-reason')) {
+      problems.push('데이터 파일에서 disable 지시자까지 면제됐다 — 통째 면제로 새어나갔다');
+    }
+
+    // (4) 구성 파일은 데이터가 아니다 — .json/.yml 을 데이터로 보면 예산·분류·워크플로가 뚫린다
+    for (const rel of [
+      '.github/ci-budget.json',
+      'packages/config/dependency-classes.json',
+      '.github/workflows/ci.yml',
+      'apps/web/src/a.ts',
+      'docs/tasks/F1.md',
+    ]) {
+      if (isDataFile(rel)) problems.push(`구성/소스 확장자를 데이터로 오판: ${rel}`);
+    }
+    for (const rel of [CSV_PATH, 'a/b.TSV', 'x.jsonl', 'x.ndjson', 'x.psv']) {
+      if (!isDataFile(rel)) problems.push(`데이터 확장자 미인식: ${rel}`);
+    }
+
+    // (5) 면제는 **패턴별 opt-in** 이고 사유가 필수다 (사유 없는 면제는 다음 항목의 선례가 된다)
+    const allPatterns = [...FORBID2_LINE_PATTERNS, ...FORBID2_WORKFLOW_IF_PATTERNS];
+    for (const p of allPatterns) {
+      if (!('dataExempt' in p)) continue;
+      if (typeof p.dataExempt !== 'string' || p.dataExempt.trim().length < 20) {
+        problems.push(`패턴 \`${p.id}\` 의 dataExempt 사유가 없거나 너무 짧다`);
+      }
+    }
+    if (!allPatterns.some((p) => !('dataExempt' in p))) {
+      problems.push('전 패턴이 데이터 파일에서 면제됐다 — 코드 구성 패턴 한정 면제가 아니라 통째 면제다');
+    }
+
+    if (problems.length > 0) {
+      bad('FORBID-2', `자기검사 — 데이터 파일 면제 범위 오류: ${problems.join(' / ')}`);
+    } else {
+      ok(
+        'FORBID-2',
+        `자기검사 통과 — 데이터 행 오탐 0건(csv/tsv/jsonl) · 코드·워크플로 미탐 0건(${mustCatch.length}케이스) · ` +
+          'disable 지시자 및 구성 확장자(.json/.yml)는 면제 밖 · 면제 사유 전건 기재',
+      );
+    }
+  }
+
+  // ── 검사기 종료 코드 무력화 백스톱 (검수 차단 B-C) ────────────────────
+  {
+    const hit = (line, lang = 'js') =>
+      LITERAL_ZERO_EXIT_RE.test(stripLiteralsAndComments(line, lang));
+
+    // ★ 검수관이 실증한 공격: dep-graph/index.mjs 의 `  process.exit(code);` → `  process.exit(0);`
+    //   함수 안이라 들여쓰기돼 있다. 최상위 한정 규칙은 이걸 못 잡았다.
+    const mustFlag = [
+      '  process.exit(0);',
+      'process.exit(0)',
+      '    sys.exit(0)',
+      '  os._exit(0);',
+      'process.exit( 0 );',
+      '  if (ok) process.exit(0);',
+    ];
+    const mustNotFlag = [
+      'process.exit(report.print());',
+      '  process.exit(code);',
+      'process.exit(1);',
+      "  writeFileSync(p, 'import sys\\nsys.exit(0)\\n');", // 문자열 리터럴
+      ' * `process.exit(0)` 한 줄이면 검사가 죽는다', // JSDoc 주석
+      '// process.exit(0) 은 금지다', // 라인 주석
+      "        'sys.exit(0)',", // 배열 안 문자열
+    ];
+    for (const l of mustFlag) {
+      if (!hit(l)) bad('FORBID-2', `자기검사 — 검사기 리터럴 exit(0) 을 잡지 못했다: ${l.trim()}`);
+    }
+    for (const l of mustNotFlag) {
+      if (hit(l)) bad('FORBID-2', `자기검사 — 정당한 종료/문자열을 오탐했다: ${l.trim()}`);
+    }
+    if (!hit('    sys.exit(0)', 'py') || hit('# sys.exit(0)', 'py')) {
+      bad('FORBID-2', '자기검사 — python 주석/코드 구분이 잘못됐다');
+    }
+    // 허용목록은 사유가 반드시 있어야 한다 (사유 없는 예외는 다음 항목의 선례가 된다)
+    for (const a of CHECKER_LITERAL_EXIT_ALLOWLIST) {
+      if (!a.file || !a.reason || a.reason.trim().length < 20) {
+        bad('FORBID-2', `자기검사 — 허용목록 항목에 충분한 사유가 없다: ${JSON.stringify(a)}`);
+      }
+    }
+    const pathOk =
+      CHECKER_FILE_RE.test('tools/dep-graph/index.mjs') &&
+      CHECKER_FILE_RE.test('tools/ci-meta/lib/util.mjs') &&
+      CHECKER_FILE_RE.test('services/x.py') === false &&
+      CHECKER_FILE_RE.test('tools/readme.md') === false;
+    if (!pathOk) bad('FORBID-2', '자기검사 — 검사기 파일 범위 판정이 잘못됐다');
   }
   if (!out.some((e) => !e.ok && e.rule === 'FORBID-2')) {
     ok('FORBID-2', `자기검사 통과 — 패턴 ${F2_POSITIVE.length + 1}종 탐지 · 정상 라인 ${F2_NEGATIVE.length}건 무탐 · 제외 규칙 정합`);
@@ -368,6 +601,28 @@ export function runSelfTests() {
       if (isFixtureBranch(b)) problems.push(`면제가 새어나감: ${String(b)}`);
     }
 
+    // ── 이벤트 축 (검수 차단 B-B) ─────────────────────────────────────────
+    // 접두사 매칭만 검사하면 이 회귀를 못 잡는다. `GITHUB_HEAD_REF` 는 pull_request 에서만
+    // 설정되므로, 브랜치명만 보는 구현은 PR 을 배제하기는커녕 우선 면제해 준다.
+    const env = (branch, fromEnv = true) => ({ branch, fromEnv });
+    const cases = [
+      { desc: 'push + 픽스처 브랜치', info: env('ci-fixture/lint'), event: 'push', want: true },
+      { desc: 'workflow_dispatch + 픽스처 브랜치', info: env('ci-fixture/lint'), event: 'workflow_dispatch', want: true },
+      // ★ B-B 본체: 하류 PR 이 소스 브랜치를 ci-fixture/* 로 지어도 면제되면 안 된다
+      { desc: 'pull_request + ci-fixture/sneaky', info: env('ci-fixture/sneaky'), event: 'pull_request', want: false },
+      { desc: 'pull_request_target + 픽스처 브랜치', info: env('ci-fixture/x'), event: 'pull_request_target', want: false },
+      { desc: '이벤트 없음(로컬) + 픽스처 브랜치', info: env('ci-fixture/x'), event: '', want: false },
+      { desc: '미지의 이벤트 + 픽스처 브랜치', info: env('ci-fixture/x'), event: 'merge_group', want: false },
+      { desc: 'push + 워킹트리 브랜치(fromEnv=false)', info: env('ci-fixture/x', false), event: 'push', want: false },
+      { desc: 'push + 일반 브랜치', info: env('feat/f1'), event: 'push', want: false },
+    ];
+    for (const c of cases) {
+      const got = fixtureExemptionAllowed(c.info, c.event).allowed;
+      if (got !== c.want) {
+        problems.push(`이벤트 축 오판 — ${c.desc}: 기대 ${c.want}, 실제 ${got}`);
+      }
+    }
+
     // 면제 조건 미충족 시 exempt() 는 FAIL 로 되돌아야 한다 (검사 무력화 경로 차단)
     const probe = new Report('probe');
     probe.exempt('REQ-5', 'x', { allowed: false, branch: 'main', why: 'y' });
@@ -381,7 +636,8 @@ export function runSelfTests() {
     } else {
       ok(
         'REQ-5',
-        `자기검사 통과 — 면제는 \`ci-fixture/\` 접두사에만 적용(${mustMatch.length}건 인식 / ${mustNotMatch.length}건 무탐) · allowed=false 면 FAIL 로 되돌림`,
+        `자기검사 통과 — 접두사 ${mustMatch.length}건 인식 / ${mustNotMatch.length}건 무탐 · ` +
+          `**이벤트 축 ${cases.length}케이스**(pull_request 는 어떤 브랜치명이든 면제 없음 — 검수 B-B) · allowed=false 면 FAIL 로 되돌림`,
       );
     }
   }
@@ -491,4 +747,32 @@ export function runSelfTests() {
   }
 
   return out;
+}
+
+/* ── 단독 실행 진입점 ────────────────────────────────────────────────────
+ * `node tools/ci-meta/selftest.mjs` 로 직접 돌렸을 때만 실행된다.
+ * import 경로(index.mjs)에서는 실행되지 않는다.
+ * 케이스가 0건이면 그 자체를 실패로 본다 — 조용히 통과하는 자기검사는 자기검사가 아니다.
+ * ──────────────────────────────────────────────────────────────────────── */
+function isDirectRun() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(path.resolve(entry));
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectRun()) {
+  const report = new Report('ci-meta selftest (판정기 자기검사)');
+  const results = runSelfTests();
+  if (results.length === 0) {
+    report.fail('ci-meta', '자기검사 케이스가 0건이다 — 판정기의 탐지력이 입증되지 않았다');
+  }
+  for (const r of results) {
+    if (r.ok) report.pass(r.rule, r.message);
+    else report.fail(r.rule, r.message);
+  }
+  process.exit(report.print());
 }

@@ -11,5 +11,8 @@
     "build": "echo '@glowmate/db 는 타입 전용 스캐폴드다 — 산출물이 없다. 타입 검사는 typecheck job 이 담당한다'",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --test --experimental-strip-types"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1"
   }
 }

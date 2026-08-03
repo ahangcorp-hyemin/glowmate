@@ -27,7 +27,8 @@ const RULE = 'FORBID-5';
 const BUDGET_PATH = '.github/ci-budget.json';
 const MAX_TIMEOUT_MINUTES = 8;
 
-function parseBudgetText(text) {
+/** REQ-7 (c-3) 게이트가 재사용한다 — 두 검사가 서로 다른 파싱을 쓰면 판정이 어긋난다. */
+export function parseBudgetText(text) {
   if (text == null) return null;
   let raw;
   try {

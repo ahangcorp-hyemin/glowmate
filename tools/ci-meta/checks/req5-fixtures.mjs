@@ -1,31 +1,34 @@
 // tools/ci-meta/checks/req5-fixtures.mjs
 //
-// REQ-5 — 8개 job 존재(집합 포함) · 픽스처 8종 실제 Actions 런의 신선도 · 귀속 검증
-// REQ-6 (c) 런타임 — 픽스처 8종 각 런에서 `ci-required` conclusion ≠ success / skipped
+// REQ-5 — 8개 job 존재(집합 포함) · 픽스처 실제 Actions 런의 신선도 · 귀속 검증
+// REQ-6 (c) 런타임 — 각 픽스처 런에서 `ci-required` conclusion 판정
+//
+// 검증 대상은 REQ-5 필수 8종 + REQ-3 픽스처 ②③④ (fixture.json 의 expected_result 로 red/green 구분).
 //
 // 정적 부분(job 이름 집합, 픽스처 트리 존재)은 로컬에서도 판정한다.
 // 런 조회 부분은 GitHub API 가 필요하며, CI 에서 조회 불가면 exit 1 이다(판정 불가 ≠ 통과).
 
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { Workflow, CI_WORKFLOW } from '../lib/workflow.mjs';
 import { blobSha } from '../lib/git.mjs';
 import { fmtSet } from '../lib/util.mjs';
 import {
-  FIXTURES,
   REQUIRED_JOBS,
   AGGREGATOR_JOB,
-  FIXTURE_MANIFEST_NAME,
   conventionalFixtureBranch,
   isSetupStep,
   failureRegion,
   isFixtureBranch,
+  fixtureExemptionAllowed,
+  GENERIC_EXPECT_TOKENS,
+  FIXTURE_ROOT,
+  discoverFixtureDescriptors,
 } from '../fixture-rules.mjs';
 import { currentBranch } from '../lib/git.mjs';
 
 const RULE = 'REQ-5';
 const RULE6 = 'REQ-6';
-const FIXTURE_ROOT = '.github/ci-fixtures';
 
 /** REQ-5 (1) — 8개 job 이름 집합 포함 검사. 개수 동등 비교를 쓰지 않는다. */
 export function checkJobNames(report, root) {
@@ -49,35 +52,65 @@ export function checkJobNames(report, root) {
   return wf;
 }
 
-/** 픽스처 트리 존재 + 매니페스트 읽기 (정적) */
+/**
+ * 픽스처 서술자 구축 (정적) — REQ-5 필수 8종 + REQ-3 픽스처 ②③④ 를 모두 포함한다.
+ * `fixture.json` 의 `expected_result`(red/green)를 읽는 유일한 소비자다.
+ */
 export function readFixtureManifests(report, root) {
-  const out = new Map();
-  for (const fx of FIXTURES) {
-    const dir = path.join(root, FIXTURE_ROOT, fx.job);
-    if (!existsSync(dir) || !statSync(dir).isDirectory()) {
-      report.fail(
-        RULE,
-        `(2) 픽스처 트리 ${FIXTURE_ROOT}/${fx.job}/ 가 없다 — ${fx.label}`,
-      );
-      out.set(fx.job, null);
+  const base = path.join(root, FIXTURE_ROOT);
+  const dirNames = existsSync(base)
+    ? readdirSync(base).filter((d) => statSync(path.join(base, d)).isDirectory()).sort()
+    : [];
+
+  const readManifest = (rel) => {
+    const abs = path.join(root, rel);
+    if (!existsSync(abs)) return { exists: false, json: null };
+    try {
+      return { exists: true, json: JSON.parse(readFileSync(abs, 'utf8')) };
+    } catch (err) {
+      report.fail(RULE, `(2) ${rel} JSON 파싱 실패: ${err.message}`);
+      return { exists: true, json: null };
+    }
+  };
+
+  const descriptors = discoverFixtureDescriptors(dirNames, readManifest);
+
+  for (const d of descriptors) {
+    if (!d.present) {
+      report.fail(RULE, `(2) 픽스처 트리 ${FIXTURE_ROOT}/${d.name}/ 가 없다 — ${d.label}`);
       continue;
     }
-    const manifestPath = path.join(dir, FIXTURE_MANIFEST_NAME);
-    let manifest = null;
-    if (existsSync(manifestPath)) {
-      try {
-        manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-      } catch (err) {
+    if (!['red', 'green'].includes(d.expectedResult)) {
+      report.fail(
+        RULE,
+        `(2) ${FIXTURE_ROOT}/${d.name}/ 의 expected_result 가 red/green 이 아니다: ${JSON.stringify(d.expectedResult)}`,
+      );
+      continue;
+    }
+    // 귀속 토큰이 지나치게 일반적이면 "그 규칙 때문에 red" 가 증명되지 않는다.
+    if (d.expectedResult === 'red') {
+      const generic = d.expect.filter((t) => GENERIC_EXPECT_TOKENS.has(String(t).trim()));
+      if (generic.length > 0) {
         report.fail(
           RULE,
-          `(2) ${FIXTURE_ROOT}/${fx.job}/${FIXTURE_MANIFEST_NAME} JSON 파싱 실패: ${err.message}`,
+          `(2) ${FIXTURE_ROOT}/${d.name}/ 의 귀속 기대 토큰이 지나치게 일반적이다: ${fmtSet(generic)} — ` +
+            `다른 이유(ruff·설치 실패 등)로 red 여도 매칭되어 귀속 검증이 공허해진다. 규칙 고유 문자열로 좁힐 것`,
+        );
+      }
+      if (d.expect.length === 0) {
+        report.fail(
+          RULE,
+          `(2) ${FIXTURE_ROOT}/${d.name}/ 는 expected_result=red 인데 귀속 기대 토큰이 0건이다 — 무엇 때문에 red 인지 판정할 수 없다`,
         );
       }
     }
-    out.set(fx.job, manifest);
-    report.pass(RULE, `(2) 픽스처 트리 존재: ${FIXTURE_ROOT}/${fx.job}/ (${fx.label})`);
+    report.pass(
+      RULE,
+      `(2) 픽스처 트리 존재: ${FIXTURE_ROOT}/${d.name}/ → job \`${d.job}\` 기대 ${d.expectedResult} (${d.label})`,
+    );
   }
-  return out;
+
+  return descriptors;
 }
 
 /** 신선도 — 런의 head_sha 시점 ci.yml blob sha 가 현재 PR 의 것과 동일한가. */
@@ -93,44 +126,55 @@ async function isFresh(client, run, localSha) {
   return { fresh: true, reason: null };
 }
 
-export async function checkReq5Runs(report, ctx, manifests, wf) {
+export async function checkReq5Runs(report, ctx, descriptors, wf) {
   const { root, gh } = ctx;
 
   // 픽스처 브랜치 면제 — REQ-5 (2)(3) 은 **PR 의 메타 검증**이지 픽스처 자신의 검증이 아니다.
-  // 픽스처 브랜치에서 다시 픽스처 런을 조회하면 자기 자신을 검증하는 순환이 되고,
-  // 그 시점에 다른 픽스처 런은 아직 존재하지도 않는다.
-  // ⚠ PR 브랜치에서는 아래 판정이 그대로 엄격하게 돈다. 이 면제는 `ci-fixture/` 접두사에만 걸린다.
+  // 면제는 **이벤트 허용목록(push·workflow_dispatch) + 워크플로 컨텍스트 브랜치**를 모두 만족할 때만 열린다.
+  // 검수 차단 B-B: 접두사만 보면 하류 PR 이 소스 브랜치를 `ci-fixture/*` 로 짓는 것만으로
+  // REQ-5(2)(3)·REQ-6(c) 런타임 검증이 통째로 꺼졌다. pull_request 는 어떤 브랜치명이든 면제되지 않는다.
+  const eventName = String(process.env.GITHUB_EVENT_NAME ?? '');
   const branchInfo = currentBranch(root);
-  if (isFixtureBranch(branchInfo.branch)) {
+  const exemption = fixtureExemptionAllowed(branchInfo, eventName);
+
+  if (exemption.allowed) {
     const why =
-      'REQ-5 (2)(3) 은 PR 의 메타 검증이므로 픽스처 브랜치에서는 검사 대상이 아니다 ' +
-      '(자기 자신을 검증하는 순환 + 다른 픽스처 런 부재). PR 브랜치에서는 엄격하게 판정한다';
-    report.exempt(RULE, '(2)(3) 픽스처 8종의 실제 Actions 런 신선도·귀속 검증', {
+      'REQ-5 (2)(3) 은 PR 의 메타 검증이므로 픽스처 브랜치 push 런에서는 검사 대상이 아니다 ' +
+      `(자기 자신을 검증하는 순환 + 다른 픽스처 런 부재). ${exemption.reason} · 판정 원천: ${branchInfo.source}`;
+    report.exempt(RULE, '(2)(3) 픽스처 실제 Actions 런 신선도·귀속 검증', {
       allowed: true,
       branch: branchInfo.branch,
-      why: `${why} · 판정 원천: ${branchInfo.source}`,
+      why,
     });
-    report.exempt(RULE6, `(c) 런타임 — 픽스처 8종 각 런의 \`${AGGREGATOR_JOB}\` conclusion 검증`, {
+    report.exempt(RULE6, `(c) 런타임 — 각 픽스처 런의 \`${AGGREGATOR_JOB}\` conclusion 검증`, {
       allowed: true,
       branch: branchInfo.branch,
-      why: `${why} · 판정 원천: ${branchInfo.source}`,
+      why,
     });
     return;
   }
+
+  if (isFixtureBranch(branchInfo.branch)) {
+    // 픽스처 브랜치처럼 보이지만 면제되지 않는 경우 — 반드시 그 사유를 남긴다.
+    report.info(
+      RULE,
+      `브랜치 ${branchInfo.branch} 는 픽스처 브랜치 형태이나 **면제하지 않는다**: ${exemption.reason}`,
+    );
+  }
   report.info(
     RULE,
-    `(2)(3) 판정 컨텍스트: 브랜치 ${branchInfo.branch ?? '<불명>'} (${branchInfo.source}) — 픽스처 브랜치가 아니므로 엄격 판정한다`,
+    `(2)(3) 판정 컨텍스트: event=${eventName || '<없음>'} branch=${branchInfo.branch ?? '<불명>'} (${branchInfo.source}) — 엄격 판정한다`,
   );
 
   if (!gh.available) {
     report.skip(
       RULE,
-      `(2)(3) 픽스처 8종의 실제 Actions 런 신선도·귀속 검증 미수행`,
+      `(2)(3) 픽스처 실제 Actions 런 신선도·귀속 검증 미수행`,
       gh.reason,
     );
     report.skip(
       RULE6,
-      `(c) 런타임 — 픽스처 8종 각 런의 \`${AGGREGATOR_JOB}\` conclusion ≠ success/skipped 미검증`,
+      `(c) 런타임 — 각 픽스처 런의 \`${AGGREGATOR_JOB}\` conclusion 미검증`,
       gh.reason,
     );
     return;
@@ -144,9 +188,10 @@ export async function checkReq5Runs(report, ctx, manifests, wf) {
 
   const allJobNames = wf.jobNames.filter((n) => n !== AGGREGATOR_JOB);
 
-  for (const fx of FIXTURES) {
-    const manifest = manifests.get(fx.job);
-    const label = `${fx.label} → job \`${fx.job}\``;
+  for (const fx of descriptors) {
+    if (!fx.present) continue; // 부재는 정적 단계에서 이미 FAIL 로 기록됐다
+    const manifest = fx.manifest;
+    const label = `${fx.label} → job \`${fx.job}\` [${fx.name}, 기대 ${fx.expectedResult}]`;
 
     let run = null;
     let resolution = '';
@@ -160,7 +205,7 @@ export async function checkReq5Runs(report, ctx, manifests, wf) {
           continue;
         }
       } else {
-        const branch = manifest?.branch ?? conventionalFixtureBranch(fx.job);
+        const branch = manifest?.branch ?? conventionalFixtureBranch(fx.name);
         resolution = `branch=${branch}`;
         const runs = await gh.client.workflowRunsForBranch(branch);
         const sorted = runs
@@ -206,7 +251,6 @@ export async function checkReq5Runs(report, ctx, manifests, wf) {
     }
     const byName = new Map(jobs.map((j) => [j.name, j]));
 
-    // 대응 job 만 red
     const target = byName.get(fx.job);
     if (!target) {
       report.fail(
@@ -215,6 +259,43 @@ export async function checkReq5Runs(report, ctx, manifests, wf) {
       );
       continue;
     }
+
+    // ── expected_result=green: 전 검사 job 이 green 이어야 한다 ────────────
+    // REQ-3 픽스처 ④(boundary-ui-other)가 여기 해당한다. 이 트리가 red 가 되면
+    // DS1·DS3 에 합법 경로가 0개라는 뜻이므로 실패로 간주한다(계약 REQ-3 acceptance · 원칙 2.5).
+    if (fx.expectedResult === 'green') {
+      const notGreenAll = [];
+      for (const n of allJobNames) {
+        const j = byName.get(n);
+        if (!j) notGreenAll.push(`${n}=<런에 없음>`);
+        else if (j.conclusion !== 'success') notGreenAll.push(`${n}=${j.conclusion}`);
+      }
+      if (notGreenAll.length > 0) {
+        report.fail(
+          RULE,
+          `(3) ${label} 런 #${run.id} 은 전 job green 이어야 하는데 아니다: ${notGreenAll.join(', ')} — ` +
+            `합법 경로 픽스처가 red 면 하류(DS1·DS3)에 통과 가능한 경로가 0개라는 뜻이다 (원칙 2.5) — ${run.html_url}`,
+        );
+      } else {
+        report.pass(
+          RULE,
+          `(3) ${label} 런 #${run.id} 전 검사 job ${allJobNames.length}개 green 확인 (합법 경로 존재 실증) — ${run.html_url}`,
+        );
+      }
+      const aggGreen = byName.get(AGGREGATOR_JOB);
+      if (!aggGreen || aggGreen.conclusion !== 'success') {
+        report.fail(
+          RULE6,
+          `(c) ${label} 런 #${run.id} 의 \`${AGGREGATOR_JOB}\` 이 success 가 아니다 (${aggGreen?.conclusion ?? '<런에 없음>'}) — ` +
+            `전 job green 인데 애그리게이터가 실패하면 어떤 PR 도 머지될 수 없다`,
+        );
+      } else {
+        report.pass(RULE6, `(c) ${label} 런 #${run.id} \`${AGGREGATOR_JOB}\` conclusion=success (정상 통과 경로 실증)`);
+      }
+      continue;
+    }
+
+    // ── expected_result=red: 대응 job 만 red, 나머지 green ────────────────
     if (target.conclusion !== 'failure') {
       report.fail(
         RULE,
@@ -224,7 +305,6 @@ export async function checkReq5Runs(report, ctx, manifests, wf) {
       report.pass(RULE, `(3) ${label} 런 #${run.id} 대응 job red 확인 — ${run.html_url}`);
     }
 
-    // 나머지 검사 job 은 green
     const others = allJobNames.filter((n) => n !== fx.job);
     const notGreen = [];
     for (const n of others) {
@@ -242,7 +322,7 @@ export async function checkReq5Runs(report, ctx, manifests, wf) {
     }
 
     // 귀속 — 실패 **스텝**이 검사 스텝이어야 하고, 실패 지점 로그가 규칙 ID 와 매칭돼야 한다.
-    const expected = Array.isArray(manifest?.expect) && manifest.expect.length > 0 ? manifest.expect : fx.expect;
+    const expected = fx.expect;
     if (target.conclusion === 'failure') {
       // (i) 실패 스텝 판정 — 셋업/설치에서 난 red 는 결합 실패이지 규칙 탐지가 아니다.
       const failedSteps = (target.steps ?? []).filter((s) => s.conclusion === 'failure');

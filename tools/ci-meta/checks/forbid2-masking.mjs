@@ -34,7 +34,12 @@ import {
   TEST_FILE_MATCHERS,
   TEST_DECL_PATTERNS,
   PROSE_EXTENSIONS,
+  DATA_EXTENSIONS,
   TOKEN_CONTINUE_ON_ERROR,
+  CHECKER_FILE_RE,
+  LITERAL_ZERO_EXIT_RE,
+  CHECKER_LITERAL_EXIT_ALLOWLIST,
+  stripLiteralsAndComments,
 } from '../forbid2-patterns.mjs';
 
 const RULE = 'FORBID-2';
@@ -48,6 +53,71 @@ export function isExcludedPath(rel) {
 export function isProseFile(rel) {
   const lower = rel.toLowerCase();
   return PROSE_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
+/**
+ * 행 지향 데이터 파일인가.
+ *
+ * 산문 파일과 달리 **스캔은 계속한다.** 다만 `dataExempt` 가 명시된 코드 구성 패턴만
+ * 면제된다 (근거·제외 범위는 forbid2-patterns.mjs 의 `DATA_EXTENSIONS` 주석).
+ */
+export function isDataFile(rel) {
+  const lower = rel.toLowerCase();
+  return DATA_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
+/**
+ * 한 줄에 대한 FORBID-2 판정 — **순수 함수**.
+ *
+ * scanDiff 의 실제 판정 경로이며 selftest 가 이 함수를 직접 호출해 회귀를 못박는다.
+ * (판정 로직을 selftest 가 재구현하면 "검사기는 약해졌는데 자기검사는 통과"가 가능해진다.)
+ *
+ * @returns {{findings: Array<object>, notes: Array<object>}}
+ *   notes 는 "매칭됐으나 면제된" 기록이다 — 면제는 조용히 넘어가지 않고 반드시 출력된다.
+ */
+export function scanLine({ rel, line, text, isWorkflow = false, inAggregatorIf = false }) {
+  const findings = [];
+  const notes = [];
+  const isData = isDataFile(rel);
+
+  const consider = (p) => {
+    if (!p.re.test(text)) return;
+    if (isData && p.dataExempt) {
+      notes.push({ kind: 'data-exempt', rel, line, id: p.id, why: p.dataExempt });
+      return;
+    }
+    findings.push({ rel, line, text, id: p.id, why: p.why });
+  };
+
+  for (const p of FORBID2_LINE_PATTERNS) consider(p);
+
+  if (isWorkflow) {
+    for (const p of FORBID2_WORKFLOW_IF_PATTERNS) {
+      if (!p.re.test(text)) continue;
+      if (inAggregatorIf) {
+        notes.push({ kind: 'aggregator-if', rel, line, id: p.id });
+        continue;
+      }
+      consider(p);
+    }
+  }
+
+  // ★ disable 지시자는 데이터 파일에서도 면제되지 않는다 (dataExempt 미부여).
+  if (DISABLE_DIRECTIVE_RE.test(text)) {
+    if (DISABLE_REASON_RE.test(text)) {
+      notes.push({ kind: 'disable-with-reason', rel, line, text });
+    } else {
+      findings.push({
+        rel,
+        line,
+        text,
+        id: 'disable-without-reason',
+        why: '사유 주석(`-- reason: <이슈 URL>`) 없는 disable 지시자 = 검사 대상 축소',
+      });
+    }
+  }
+
+  return { findings, notes };
 }
 
 /** 워크플로 파일에서 `ci-required` job 의 `if:` 가 차지하는 라인 범위 (제외 ②) */
@@ -144,6 +214,91 @@ export async function checkForbid2(report, ctx) {
 
   // 워크플로 전수: 검사 job 의 continue-on-error 는 diff 여부와 무관하게 현 상태로도 위반이다.
   scanWorkflowStateWide(report, root);
+
+  // 검사기 전수: 종료 코드 무력화는 diff 여부와 무관한 백스톱이어야 한다 (검수 차단 B-C).
+  scanCheckerExitMasking(report, root);
+}
+
+/**
+ * `tools/**` 검사기 본체의 **무조건 성공 종료**를 잡는다 (검수 차단 B-C).
+ *
+ * diff 스캔이 아니라 **현 상태 전수**다. diff 로만 보면 한 번 머지된 뒤에는 영영 잡히지 않고,
+ * 이 규칙의 목적이 정확히 "다음 PR 부터 검사가 영구 무력화되는 것"을 막는 백스톱이기 때문이다.
+ */
+export function scanCheckerExitMasking(report, root) {
+  let files;
+  try {
+    files = listWorkingFiles(root);
+  } catch (err) {
+    report.fail(RULE, '검사기 파일 목록을 산출할 수 없어 종료 코드 무력화를 판정할 수 없다', err.message);
+    return;
+  }
+  const targets = files.filter((f) => CHECKER_FILE_RE.test(f) && !isExcludedPath(f));
+  if (targets.length === 0) {
+    report.fail(
+      RULE,
+      'tools/** 에서 검사기 소스를 1건도 찾지 못했다 — 종료 코드 무력화 백스톱이 공허하다 (검사 대상 0건을 통과로 처리하지 않는다)',
+    );
+    return;
+  }
+
+  const allow = new Map(CHECKER_LITERAL_EXIT_ALLOWLIST.map((a) => [a.file, a.reason]));
+  /** @type {Map<string, number[]>} */
+  const hitsByFile = new Map();
+
+  for (const rel of targets) {
+    const abs = path.join(root, rel);
+    if (!existsSync(abs)) continue;
+    let text;
+    try {
+      text = readFileSync(abs, 'utf8');
+    } catch {
+      continue;
+    }
+    const lang = rel.endsWith('.py') ? 'py' : 'js';
+    text.split('\n').forEach((line, i) => {
+      const code = stripLiteralsAndComments(line, lang);
+      if (LITERAL_ZERO_EXIT_RE.test(code)) {
+        if (!hitsByFile.has(rel)) hitsByFile.set(rel, []);
+        hitsByFile.get(rel).push(i + 1);
+      }
+    });
+  }
+
+  let violations = 0;
+  for (const [rel, lines] of hitsByFile) {
+    if (allow.has(rel)) {
+      report.pass(
+        RULE,
+        `${rel}:${lines.join(',')} 리터럴 exit(0) — 허용목록 등재분: ${allow.get(rel)}`,
+      );
+      continue;
+    }
+    violations += 1;
+    report.fail(
+      RULE,
+      `${rel}:${lines.join(',')} 검사기가 리터럴 \`exit(0)\` 으로 성공을 선언한다 — ` +
+        `검사기의 종료 코드는 **판정 결과에서 파생**되어야 한다(process.exit(report.print()) · process.exit(code)). ` +
+        `"FAIL 이다"라고 출력하면서 exit 0 을 내면 그 검사는 영구 무력화된다. ` +
+        `정당한 사유가 있으면 tools/ci-meta/forbid2-patterns.mjs 의 CHECKER_LITERAL_EXIT_ALLOWLIST 에 사유와 함께 등재하라`,
+    );
+  }
+
+  for (const [file, reason] of allow) {
+    if (!hitsByFile.has(file)) {
+      report.info(
+        RULE,
+        `허용목록 항목 \`${file}\` 에 리터럴 exit(0) 이 더 이상 없다 — 항목을 제거해 허용 범위를 좁힐 것 (사유: ${reason})`,
+      );
+    }
+  }
+
+  if (violations === 0) {
+    report.pass(
+      RULE,
+      `검사기 ${targets.length}건 전수 — 허용목록 밖 리터럴 exit(0) 0건 (tools/** 의 .mjs·.js·.py)`,
+    );
+  }
 }
 
 async function scanDiff(report, ctx) {
@@ -155,8 +310,10 @@ async function scanDiff(report, ctx) {
 
   const findings = [];
   const disablesWithReason = [];
+  const dataExemptions = new Map(); // patternId -> [{rel, line, why}]
   let scannedFiles = 0;
   let proseSkipped = 0;
+  let dataFiles = 0;
 
   for (const [rel, lines] of added) {
     if (isExcludedPath(rel)) continue;
@@ -165,6 +322,7 @@ async function scanDiff(report, ctx) {
       continue;
     }
     scannedFiles += 1;
+    if (isDataFile(rel)) dataFiles += 1;
     const isWorkflow = workflowFiles.has(rel);
     const aggIf = aggregatorIfRanges.get(rel) ?? null;
 
@@ -172,37 +330,19 @@ async function scanDiff(report, ctx) {
       const inAggregatorIf =
         isWorkflow && aggIf != null && line >= aggIf[0] && line <= aggIf[1];
 
-      for (const p of FORBID2_LINE_PATTERNS) {
-        if (p.re.test(text)) {
-          findings.push({ rel, line, text, id: p.id, why: p.why });
-        }
-      }
-
-      if (isWorkflow) {
-        for (const p of FORBID2_WORKFLOW_IF_PATTERNS) {
-          if (!p.re.test(text)) continue;
-          if (inAggregatorIf) {
-            report.info(
-              RULE,
-              `제외② 적용: ${rel}:${line} 은 애그리게이터 \`${AGGREGATOR_JOB}\` 의 if: 조건이다 (REQ-6 실패 전파 요구를 만족시키는 수단)`,
-            );
-            continue;
-          }
-          findings.push({ rel, line, text, id: p.id, why: p.why });
-        }
-      }
-
-      if (DISABLE_DIRECTIVE_RE.test(text)) {
-        if (DISABLE_REASON_RE.test(text)) {
-          disablesWithReason.push({ rel, line, text });
-        } else {
-          findings.push({
-            rel,
-            line,
-            text,
-            id: 'disable-without-reason',
-            why: '사유 주석(`-- reason: <이슈 URL>`) 없는 disable 지시자 = 검사 대상 축소',
-          });
+      const res = scanLine({ rel, line, text, isWorkflow, inAggregatorIf });
+      findings.push(...res.findings);
+      for (const n of res.notes) {
+        if (n.kind === 'disable-with-reason') {
+          disablesWithReason.push({ rel: n.rel, line: n.line, text: n.text });
+        } else if (n.kind === 'aggregator-if') {
+          report.info(
+            RULE,
+            `제외② 적용: ${rel}:${line} 은 애그리게이터 \`${AGGREGATOR_JOB}\` 의 if: 조건이다 (REQ-6 실패 전파 요구를 만족시키는 수단)`,
+          );
+        } else if (n.kind === 'data-exempt') {
+          if (!dataExemptions.has(n.id)) dataExemptions.set(n.id, []);
+          dataExemptions.get(n.id).push(n);
         }
       }
     }
@@ -224,8 +364,17 @@ async function scanDiff(report, ctx) {
 
   report.info(
     RULE,
-    `diff 스캔 대상 파일 ${scannedFiles}건 (base=${ctx.base.ref} ${ctx.base.mergeBase.slice(0, 8)}) · 비실행 산문 파일 ${proseSkipped}건 제외`,
+    `diff 스캔 대상 파일 ${scannedFiles}건 (base=${ctx.base.ref} ${ctx.base.mergeBase.slice(0, 8)}) · ` +
+      `비실행 산문 파일 ${proseSkipped}건 제외 · 그중 행 지향 데이터 파일 ${dataFiles}건 (코드 구성 패턴만 면제, disable 지시자는 그대로 적용)`,
   );
+  // 면제는 조용히 넘어가지 않는다 — 무엇이 왜 면제됐는지 매 실행 출력한다.
+  for (const [id, hits] of dataExemptions) {
+    const sample = hits.slice(0, 3).map((h) => `${h.rel}:${h.line}`).join(', ');
+    report.info(
+      RULE,
+      `데이터 파일 면제 적용: 패턴 \`${id}\` ${hits.length}건 (${sample}${hits.length > 3 ? ', …' : ''}) — ${hits[0].why}`,
+    );
+  }
   if (scannedFiles === 0 && proseSkipped === 0) {
     report.fail(
       RULE,
