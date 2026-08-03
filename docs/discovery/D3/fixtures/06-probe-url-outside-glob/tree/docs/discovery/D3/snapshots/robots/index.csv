@@ -1,0 +1,7 @@
+source,host,url,fetched_at_utc,http_status,sha256,path,bytes
+naver_place,map.fixture-naver.example,https://map.fixture-naver.example/robots.txt,2026-08-03T00:00:00Z,200,d65d5b9c7a1a0f5c5a549c1594f94ff7aee077e011e17f2290678632e2991333,docs/discovery/D3/snapshots/robots/naver_place.txt,36
+kakao_map,map.fixture-kakao.example,https://map.fixture-kakao.example/robots.txt,2026-08-03T00:00:00Z,200,d65d5b9c7a1a0f5c5a549c1594f94ff7aee077e011e17f2290678632e2991333,docs/discovery/D3/snapshots/robots/kakao_map.txt,36
+official_website,www.fixture-a.example,https://www.fixture-a.example/robots.txt,2026-08-03T00:00:00Z,200,a78a6daa78af5526d5fa9f64433df5122798b5e75550cf2a6ccb8ecbc08aecb3,docs/discovery/D3/snapshots/robots/official_website.txt,41
+alt_one,www.fixture-b.example,https://www.fixture-b.example/robots.txt,2026-08-03T00:00:00Z,200,a78a6daa78af5526d5fa9f64433df5122798b5e75550cf2a6ccb8ecbc08aecb3,docs/discovery/D3/snapshots/robots/alt_one.txt,41
+alt_two,www.fixture-c.example,https://www.fixture-c.example/robots.txt,2026-08-03T00:00:00Z,200,d65d5b9c7a1a0f5c5a549c1594f94ff7aee077e011e17f2290678632e2991333,docs/discovery/D3/snapshots/robots/alt_two.txt,36
+alt_three,www.fixture-d.example,https://www.fixture-d.example/robots.txt,2026-08-03T00:00:00Z,200,d65d5b9c7a1a0f5c5a549c1594f94ff7aee077e011e17f2290678632e2991333,docs/discovery/D3/snapshots/robots/alt_three.txt,36

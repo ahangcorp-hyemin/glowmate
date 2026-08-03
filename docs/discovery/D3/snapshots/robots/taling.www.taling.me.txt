@@ -1,0 +1,13 @@
+User-agent: *
+Disallow: /vod/play/
+Disallow: /auth/
+Disallow: /example/
+Disallow: /kollus/
+Disallow: /my-account/
+Disallow: /my-class/
+Disallow: /my-wish/
+Disallow: /order-result/
+Disallow: /redirect-processor/
+Disallow: /test/
+
+Sitemap: https://www.taling.me/sitemap.xml

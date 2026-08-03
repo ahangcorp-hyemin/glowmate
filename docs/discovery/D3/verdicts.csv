@@ -1,0 +1,9 @@
+source,verdict,rule_id,tos_ref,tos_clause,robots_ref,decided_at_utc,note
+naver_place,forbidden,R-ROBOTS-DISALLOW,docs/discovery/D3/snapshots/tos/naver_place.terms.html,조항번호 없음(서술형 약관) — robots 근거로 판정,docs/discovery/D3/snapshots/robots/naver_place.map.naver.com.txt,2026-08-03,map.naver.com 이 User-agent:* 에 Disallow:/ 를 적용. m.place/pcmap 은 robots.txt 가 HTTP 429 로 확인 불가
+kakao_map,forbidden,R-ROBOTS-DISALLOW,docs/discovery/D3/snapshots/tos/kakao_map.terms.html,조항번호 없음(서술형 약관) — robots 근거로 판정,docs/discovery/D3/snapshots/robots/kakao_map.txt,2026-08-03,place.map.kakao.com 및 map.kakao.com 모두 User-agent:* 에 Disallow:/ + Allow:/$
+official_website,conditional,R-COND-ATTRIB,docs/discovery/D3/snapshots/tos/official_website.spoany.co.kr.html,제8조 (spoany) · 제1조 (soonsoobeauty) · 제1조 (curveskorea) · 제1조 (chaum),docs/discovery/D3/snapshots/robots/official_website.www.spoany.co.kr.txt,2026-08-03,도메인 집합 소스. robots·ToS 매트릭스 통과 도메인만 수집하고 재공개는 사실정보+출처표시로 제한
+google_maps,forbidden,R-TOS-PROHIBIT,docs/discovery/D3/snapshots/tos/google_maps.additional-terms-en.html,Section 2,docs/discovery/D3/snapshots/robots/google_maps.txt,2026-08-03,robots 는 /maps/place/ 를 Allow 하나 추가 약관 Section 2 가 비즈니스 등록정보 DB 생성·대량 다운로드를 금지
+instagram,forbidden,R-TOS-PROHIBIT,docs/discovery/D3/snapshots/tos/instagram.terms.html,robots.txt 상단 고지 + Automated Data Collection Terms (번호 없음),docs/discovery/D3/snapshots/robots/instagram.txt,2026-08-03,robots.txt 자체가 서면 허가 없는 자동 수집을 금지한다고 선언
+taling,forbidden,R-TOS-PROHIBIT,docs/discovery/D3/snapshots/tos/taling.terms.html,제8조,docs/discovery/D3/snapshots/robots/taling.txt,2026-08-03,robots 는 클래스 상세를 허용하나 이용약관 제8조 5항이 스크래핑의 상업적 이용을 명시 금지
+daangn,pending,R-PENDING-NO-TOS,,,docs/discovery/D3/snapshots/robots/daangn.txt,2026-08-03,robots 는 /kr/local-profile/ 상세를 허용하나 약관 본문이 클라이언트 렌더라 원문·조항 확보 실패
+visitkorea,pending,R-PENDING-NO-TOS,,,docs/discovery/D3/snapshots/robots/visitkorea.txt,2026-08-03,robots 는 User-agent:* 에 Allow:/ 이나 약관 URL 이 HTTP 404 로 원문 확보 실패

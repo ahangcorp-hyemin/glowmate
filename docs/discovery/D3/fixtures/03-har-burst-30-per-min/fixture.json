@@ -1,0 +1,6 @@
+{
+  "case": "03-har-burst-30-per-min",
+  "label": "③ HAR 이 60초에 20요청(정책 6 초과)",
+  "expect": "FORBID-3",
+  "tree": "tree/"
+}

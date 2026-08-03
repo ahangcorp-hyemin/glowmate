@@ -1,0 +1,6 @@
+{
+  "case": "01-robots-disallow-in-globs",
+  "label": "① Disallow 경로를 allowed_path_globs 에 포함",
+  "expect": "FORBID-1",
+  "tree": "tree/"
+}

@@ -1,0 +1,35 @@
+Sitemap: https://korean.visitkorea.or.kr/sitemap.xml
+Sitemap: https://korean.visitkorea.or.kr/tourist_attractions_sitemap.xml
+Sitemap: https://korean.visitkorea.or.kr/leisure_sports_sitemap.xml
+Sitemap: https://korean.visitkorea.or.kr/cultural_facilities_sitemap.xml
+Sitemap: https://korean.visitkorea.or.kr/shopping_sitemap.xml
+Sitemap: https://korean.visitkorea.or.kr/accommodation_sitemap.xml
+Sitemap: https://korean.visitkorea.or.kr/restaurants_sitemap.xml
+Sitemap: https://korean.visitkorea.or.kr/performances_events_sitemap.xml
+Sitemap: https://korean.visitkorea.or.kr/travel_articles_sitemap.xml
+Sitemap: https://korean.visitkorea.or.kr/travel_courses_sitemap.xml
+Sitemap: https://korean.visitkorea.or.kr/events_sitemap.xml
+
+# Group 1
+User-agent: Googlebot
+Disallow: /kor/
+Disallow: /cms/
+Disallow: /week/
+Disallow: /cc/
+Disallow: /resources/
+Disallow: /forecast/
+Disallow: /search/search_list.do?keyword
+# Group 2
+User-agent: Googlebot-mobile
+Disallow: /kor/
+Disallow: /cms/
+Disallow: /week/
+Disallow: /cc/
+Disallow: /resources/
+Disallow: /forecast/
+# Group 3
+User-agent: *
+Allow: /
+
+#DaumWebMasterTool:4e3121d0ea75bda90e67545eea23378a1f689572125f7a3e02e81c70afab292f:+cG10RiWiN0mfUZzfNsrBw==
+

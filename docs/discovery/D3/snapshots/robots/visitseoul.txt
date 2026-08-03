@@ -1,0 +1,12 @@
+User-agent: *
+Disallow: /member/
+Disallow: /admin/
+Disallow: /search*
+
+Sitemap: https://korean.visitseoul.net/sitemap/sitemap_kr_index.xml
+Sitemap: https://english.visitseoul.net/sitemap/sitemap_en_index.xml
+Sitemap: https://japanese.visitseoul.net/sitemap/sitemap_ja_index.xml
+Sitemap: https://chinese.visitseoul.net/sitemap/sitemap_cn_index.xml
+Sitemap: https://tchinese.visitseoul.net/sitemap/sitemap_tc_index.xml
+Sitemap: https://russian.visitseoul.net/sitemap/sitemap_ru_index.xml
+Sitemap: https://malay.visitseoul.net/sitemap/sitemap_ms_index.xml

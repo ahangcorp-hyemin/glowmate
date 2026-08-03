@@ -1,0 +1,7 @@
+source,verdict,rule_id,tos_ref,tos_clause,robots_ref,decided_at_utc,note
+naver_place,forbidden,R-ROBOTS-DISALLOW,,,docs/discovery/D3/snapshots/robots/naver_place.txt,2026-08-03,fixture
+kakao_map,forbidden,R-ROBOTS-DISALLOW,,,docs/discovery/D3/snapshots/robots/kakao_map.txt,2026-08-03,fixture
+official_website,conditional,R-COND-ATTRIB,docs/discovery/D3/snapshots/tos/official_website.html,제1조,docs/discovery/D3/snapshots/robots/official_website.txt,2026-08-03,fixture
+alt_one,conditional,R-COND-ATTRIB,docs/discovery/D3/snapshots/tos/alt_one.html,제1조,docs/discovery/D3/snapshots/robots/alt_one.txt,2026-08-03,fixture
+alt_two,forbidden,R-ROBOTS-DISALLOW,,,docs/discovery/D3/snapshots/robots/alt_two.txt,2026-08-03,fixture
+alt_three,forbidden,R-ROBOTS-DISALLOW,,,docs/discovery/D3/snapshots/robots/alt_three.txt,2026-08-03,fixture

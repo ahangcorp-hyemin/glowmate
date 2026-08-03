@@ -1,0 +1,22 @@
+official_website:
+  max_requests_per_min: 6
+  max_concurrency: 1
+  user_agent: "glowmate-crawler/0.1 (+fixture)"
+  retry_backoff_sec: 30
+  raw_retention_days: 90
+  expiry_action: tombstone_payload
+  allowed_path_globs:
+    - "https://www.fixture-a.example/venue/*"
+    - "https://www.fixture-a.example/list?page=*"
+    - "https://www.fixture-a.example/robots.txt"
+alt_one:
+  max_requests_per_min: 6
+  max_concurrency: 1
+  user_agent: "glowmate-crawler/0.1 (+fixture)"
+  retry_backoff_sec: 30
+  raw_retention_days: 90
+  expiry_action: tombstone_payload
+  allowed_path_globs:
+    - "https://www.fixture-b.example/venue/*"
+    - "https://www.fixture-b.example/list?page=*"
+    - "https://www.fixture-b.example/robots.txt"

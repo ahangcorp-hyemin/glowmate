@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /App_Code/
+Disallow: /aspnet_client/
+Disallow: /Bin/
+Disallow: /com/
+Disallow: /common/
+Disallow: /inc/file/
+Disallow: /master/
+Disallow: /member/
+Disallow: /mypage/

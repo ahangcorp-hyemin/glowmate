@@ -1,0 +1,32 @@
+# D3 — 소스별 크롤 준수 파라미터
+#
+# 대상: verdicts.csv 의 verdict ∈ {allowed, conditional} 인 **모든** 소스 (REQ-3)
+# 검증: scripts/discovery/validate_d3.py --check policy | rps-floor | glob-probe-consistency
+#
+# 규칙 (계약 고정 — 이 파일에서 완화할 수 없다)
+#   * max_requests_per_min ≥ 6            (K-2. 429 회피 목적의 하향은 금지 → forbidden 처리)
+#   * expiry_action == tombstone_payload  (K-4. F2 source_record 는 DELETE 를 DB 레벨에서 거부한다)
+#   * allowed_path_globs 는 **본 실사에서 실제로 요청해 본 경로만** 담는다 (FORBID-6)
+#     - 미매칭 실증 URL 이 있으면 실패
+#     - 실증되지 않은 글롭이 있어도 실패 (양방향 강제)
+#   * 글롭의 `*` 는 임의 문자열에 대응한다 (경로 + 쿼리스트링 전체 대상)
+
+official_website:
+  max_requests_per_min: 6
+  max_concurrency: 1
+  user_agent: "glowmate-crawler/0.1 (+https://github.com/ahangcorp-hyemin/glowmate; contact minseo.im@wrtn.io)"
+  retry_backoff_sec: 30
+  raw_retention_days: 90
+  expiry_action: tombstone_payload
+  allowed_path_globs:
+    - "https://www.spoany.co.kr/branch_view.php?idx=*"
+    - "https://www.spoany.co.kr/branch.php"
+    - "https://www.spoany.co.kr/robots.txt"
+    - "https://www.fitnessm1.com/hakdong"
+    - "https://www.fitnessm1.com/gx"
+    - "https://www.fitnessm1.com/robots.txt"
+    - "https://soonsoobeauty.com/"
+    - "https://soonsoobeauty.com/robots.txt"
+    - "https://www.chaum.net/"
+    - "https://www.chaum.net/robots.txt"
+    - "https://www.curveskorea.co.kr/robots.txt"

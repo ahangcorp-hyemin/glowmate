@@ -1,0 +1,6 @@
+{
+  "case": "02-conditional-without-tos",
+  "label": "② ToS 없는 소스에 conditional",
+  "expect": "FORBID-2",
+  "tree": "tree/"
+}

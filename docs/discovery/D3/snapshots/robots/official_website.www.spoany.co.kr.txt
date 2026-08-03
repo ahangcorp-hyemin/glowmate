@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /admode/
+Disallow: /include/
+Disallow: /api.php
+Allow: /
+
+Sitemap: https://www.spoany.co.kr/sitemap.xml

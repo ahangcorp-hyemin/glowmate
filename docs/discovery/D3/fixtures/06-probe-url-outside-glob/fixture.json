@@ -1,0 +1,6 @@
+{
+  "case": "06-probe-url-outside-glob",
+  "label": "⑥ probe URL 이 글롭 밖",
+  "expect": "FORBID-6",
+  "tree": "tree/"
+}

@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /admtools/
+Disallow: /castle/
+Disallow: /fckeditor/
+Disallow: /zmSpamFree/
+Disallow: /intranet/
+Disallow: /images/
+Sitemap: https://www.curveskorea.co.kr/sitemap.xml

@@ -1,0 +1,6 @@
+{
+  "case": "05-pii-mobile-in-sample",
+  "label": "⑤ allow_field 샘플값에 휴대전화번호",
+  "expect": "FORBID-5",
+  "tree": "tree/"
+}

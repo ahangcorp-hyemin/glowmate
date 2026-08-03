@@ -1,0 +1,6 @@
+{
+  "case": "04-rps-floor-2-but-conditional",
+  "label": "④ max_requests_per_min=2 인데 conditional",
+  "expect": "FORBID-4",
+  "tree": "tree/"
+}

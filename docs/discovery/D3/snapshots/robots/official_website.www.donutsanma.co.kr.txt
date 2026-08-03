@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /site_join
+Disallow: /site_join_agree
+Disallow: /login
+Disallow: /logout.cm
+Disallow: /shop_cart
+Disallow: /?mode*
+Disallow: /admin
+
+Sitemap: https://www.donutsanma.co.kr/sitemap.xml

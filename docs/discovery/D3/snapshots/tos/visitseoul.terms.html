@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<title>404 - Page Not Found</title>
+
+	<meta charset="UTF-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+	<meta name="viewport" content="width=device-width" />
+	<link rel="stylesheet" href="/resources/theme/style/base.css" />
+
+	<style>
+	html,body {height: 100%; overflow: hidden; background: url(/resources/theme/bizpartner/assets/images/bg/bg-error.jpg) center center no-repeat; background-size: cover;}
+	.errorpage {width:50%; margin:300px auto; font-size: 24px; color:#fff; text-align: center;}
+	.errorpage a {display: inline-block; padding:8px 20px; font-size: 16px; color:#fff; margin:20px; border-radius: 4px; border:1px solid #fff; -moz-transition: all 0.5s;-webkit-transition: all 0.5s;-o-transition: all 0.5s;transition: all 0.5s;}
+	.errorpage a:hover,.errorpage a:focus {border:1px solid #fff; background-color: #fff; color:#333; text-decoration: none;}
+	</style>
+
+	<script src="/resources/admin/js/jquery-1.10.2.min.js"></script>
+    <script>
+	$(document).ready(function() {
+		var returnHome = window.setTimeout(function(){
+			location.href = "/";
+		}, 5000);
+	});
+	</script>
+
+</head>
+<body>
+	<div class="errorpage">
+		404 - Page Not Found<br>
+		<span style="font-size:16px;">
+			The page you are looking for could not be found.</span>
+		<br><br>
+		<a href="#back" onclick="history.back();">Go back</a>
+		<a href="/">Go to main page</a>
+	</div>
+</body>
+</html>
+
