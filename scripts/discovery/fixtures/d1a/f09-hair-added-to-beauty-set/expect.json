@@ -1,0 +1,8 @@
+{
+  "id": "f09-hair-added-to-beauty-set",
+  "label": "⑨ beauty_care 편입 집합에 `일반미용업`(헤어 단독)을 추가한다",
+  "rule": "FORBID-1(c) — §헤어 결정으로 제외 확정된 업태가 편입 집합에 있다",
+  "must_fail_checks": [
+    "frame"
+  ]
+}

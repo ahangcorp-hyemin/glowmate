@@ -1,0 +1,8 @@
+{
+  "id": "f12-dataset-id-songpa-missing",
+  "label": "⑫ 송파 미용업 데이터셋(OA-17925)을 빠뜨린다 — 총계로는 잡히지 않는 누락",
+  "rule": "T-6 — population.csv 의 dataset_id 집합이 9종과 다르다",
+  "must_fail_checks": [
+    "frame"
+  ]
+}

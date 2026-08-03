@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://glowmate.local/d1a/ledger_row.schema.json",
+  "title": "glowmate D1b 조사 원장 1행",
+  "description": "D1a 사전등록본이 확정한 원장 스키마. D1b 는 이 스키마를 수정하지 않는다.",
+  "type": "object",
+  "required": [
+    "venue_id",
+    "name",
+    "gu",
+    "axis",
+    "evidence_channel",
+    "source_url",
+    "snapshot_path",
+    "access_method",
+    "checked_at",
+    "price_found",
+    "price_evidence_snippet",
+    "price_structure_type",
+    "service_menu_raw",
+    "absence_check",
+    "evaluator",
+    "cohort"
+  ],
+  "properties": {
+    "venue_id": {
+      "description": "sample.csv 의 venue_id. 'V' + sha256[:12] 대문자",
+      "type": "string",
+      "pattern": "^V[0-9A-F]{12}$"
+    },
+    "name": {
+      "description": "population.csv 의 사업장명. 빈 값 금지",
+      "type": "string",
+      "minLength": 1
+    },
+    "gu": {
+      "type": "string",
+      "enum": ["강남구", "서초구", "송파구"]
+    },
+    "axis": {
+      "description": "sample.csv 의 축. D1b 에서 변경 불가",
+      "type": "string",
+      "enum": ["exercise_body", "relax_recovery", "medical_wellness", "beauty_care"]
+    },
+    "evidence_channel": {
+      "description": "K-1 허용 채널. price_found=false 이고 어떤 채널에서도 확인되지 않으면 none",
+      "type": "string",
+      "enum": [
+        "website",
+        "naver_place",
+        "kakao_map",
+        "instagram_public",
+        "official_blog",
+        "none"
+      ]
+    },
+    "source_url": {
+      "description": "증거 페이지 URL. 증거가 없으면 NONE",
+      "type": "string",
+      "pattern": "^(https?://[^\\s]+|NONE)$"
+    },
+    "snapshot_path": {
+      "description": "docs/discovery/D1b/snapshots/ 상대 경로. 취득 실패 시 NONE",
+      "type": "string",
+      "minLength": 1
+    },
+    "snapshot_sha256": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{64}|NONE)$"
+    },
+    "access_method": {
+      "description": "익명 공개 접근만 허용한다. 접근 차단 시 blocked (D1b FORBID-6)",
+      "type": "string",
+      "enum": ["anonymous_public", "blocked"]
+    },
+    "checked_at": {
+      "description": "열람 시각 (ISO 8601, UTC)",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "price_found": {
+      "description": "K-3 3요건을 전부 충족할 때만 true",
+      "type": "boolean"
+    },
+    "decision_branch": {
+      "description": "protocol.md §4 판정 트리에서 처음 일치한 분기 id",
+      "type": "string",
+      "enum": [
+        "B1_channel_not_allowed",
+        "B2_not_currently_posted",
+        "B3_no_amount_on_page",
+        "B4_amount_without_service_name",
+        "B5_inquiry_only",
+        "B6_ended_event_only",
+        "B7_amount_and_service_same_page"
+      ]
+    },
+    "price_evidence_snippet": {
+      "description": "스냅샷 추출 텍스트의 부분문자열이어야 한다. 증거가 없으면 NONE",
+      "type": "string",
+      "minLength": 1
+    },
+    "price_structure_type": {
+      "description": "H2 예비 측정용 구조 분류. price_found=false 면 none",
+      "type": "string",
+      "enum": [
+        "total_and_count",
+        "total_and_period",
+        "per_session_direct",
+        "total_only",
+        "range_only",
+        "none"
+      ]
+    },
+    "service_menu_raw": {
+      "description": "게시된 서비스 항목 원문. 어떤 항목도 게시되어 있지 않으면 NONE_LISTED. 빈 값 금지",
+      "type": "string",
+      "minLength": 1
+    },
+    "absence_check": {
+      "$ref": "#/$defs/absenceCheck"
+    },
+    "evaluator": {
+      "description": "판정자 식별자",
+      "type": "string",
+      "minLength": 1
+    },
+    "cohort": {
+      "description": "이중판정 코호트. 같은 표본을 두 코호트가 독립 판정한다",
+      "type": "string",
+      "enum": ["A", "B"]
+    },
+    "notes": {
+      "type": "string"
+    },
+    "replaced_venue_id": {
+      "type": "string",
+      "pattern": "^(V[0-9A-F]{12}|NONE)$"
+    },
+    "blocked_status_code": {
+      "type": "string",
+      "pattern": "^([0-9]{3}|NONE)$"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "$comment": "D1b FORBID-6 — 접근이 차단된 행은 price_found=true 일 수 없다",
+      "not": {
+        "allOf": [
+          {
+            "required": ["access_method"],
+            "properties": {"access_method": {"const": "blocked"}}
+          },
+          {
+            "required": ["price_found"],
+            "properties": {"price_found": {"const": true}}
+          }
+        ]
+      }
+    },
+    {
+      "$comment": "price_found=true 인데 증거 채널이 none 인 행을 금지한다",
+      "not": {
+        "allOf": [
+          {
+            "required": ["price_found"],
+            "properties": {"price_found": {"const": true}}
+          },
+          {
+            "required": ["evidence_channel"],
+            "properties": {"evidence_channel": {"const": "none"}}
+          }
+        ]
+      }
+    },
+    {
+      "$comment": "price_found=true 인데 구조 분류가 none 인 행을 금지한다 (H2 예비 측정 공백 방지)",
+      "not": {
+        "allOf": [
+          {
+            "required": ["price_found"],
+            "properties": {"price_found": {"const": true}}
+          },
+          {
+            "required": ["price_structure_type"],
+            "properties": {"price_structure_type": {"const": "none"}}
+          }
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "absenceCheck": {
+      "description": "K-1 5개 채널 각각의 확인 결과. 확인하지 않고 false 로 처리하는 경로를 차단한다",
+      "type": "object",
+      "required": [
+        "website",
+        "naver_place",
+        "kakao_map",
+        "instagram_public",
+        "official_blog"
+      ],
+      "properties": {
+        "website": {"$ref": "#/$defs/absenceValue"},
+        "naver_place": {"$ref": "#/$defs/absenceValue"},
+        "kakao_map": {"$ref": "#/$defs/absenceValue"},
+        "instagram_public": {"$ref": "#/$defs/absenceValue"},
+        "official_blog": {"$ref": "#/$defs/absenceValue"}
+      },
+      "additionalProperties": false
+    },
+    "absenceValue": {
+      "description": "확인 URL 이거나 not_present(채널은 있으나 금액 게시 없음) 또는 channel_absent(채널 자체 부재)",
+      "type": "string",
+      "pattern": "^(https?://[^\\s]+|not_present|channel_absent)$"
+    }
+  }
+}

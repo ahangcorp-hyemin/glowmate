@@ -1,0 +1,8 @@
+{
+  "id": "f10-closed-business-row",
+  "label": "⑩ 폐업 업체 1건을 모집단에 남긴다 (T-4 필터 누락)",
+  "rule": "FORBID-1(d) — `license_status !=",
+  "must_fail_checks": [
+    "frame"
+  ]
+}

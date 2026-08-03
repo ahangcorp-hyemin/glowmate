@@ -1,0 +1,74 @@
+[
+  {
+    "key": "seoul_open_data_terms",
+    "title": "서울 열린데이터광장 이용약관 (제10조③ 출처표시 의무)",
+    "url": "https://data.seoul.go.kr/etc/accessTerms.do",
+    "retrieved_at": "2026-08-03T09:37:09.120+00:00",
+    "http_status": 200,
+    "content_type": "text/html;charset=UTF-8",
+    "snapshot_path": "seoul_open_data_terms.html.gz",
+    "sha256": "53a02a06b6e0f14245d9c19d335d7aeb0fc502eba9ac90c02b7efdc09b8e0872",
+    "stored_sha256": "86d7afcff708253b1bdf6f44bb767358de398cf3104b8bd9cdaf80ec872c161b",
+    "bytes": 56964
+  },
+  {
+    "key": "seoul_dataset_OA-16142",
+    "title": "서울 열린데이터광장 데이터셋 상세 — 공공누리 1유형 표기 (백업 경로 대표 1건)",
+    "url": "https://data.seoul.go.kr/dataList/OA-16142/S/1/datasetView.do",
+    "retrieved_at": "2026-08-03T09:37:10.713+00:00",
+    "http_status": 200,
+    "content_type": "text/html;charset=UTF-8",
+    "snapshot_path": "seoul_dataset_OA-16142.html.gz",
+    "sha256": "64b0870d326540c094d8662083e9e4edb545284d1d2f0ff1d86d5cd773a96c37",
+    "stored_sha256": "ba823097ed5f7f4aeceb9e49b05b321e6237ab4a61dcf5c19f743cab568482a8",
+    "bytes": 166804
+  },
+  {
+    "key": "kogl_type1",
+    "title": "공공누리 제1유형 이용조건 (하이퍼링크 형태 출처표시 의무)",
+    "url": "https://www.kogl.or.kr/info/license.do",
+    "retrieved_at": "2026-08-03T09:37:12.410+00:00",
+    "http_status": 200,
+    "content_type": "text/html; charset=UTF-8",
+    "snapshot_path": "kogl_type1.html.gz",
+    "sha256": "51e7896c1be3689b6e2f54e1ab026e362f974818722fd75826e37a604b76ce86",
+    "stored_sha256": "b1bb33a19d4fbfd121e4b50868bb08b56bdf233bce01b300ab082c4c3b51bdc7",
+    "bytes": 136498
+  },
+  {
+    "key": "localdata_file_info",
+    "title": "LOCALDATA 파일 서버 데이터 안내 (1순위 취득 경로)",
+    "url": "https://file.localdata.go.kr/file/fitness_centers/info",
+    "retrieved_at": "2026-08-03T09:37:14.111+00:00",
+    "http_status": 200,
+    "content_type": "text/html;charset=UTF-8",
+    "snapshot_path": "localdata_file_info.html.gz",
+    "sha256": "a2f2c9460f64024cace588f7d7fc4e2aa29df199daebdc81c140383677f0ef76",
+    "stored_sha256": "63f0ddaa35500421103d97920d6e23d26a8af761512277c3a0d44a6a3ebe99cd",
+    "bytes": 115284
+  },
+  {
+    "key": "data_go_kr_hira_15051059",
+    "title": "심평원 전국 병의원 및 약국 현황 (K-10 보강 소스) 라이선스 표기",
+    "url": "https://www.data.go.kr/data/15051059/fileData.do",
+    "retrieved_at": "2026-08-03T09:37:15.776+00:00",
+    "http_status": 200,
+    "content_type": "text/html;charset=UTF-8",
+    "snapshot_path": "data_go_kr_hira_15051059.html.gz",
+    "sha256": "238b50f26a78c8513eca141ed0ef2f293799a230a5d19ba95bf546d5e11438d9",
+    "stored_sha256": "e46c92ff9d354ed3dcaa5331f5564cfdf67a2bfa4e787a6ecfde75d2a29cebf5",
+    "bytes": 166529
+  },
+  {
+    "key": "hira_opendata_11925",
+    "title": "심평원 보건의료빅데이터개방시스템 배포 페이지 (K-10 실제 취득 위치)",
+    "url": "https://opendata.hira.or.kr/op/opc/selectOpenData.do?sno=11925",
+    "retrieved_at": "2026-08-03T09:37:17.948+00:00",
+    "http_status": 200,
+    "content_type": "text/html; charset=UTF-8",
+    "snapshot_path": "hira_opendata_11925.html.gz",
+    "sha256": "3e49dcb92d2b7bfcd4321ef1adfe1aa7eb9eb94d0e6622523ec236f6e846a10a",
+    "stored_sha256": "b2731f5cd6f213d1970f102067962cfca429b8f637cfe8ae236c8bb9fd6d9494",
+    "bytes": 233143
+  }
+]

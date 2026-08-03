@@ -1,0 +1,8 @@
+{
+  "id": "f04-holdout-plaintext-leak",
+  "label": "④ 표본 venue_id 를 허용 위치 밖 파일에 평문으로 남긴다",
+  "rule": "FORBID-4(a) — 표본 venue_id 가 허용 위치 밖",
+  "must_fail_checks": [
+    "holdout-sealed"
+  ]
+}

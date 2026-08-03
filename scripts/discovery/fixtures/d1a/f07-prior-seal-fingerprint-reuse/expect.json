@@ -1,0 +1,8 @@
+{
+  "id": "f07-prior-seal-fingerprint-reuse",
+  "label": "⑦ 개정 전 봉인 키를 그대로 재사용한다 (key_fingerprint == superseded_key_fingerprint). 디렉터리 이름에 `holdout`+`key` 를 함께 넣지 않는 이유는 검증기의 키 파일명 휴리스틱에 자기 픽스처가 걸리기 때문이다 (P7 자기차단 회피).",
+  "rule": "FORBID-4(b) — `key_fingerprint == superseded_key_fingerprint`",
+  "must_fail_checks": [
+    "holdout-sealed"
+  ]
+}

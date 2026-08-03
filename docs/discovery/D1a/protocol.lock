@@ -1,0 +1,7 @@
+# D1a-PROTOCOL 사전등록 잠금 — 이 파일이 origin/main 에 있어야 D1b 를 열 수 있다
+# 형식: <sha256>  <repo 상대 경로>
+decfa98e101b4622dc118738e248ee8f59f74628b27adae7ff4b773f9558bc68  docs/discovery/D1a/protocol.md
+3ab9bae1c1529d3c661aaf5cb41d579626fabf702473af44d264e49cdc5c3fbc  docs/discovery/D1a/frame_build.md
+585c0f3dc8cca04ee5b4fa8290053c894584c4db4b233db7afb8404a01df4eb4  docs/discovery/D1a/population.csv
+ad4e866573272d0579f66d6bcdd66e8720d1a84f7aa1b4b9ed0155e063f0dfca  docs/discovery/D1a/sample.csv
+3b9225c2b85c1cb6c3c909059056f0ef8d252d97d485124d891d93d8ba414aab  docs/discovery/D1a/ledger_schema.json

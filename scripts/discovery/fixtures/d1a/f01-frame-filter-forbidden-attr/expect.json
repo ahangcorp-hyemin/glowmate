@@ -1,0 +1,8 @@
+{
+  "id": "f01-frame-filter-forbidden-attr",
+  "label": "① 프레임 수집 필터에 K-5 금지 속성(예약 연동 여부)을 넣는다",
+  "rule": "FORBID-1(b) — filter_expressions 에 K-5 금지 속성 토큰",
+  "must_fail_checks": [
+    "frame"
+  ]
+}

@@ -1,0 +1,505 @@
+{
+  "schema": "glowmate/d1a/frame/2",
+  "frame_sources": [
+    "public_license_registry"
+  ],
+  "collected_at": "2026-08-03T09:32:25.161+00:00",
+  "reproduction_command": [
+    "python3 docs/discovery/D1a/frame_build.py --download <RAWDIR>",
+    "python3 docs/discovery/D1a/frame_build.py --download-backup <RAWDIR>",
+    "python3 docs/discovery/D1a/frame_build.py --download-enrich <RAWDIR>",
+    "python3 docs/discovery/D1a/frame_build.py --build <RAWDIR>"
+  ],
+  "acquisition": {
+    "primary": {
+      "host": "file.localdata.go.kr",
+      "url_template": "https://file.localdata.go.kr/file/download/{slug}/info?orgCode={org_code}",
+      "referer_template": "https://file.localdata.go.kr/file/{slug}/info",
+      "org_codes": {
+        "서초구": "3210000",
+        "강남구": "3220000",
+        "송파구": "3230000"
+      },
+      "file_count": 15
+    },
+    "backup": {
+      "host": "datafile.seoul.go.kr",
+      "url_template": "https://datafile.seoul.go.kr/bigfile/iot/sheet/csv/download.do?infId={dataset_id}&seq=2&srvType=S",
+      "file_count": 9
+    },
+    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "serial_only": true,
+    "min_request_interval_sec": 1.5,
+    "backoff": {
+      "initial_sec": 2.0,
+      "factor": 2.0,
+      "max_tries": 5
+    },
+    "source_charset": "cp949",
+    "declared_charset_ignored": true
+  },
+  "slugs": [
+    "fitness_centers",
+    "public_baths",
+    "clinics",
+    "beauty_salons",
+    "medical_related_businesses"
+  ],
+  "dataset_ids": [
+    "OA-16142",
+    "OA-16146",
+    "OA-16379",
+    "OA-16380",
+    "OA-16381",
+    "OA-16480",
+    "OA-17923",
+    "OA-17924",
+    "OA-17925"
+  ],
+  "dataset_id_map": {
+    "fitness_centers": {
+      "citywide": "OA-16142"
+    },
+    "public_baths": {
+      "citywide": "OA-16146"
+    },
+    "clinics": {
+      "citywide": "OA-16480"
+    },
+    "beauty_salons": {
+      "per_gu": {
+        "서초구": "OA-17923",
+        "강남구": "OA-17924",
+        "송파구": "OA-17925"
+      }
+    },
+    "medical_related_businesses": {
+      "per_gu": {
+        "서초구": "OA-16379",
+        "강남구": "OA-16380",
+        "송파구": "OA-16381"
+      }
+    }
+  },
+  "filter_expressions": [
+    "영업상태명 == '영업/정상'",
+    "address_gu(도로명주소, 지번주소) in ('강남구', '서초구', '송파구')",
+    "address_prefix == '서울특별시 <자치구> '",
+    "axis_of(slug, license_category, business_type, medical_subjects) is not None"
+  ],
+  "axis_decision_table": [
+    {
+      "id": "R1",
+      "axis": "exercise_body",
+      "when": {
+        "slug": "fitness_centers",
+        "license_category_equals": "체력단련장업"
+      }
+    },
+    {
+      "id": "R2",
+      "axis": "relax_recovery",
+      "when": {
+        "slug": "public_baths",
+        "license_category_not_empty": true
+      }
+    },
+    {
+      "id": "R3",
+      "axis": "relax_recovery",
+      "when": {
+        "slug": "medical_related_businesses",
+        "business_type_any": [
+          "안마시술소",
+          "안마원"
+        ]
+      }
+    },
+    {
+      "id": "R4",
+      "axis": "medical_wellness",
+      "when": {
+        "slug": "clinics",
+        "license_category_equals": "한의원"
+      }
+    },
+    {
+      "id": "R5",
+      "axis": "medical_wellness",
+      "when": {
+        "slug": "clinics",
+        "license_category_equals": "의원",
+        "medical_subjects_any": [
+          "재활의학과",
+          "정형외과",
+          "피부과",
+          "성형외과",
+          "마취통증의학과"
+        ]
+      }
+    },
+    {
+      "id": "R6",
+      "axis": "beauty_care",
+      "when": {
+        "slug": "beauty_salons",
+        "business_type_any": [
+          "피부미용업",
+          "네일미용업",
+          "종합미용업"
+        ]
+      }
+    }
+  ],
+  "axis_rule_text": "규칙은 위에서 아래로 처음 일치하는 것을 적용한다. 어느 규칙에도 걸리지 않으면 프레임 밖이다. 각 집합은 부분집합도 상위집합도 위반이며, 검증기가 집합 동등으로 판정한다.",
+  "axis_sets": {
+    "medical_subjects": [
+      "재활의학과",
+      "정형외과",
+      "피부과",
+      "성형외과",
+      "마취통증의학과"
+    ],
+    "beauty_business_types": [
+      "피부미용업",
+      "네일미용업",
+      "종합미용업"
+    ],
+    "anma_business_types": [
+      "안마시술소",
+      "안마원"
+    ],
+    "fitness_license_category": [
+      "체력단련장업"
+    ]
+  },
+  "license_status_filter": "영업/정상",
+  "coordinate": {
+    "source_epsg": "EPSG:5174",
+    "tm_lon0_deg": 127.0028902777778,
+    "tm_lat0_deg": 38.0,
+    "false_easting": 200000.0,
+    "false_northing": 500000.0,
+    "ellipsoid": "Bessel 1841 (a=6377397.155, 1/f=299.1528128)",
+    "helmert_7p_position_vector": [
+      -115.8,
+      474.99,
+      674.11,
+      1.16,
+      -2.31,
+      -1.63,
+      6.43
+    ]
+  },
+  "enrichment": {
+    "landing": "https://www.data.go.kr/data/15051059/fileData.do",
+    "host_page": "https://opendata.hira.or.kr/op/opc/selectOpenData.do?sno=11925",
+    "join": "left join only",
+    "applies_to_axis": "medical_wellness",
+    "match_conditions": [
+      "normalized name exact",
+      "normalized road address exact"
+    ],
+    "coordinates_used_for_match": false,
+    "stats": {
+      "matched": 3540,
+      "ambiguous": 4,
+      "no_match": 5351,
+      "distance_n": 3475,
+      "distance_median_m": 3.6,
+      "distance_p95_m": 29.6,
+      "distance_max_m": 6850.8
+    }
+  },
+  "row_counts": {
+    "total": 8895,
+    "by_axis": {
+      "exercise_body": 1316,
+      "relax_recovery": 180,
+      "medical_wellness": 3616,
+      "beauty_care": 3783
+    },
+    "by_cell": {
+      "exercise_body|강남구": 595,
+      "exercise_body|서초구": 354,
+      "exercise_body|송파구": 367,
+      "relax_recovery|강남구": 94,
+      "relax_recovery|서초구": 44,
+      "relax_recovery|송파구": 42,
+      "medical_wellness|강남구": 2014,
+      "medical_wellness|서초구": 928,
+      "medical_wellness|송파구": 674,
+      "beauty_care|강남구": 1604,
+      "beauty_care|서초구": 919,
+      "beauty_care|송파구": 1260
+    }
+  },
+  "path_crosscheck": [
+    {
+      "axis": "exercise_body",
+      "primary_rows": 1316,
+      "backup_rows": 1316,
+      "delta_pct": 0.0
+    },
+    {
+      "axis": "relax_recovery",
+      "primary_rows": 180,
+      "backup_rows": 180,
+      "delta_pct": 0.0
+    },
+    {
+      "axis": "medical_wellness",
+      "primary_rows": 3616,
+      "backup_rows": 3619,
+      "delta_pct": 0.08
+    },
+    {
+      "axis": "beauty_care",
+      "primary_rows": 3783,
+      "backup_rows": 3795,
+      "delta_pct": 0.32
+    }
+  ],
+  "datasets": [
+    {
+      "role": "primary",
+      "slug": "fitness_centers",
+      "gu": "강남구",
+      "dataset_id": "OA-16142",
+      "url": "https://file.localdata.go.kr/file/download/fitness_centers/info?orgCode=3220000",
+      "sha256": "b8adc34a6d9499b147ceeebde4c01eadc034b0adec8c38a1fd6cd5490501883b",
+      "bytes": 293217,
+      "retrieved_at": "2026-08-03T09:29:58.338+00:00"
+    },
+    {
+      "role": "primary",
+      "slug": "fitness_centers",
+      "gu": "서초구",
+      "dataset_id": "OA-16142",
+      "url": "https://file.localdata.go.kr/file/download/fitness_centers/info?orgCode=3210000",
+      "sha256": "49cb1b05e42b952a9d84ae72b72f482e707dd64620406f360daa94ac73a6ebcf",
+      "bytes": 151439,
+      "retrieved_at": "2026-08-03T09:29:59.839+00:00"
+    },
+    {
+      "role": "primary",
+      "slug": "fitness_centers",
+      "gu": "송파구",
+      "dataset_id": "OA-16142",
+      "url": "https://file.localdata.go.kr/file/download/fitness_centers/info?orgCode=3230000",
+      "sha256": "f037907b7be62296aaf7fca21611b370d2d7e8cf0ee99956d8ecab1e0eebdb0a",
+      "bytes": 188001,
+      "retrieved_at": "2026-08-03T09:30:01.341+00:00"
+    },
+    {
+      "role": "primary",
+      "slug": "public_baths",
+      "gu": "강남구",
+      "dataset_id": "OA-16146",
+      "url": "https://file.localdata.go.kr/file/download/public_baths/info?orgCode=3220000",
+      "sha256": "c2a5e030c36a6af9305965e299648a3ce9772d4e4606e0dae599a649b564af02",
+      "bytes": 125241,
+      "retrieved_at": "2026-08-03T09:30:02.846+00:00"
+    },
+    {
+      "role": "primary",
+      "slug": "public_baths",
+      "gu": "서초구",
+      "dataset_id": "OA-16146",
+      "url": "https://file.localdata.go.kr/file/download/public_baths/info?orgCode=3210000",
+      "sha256": "f609c0d8ffb9c5794cb8f291bf4955df21fd23bb684980f74cf4f5c0be3ba4bf",
+      "bytes": 58522,
+      "retrieved_at": "2026-08-03T09:30:04.351+00:00"
+    },
+    {
+      "role": "primary",
+      "slug": "public_baths",
+      "gu": "송파구",
+      "dataset_id": "OA-16146",
+      "url": "https://file.localdata.go.kr/file/download/public_baths/info?orgCode=3230000",
+      "sha256": "38f1c0d775a87e777fa961d2eaea655b183b85c51022ced8f08322a3e23abcf6",
+      "bytes": 62556,
+      "retrieved_at": "2026-08-03T09:30:05.854+00:00"
+    },
+    {
+      "role": "primary",
+      "slug": "clinics",
+      "gu": "강남구",
+      "dataset_id": "OA-16480",
+      "url": "https://file.localdata.go.kr/file/download/clinics/info?orgCode=3220000",
+      "sha256": "de4cefdee32713d53db65e085b5b9886bf877d4713cf5db7b098d34f68353f03",
+      "bytes": 2598962,
+      "retrieved_at": "2026-08-03T09:30:07.359+00:00"
+    },
+    {
+      "role": "primary",
+      "slug": "clinics",
+      "gu": "서초구",
+      "dataset_id": "OA-16480",
+      "url": "https://file.localdata.go.kr/file/download/clinics/info?orgCode=3210000",
+      "sha256": "871a0e21e1914bc03e5df8ec66f0dd5ec64a370dac8770c8e17b5a8020cf1a6c",
+      "bytes": 1080194,
+      "retrieved_at": "2026-08-03T09:30:09.539+00:00"
+    },
+    {
+      "role": "primary",
+      "slug": "clinics",
+      "gu": "송파구",
+      "dataset_id": "OA-16480",
+      "url": "https://file.localdata.go.kr/file/download/clinics/info?orgCode=3230000",
+      "sha256": "71eef8b4dcfcbfa628ecf987f632d07886fc9f3710d7d1247b98a5e25c1d98ae",
+      "bytes": 942036,
+      "retrieved_at": "2026-08-03T09:30:11.044+00:00"
+    },
+    {
+      "role": "primary",
+      "slug": "beauty_salons",
+      "gu": "강남구",
+      "dataset_id": "OA-17924",
+      "url": "https://file.localdata.go.kr/file/download/beauty_salons/info?orgCode=3220000",
+      "sha256": "aa343e8d8e9fddd0dd350e12f0e73084de24b8291ce1ac7b7d38ae4f39cce51d",
+      "bytes": 3186085,
+      "retrieved_at": "2026-08-03T09:30:12.549+00:00"
+    },
+    {
+      "role": "primary",
+      "slug": "beauty_salons",
+      "gu": "서초구",
+      "dataset_id": "OA-17923",
+      "url": "https://file.localdata.go.kr/file/download/beauty_salons/info?orgCode=3210000",
+      "sha256": "8e31b606728576f0d60f4339a9099f5e68144a087c2a90f52c84d87b34d27421",
+      "bytes": 1443812,
+      "retrieved_at": "2026-08-03T09:30:15.521+00:00"
+    },
+    {
+      "role": "primary",
+      "slug": "beauty_salons",
+      "gu": "송파구",
+      "dataset_id": "OA-17925",
+      "url": "https://file.localdata.go.kr/file/download/beauty_salons/info?orgCode=3230000",
+      "sha256": "b6dd6b4beebb22b14a9cedcaa734faf4c7978f13aa4fd618a537d33a0f9da34e",
+      "bytes": 2041166,
+      "retrieved_at": "2026-08-03T09:30:17.179+00:00"
+    },
+    {
+      "role": "primary",
+      "slug": "medical_related_businesses",
+      "gu": "강남구",
+      "dataset_id": "OA-16380",
+      "url": "https://file.localdata.go.kr/file/download/medical_related_businesses/info?orgCode=3220000",
+      "sha256": "eb3ed315c20ab66f84e78d5c227febc31b8b207e198091f1f94cfd7580731b7b",
+      "bytes": 29107,
+      "retrieved_at": "2026-08-03T09:30:18.685+00:00"
+    },
+    {
+      "role": "primary",
+      "slug": "medical_related_businesses",
+      "gu": "서초구",
+      "dataset_id": "OA-16379",
+      "url": "https://file.localdata.go.kr/file/download/medical_related_businesses/info?orgCode=3210000",
+      "sha256": "4046e0940f2a8c90f291fd1de43b52272303c7b9c17571ae7924342f70a378ca",
+      "bytes": 13707,
+      "retrieved_at": "2026-08-03T09:30:20.190+00:00"
+    },
+    {
+      "role": "primary",
+      "slug": "medical_related_businesses",
+      "gu": "송파구",
+      "dataset_id": "OA-16381",
+      "url": "https://file.localdata.go.kr/file/download/medical_related_businesses/info?orgCode=3230000",
+      "sha256": "0d44c469e02ae29cec8d2bdd53025669db6f839f5ec1fa883329370f9d4db84e",
+      "bytes": 10559,
+      "retrieved_at": "2026-08-03T09:30:21.695+00:00"
+    },
+    {
+      "role": "backup",
+      "slug": "fitness_centers",
+      "scope": "citywide",
+      "dataset_id": "OA-16142",
+      "url": "https://datafile.seoul.go.kr/bigfile/iot/sheet/csv/download.do?infId=OA-16142&seq=2&srvType=S",
+      "sha256": "4db40a363e1fd745c196d0ef43d4b6a8eff5119792bca2a0ce42ad29bfbb6ceb",
+      "bytes": 2989888,
+      "retrieved_at": "2026-08-03T09:30:29.238+00:00"
+    },
+    {
+      "role": "backup",
+      "slug": "public_baths",
+      "scope": "citywide",
+      "dataset_id": "OA-16146",
+      "url": "https://datafile.seoul.go.kr/bigfile/iot/sheet/csv/download.do?infId=OA-16146&seq=2&srvType=S",
+      "sha256": "70fd61b1b0222ac8b4e24cd2655be2f49ae99f5de8d875ef990c44adf5e6f9de",
+      "bytes": 1490541,
+      "retrieved_at": "2026-08-03T09:30:34.730+00:00"
+    },
+    {
+      "role": "backup",
+      "slug": "clinics",
+      "scope": "citywide",
+      "dataset_id": "OA-16480",
+      "url": "https://datafile.seoul.go.kr/bigfile/iot/sheet/csv/download.do?infId=OA-16480&seq=2&srvType=S",
+      "sha256": "c45dae7921d1c81e0138810471a7114ed6fc1ef77f1832de859e8411368d90b4",
+      "bytes": 17812089,
+      "retrieved_at": "2026-08-03T09:30:37.184+00:00"
+    },
+    {
+      "role": "backup",
+      "slug": "beauty_salons",
+      "scope": "강남구",
+      "dataset_id": "OA-17924",
+      "url": "https://datafile.seoul.go.kr/bigfile/iot/sheet/csv/download.do?infId=OA-17924&seq=2&srvType=S",
+      "sha256": "b6325bc5f7d199b02a8f0f3019e4c9f8a325018fcdaa401cf55ddac6383224a7",
+      "bytes": 4238618,
+      "retrieved_at": "2026-08-03T09:30:58.899+00:00"
+    },
+    {
+      "role": "backup",
+      "slug": "beauty_salons",
+      "scope": "서초구",
+      "dataset_id": "OA-17923",
+      "url": "https://datafile.seoul.go.kr/bigfile/iot/sheet/csv/download.do?infId=OA-17923&seq=2&srvType=S",
+      "sha256": "371d50b2b2a11617e58560a586bbb09df59ab3085c0ef512a5aeb246803495be",
+      "bytes": 1922451,
+      "retrieved_at": "2026-08-03T09:31:02.564+00:00"
+    },
+    {
+      "role": "backup",
+      "slug": "beauty_salons",
+      "scope": "송파구",
+      "dataset_id": "OA-17925",
+      "url": "https://datafile.seoul.go.kr/bigfile/iot/sheet/csv/download.do?infId=OA-17925&seq=2&srvType=S",
+      "sha256": "ce43dd7153184f35631571c7dcdfa5f6feb6503ac0abeab6d4f0c81e9690608a",
+      "bytes": 2782129,
+      "retrieved_at": "2026-08-03T09:31:04.460+00:00"
+    },
+    {
+      "role": "backup",
+      "slug": "medical_related_businesses",
+      "scope": "강남구",
+      "dataset_id": "OA-16380",
+      "url": "https://datafile.seoul.go.kr/bigfile/iot/sheet/csv/download.do?infId=OA-16380&seq=2&srvType=S",
+      "sha256": "a841012fd716bb94c34e41a07cdae26f020250f10d179da88358d75d69bbf275",
+      "bytes": 39230,
+      "retrieved_at": "2026-08-03T09:31:06.958+00:00"
+    },
+    {
+      "role": "backup",
+      "slug": "medical_related_businesses",
+      "scope": "서초구",
+      "dataset_id": "OA-16379",
+      "url": "https://datafile.seoul.go.kr/bigfile/iot/sheet/csv/download.do?infId=OA-16379&seq=2&srvType=S",
+      "sha256": "c24ac92c51081742385e7b50bbce26732c673c683e10a0e9f1e660a4106f0699",
+      "bytes": 19528,
+      "retrieved_at": "2026-08-03T09:31:08.459+00:00"
+    },
+    {
+      "role": "backup",
+      "slug": "medical_related_businesses",
+      "scope": "송파구",
+      "dataset_id": "OA-16381",
+      "url": "https://datafile.seoul.go.kr/bigfile/iot/sheet/csv/download.do?infId=OA-16381&seq=2&srvType=S",
+      "sha256": "52388b0bc97631d550b04efa7ec441e58ce7ac0dbeb6b29cfcfe4454397a3944",
+      "bytes": 14099,
+      "retrieved_at": "2026-08-03T09:31:09.961+00:00"
+    }
+  ]
+}

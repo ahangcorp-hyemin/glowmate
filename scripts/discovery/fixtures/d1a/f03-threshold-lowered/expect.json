@@ -1,0 +1,8 @@
+{
+  "id": "f03-threshold-lowered",
+  "label": "③ proceed_threshold 를 0.40 → 0.35 로 낮춘다",
+  "rule": "FORBID-3 — proceed_threshold 가",
+  "must_fail_checks": [
+    "thresholds"
+  ]
+}

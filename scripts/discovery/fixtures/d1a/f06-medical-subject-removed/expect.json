@@ -1,0 +1,8 @@
+{
+  "id": "f06-medical-subject-removed",
+  "label": "⑥ 진료과목 집합에서 `피부과` 를 뺀다 (회차권 경쟁이 가장 격렬한 축을 분모에서 제거)",
+  "rule": "FORBID-1(c) — 축 결정표 `medical_subjects` 가 K-7 과 집합 동등이 아니다",
+  "must_fail_checks": [
+    "frame"
+  ]
+}

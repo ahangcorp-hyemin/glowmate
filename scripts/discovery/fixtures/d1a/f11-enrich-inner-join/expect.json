@@ -1,0 +1,8 @@
+{
+  "id": "f11-enrich-inner-join",
+  "label": "⑪ K-10 보강을 inner join 으로 수행해 심평원에 없는 의원을 모집단에서 지운다",
+  "rule": "FORBID-1(e) — `medical_wellness` 축에 보강 미매칭 행이 0건이다",
+  "must_fail_checks": [
+    "frame"
+  ]
+}

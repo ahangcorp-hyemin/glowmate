@@ -1,0 +1,8 @@
+{
+  "id": "f08-mobile-phone-injected",
+  "label": "⑧ population.csv 의 phone 에 휴대전화 대역 번호 1건을 주입한다",
+  "rule": "휴대전화 대역 번호가 저장된 행",
+  "must_fail_checks": [
+    "population-quality"
+  ]
+}

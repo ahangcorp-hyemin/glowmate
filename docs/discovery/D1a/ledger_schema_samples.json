@@ -1,0 +1,321 @@
+{
+  "$comment": "ledger_schema.json 적합성 표본. 적합 표본은 통과해야 하고 위반 표본은 거부되어야 한다. 아무것도 막지 않는 스키마를 통과로 처리하지 않기 위한 장치다.",
+  "valid": [
+    {
+      "id": "V-1-price-found",
+      "why": "허용 채널 웹사이트에 금액+서비스명이 함께 게시된 정상 행",
+      "row": {
+        "venue_id": "V0123456789AB",
+        "name": "표본업체 A",
+        "gu": "강남구",
+        "axis": "exercise_body",
+        "evidence_channel": "website",
+        "source_url": "https://example.co.kr/price",
+        "snapshot_path": "snapshots/V0123456789AB.html",
+        "snapshot_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "access_method": "anonymous_public",
+        "checked_at": "2026-08-10T01:00:00Z",
+        "price_found": true,
+        "decision_branch": "B7_amount_and_service_same_page",
+        "price_evidence_snippet": "개인레슨 10회 650,000원",
+        "price_structure_type": "total_and_count",
+        "service_menu_raw": "개인레슨 10회 / 20회, 그룹 주2회",
+        "absence_check": {
+          "website": "https://example.co.kr/price",
+          "naver_place": "not_present",
+          "kakao_map": "channel_absent",
+          "instagram_public": "not_present",
+          "official_blog": "channel_absent"
+        },
+        "evaluator": "eval-01",
+        "cohort": "A"
+      }
+    },
+    {
+      "id": "V-2-inquiry-only",
+      "why": "안내 요청 표기만 있는 정상 음성 행",
+      "row": {
+        "venue_id": "VFEDCBA987654",
+        "name": "표본업체 B",
+        "gu": "송파구",
+        "axis": "relax_recovery",
+        "evidence_channel": "none",
+        "source_url": "NONE",
+        "snapshot_path": "snapshots/VFEDCBA987654.html",
+        "snapshot_sha256": "NONE",
+        "access_method": "anonymous_public",
+        "checked_at": "2026-08-10T02:30:00Z",
+        "price_found": false,
+        "decision_branch": "B5_inquiry_only",
+        "price_evidence_snippet": "NONE",
+        "price_structure_type": "none",
+        "service_menu_raw": "NONE_LISTED",
+        "absence_check": {
+          "website": "https://example.co.kr/",
+          "naver_place": "not_present",
+          "kakao_map": "not_present",
+          "instagram_public": "channel_absent",
+          "official_blog": "channel_absent"
+        },
+        "evaluator": "eval-02",
+        "cohort": "B"
+      }
+    },
+    {
+      "id": "V-3-blocked",
+      "why": "접근이 차단된 행 (price_found=false 이어야만 허용된다)",
+      "row": {
+        "venue_id": "VAAAAAAAAAAA1",
+        "name": "표본업체 C",
+        "gu": "서초구",
+        "axis": "medical_wellness",
+        "evidence_channel": "none",
+        "source_url": "NONE",
+        "snapshot_path": "snapshots/VAAAAAAAAAAA1-403.png",
+        "snapshot_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "access_method": "blocked",
+        "checked_at": "2026-08-11T00:00:00Z",
+        "price_found": false,
+        "decision_branch": "B2_not_currently_posted",
+        "price_evidence_snippet": "NONE",
+        "price_structure_type": "none",
+        "service_menu_raw": "NONE_LISTED",
+        "absence_check": {
+          "website": "channel_absent",
+          "naver_place": "not_present",
+          "kakao_map": "not_present",
+          "instagram_public": "channel_absent",
+          "official_blog": "channel_absent"
+        },
+        "evaluator": "eval-01",
+        "cohort": "A",
+        "blocked_status_code": "403"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "id": "X-1-missing-service-menu-raw",
+      "why": "service_menu_raw 누락 — 필수 컬럼",
+      "row": {
+        "venue_id": "V0123456789AB",
+        "name": "표본업체 A",
+        "gu": "강남구",
+        "axis": "exercise_body",
+        "evidence_channel": "website",
+        "source_url": "https://example.co.kr/price",
+        "snapshot_path": "snapshots/x.html",
+        "access_method": "anonymous_public",
+        "checked_at": "2026-08-10T01:00:00Z",
+        "price_found": true,
+        "price_evidence_snippet": "10회 650,000원",
+        "price_structure_type": "total_and_count",
+        "absence_check": {
+          "website": "https://example.co.kr/price",
+          "naver_place": "not_present",
+          "kakao_map": "not_present",
+          "instagram_public": "not_present",
+          "official_blog": "not_present"
+        },
+        "evaluator": "eval-01",
+        "cohort": "A"
+      }
+    },
+    {
+      "id": "X-2-empty-service-menu-raw",
+      "why": "service_menu_raw 가 빈 문자열 — NONE_LISTED 로 채워야 한다",
+      "row": {
+        "venue_id": "V0123456789AB",
+        "name": "표본업체 A",
+        "gu": "강남구",
+        "axis": "exercise_body",
+        "evidence_channel": "none",
+        "source_url": "NONE",
+        "snapshot_path": "snapshots/x.html",
+        "access_method": "anonymous_public",
+        "checked_at": "2026-08-10T01:00:00Z",
+        "price_found": false,
+        "price_evidence_snippet": "NONE",
+        "price_structure_type": "none",
+        "service_menu_raw": "",
+        "absence_check": {
+          "website": "not_present",
+          "naver_place": "not_present",
+          "kakao_map": "not_present",
+          "instagram_public": "not_present",
+          "official_blog": "not_present"
+        },
+        "evaluator": "eval-01",
+        "cohort": "A"
+      }
+    },
+    {
+      "id": "X-3-absence-check-missing-channel",
+      "why": "absence_check 에 kakao_map 키 누락 — 확인하지 않고 false 로 처리하는 경로",
+      "row": {
+        "venue_id": "V0123456789AB",
+        "name": "표본업체 A",
+        "gu": "강남구",
+        "axis": "exercise_body",
+        "evidence_channel": "none",
+        "source_url": "NONE",
+        "snapshot_path": "snapshots/x.html",
+        "access_method": "anonymous_public",
+        "checked_at": "2026-08-10T01:00:00Z",
+        "price_found": false,
+        "price_evidence_snippet": "NONE",
+        "price_structure_type": "none",
+        "service_menu_raw": "NONE_LISTED",
+        "absence_check": {
+          "website": "not_present",
+          "naver_place": "not_present",
+          "instagram_public": "not_present",
+          "official_blog": "not_present"
+        },
+        "evaluator": "eval-01",
+        "cohort": "A"
+      }
+    },
+    {
+      "id": "X-4-blocked-but-price-found",
+      "why": "접근 차단 행이 price_found=true — D1b FORBID-6",
+      "row": {
+        "venue_id": "V0123456789AB",
+        "name": "표본업체 A",
+        "gu": "강남구",
+        "axis": "exercise_body",
+        "evidence_channel": "website",
+        "source_url": "https://example.co.kr/price",
+        "snapshot_path": "snapshots/x.html",
+        "access_method": "blocked",
+        "checked_at": "2026-08-10T01:00:00Z",
+        "price_found": true,
+        "price_evidence_snippet": "10회 650,000원",
+        "price_structure_type": "total_and_count",
+        "service_menu_raw": "개인레슨 10회",
+        "absence_check": {
+          "website": "not_present",
+          "naver_place": "not_present",
+          "kakao_map": "not_present",
+          "instagram_public": "not_present",
+          "official_blog": "not_present"
+        },
+        "evaluator": "eval-01",
+        "cohort": "A"
+      }
+    },
+    {
+      "id": "X-5-channel-outside-k1",
+      "why": "evidence_channel 이 K-1 밖 값",
+      "row": {
+        "venue_id": "V0123456789AB",
+        "name": "표본업체 A",
+        "gu": "강남구",
+        "axis": "exercise_body",
+        "evidence_channel": "voice_call",
+        "source_url": "https://example.co.kr/price",
+        "snapshot_path": "snapshots/x.html",
+        "access_method": "anonymous_public",
+        "checked_at": "2026-08-10T01:00:00Z",
+        "price_found": true,
+        "price_evidence_snippet": "10회 650,000원",
+        "price_structure_type": "total_and_count",
+        "service_menu_raw": "개인레슨 10회",
+        "absence_check": {
+          "website": "not_present",
+          "naver_place": "not_present",
+          "kakao_map": "not_present",
+          "instagram_public": "not_present",
+          "official_blog": "not_present"
+        },
+        "evaluator": "eval-01",
+        "cohort": "A"
+      }
+    },
+    {
+      "id": "X-6-price-found-without-structure",
+      "why": "price_found=true 인데 price_structure_type=none — H2 예비 측정 공백",
+      "row": {
+        "venue_id": "V0123456789AB",
+        "name": "표본업체 A",
+        "gu": "강남구",
+        "axis": "exercise_body",
+        "evidence_channel": "website",
+        "source_url": "https://example.co.kr/price",
+        "snapshot_path": "snapshots/x.html",
+        "access_method": "anonymous_public",
+        "checked_at": "2026-08-10T01:00:00Z",
+        "price_found": true,
+        "price_evidence_snippet": "10회 650,000원",
+        "price_structure_type": "none",
+        "service_menu_raw": "개인레슨 10회",
+        "absence_check": {
+          "website": "not_present",
+          "naver_place": "not_present",
+          "kakao_map": "not_present",
+          "instagram_public": "not_present",
+          "official_blog": "not_present"
+        },
+        "evaluator": "eval-01",
+        "cohort": "A"
+      }
+    },
+    {
+      "id": "X-7-bad-venue-id",
+      "why": "venue_id 형식 위반",
+      "row": {
+        "venue_id": "gangnam-001",
+        "name": "표본업체 A",
+        "gu": "강남구",
+        "axis": "exercise_body",
+        "evidence_channel": "none",
+        "source_url": "NONE",
+        "snapshot_path": "snapshots/x.html",
+        "access_method": "anonymous_public",
+        "checked_at": "2026-08-10T01:00:00Z",
+        "price_found": false,
+        "price_evidence_snippet": "NONE",
+        "price_structure_type": "none",
+        "service_menu_raw": "NONE_LISTED",
+        "absence_check": {
+          "website": "not_present",
+          "naver_place": "not_present",
+          "kakao_map": "not_present",
+          "instagram_public": "not_present",
+          "official_blog": "not_present"
+        },
+        "evaluator": "eval-01",
+        "cohort": "A"
+      }
+    },
+    {
+      "id": "X-8-unknown-column",
+      "why": "정의되지 않은 컬럼 추가 (오타 컬럼이 조용히 통과하는 경로 차단)",
+      "row": {
+        "venue_id": "V0123456789AB",
+        "name": "표본업체 A",
+        "gu": "강남구",
+        "axis": "exercise_body",
+        "evidence_channel": "none",
+        "source_url": "NONE",
+        "snapshot_path": "snapshots/x.html",
+        "access_method": "anonymous_public",
+        "checked_at": "2026-08-10T01:00:00Z",
+        "price_found": false,
+        "price_evidence_snippet": "NONE",
+        "price_structure_type": "none",
+        "service_menu_raw": "NONE_LISTED",
+        "absence_check": {
+          "website": "not_present",
+          "naver_place": "not_present",
+          "kakao_map": "not_present",
+          "instagram_public": "not_present",
+          "official_blog": "not_present"
+        },
+        "evaluator": "eval-01",
+        "cohort": "A",
+        "price_founded": true
+      }
+    }
+  ]
+}

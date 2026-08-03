@@ -1,0 +1,24 @@
+{
+  "schema": "glowmate/d1a/holdout-manifest/2",
+  "record_count": 25,
+  "axis_allocation": {
+    "exercise_body": 7,
+    "relax_recovery": 6,
+    "medical_wellness": 6,
+    "beauty_care": 6
+  },
+  "enc_sha256": "e10c1a00c90f7ac734a70eb8e63f8940db6dd706682eb419839a29db4060e5f0",
+  "plaintext_sha256": "c3445424ff5a2babca7f976dac09542140ce811e8080f2bfbd857a2f69ceed0c",
+  "key_fingerprint": "ddaaead61bdced09829ac6122576e3a2065ca0e7c3f2f23abfea12c632782d3d", "key_fingerprint_note": "PBKDF2-HMAC-SHA256(passphrase) 지문이며 복호화 키가 아니다 — 지문에서 키를 역산할 수 없고, 공개가 이 필드의 목적이다. gitleaks:allow",
+  "superseded_key_fingerprint": "12f923d1088002fa15e851039388bb1f499e038640f7ee0471415430c8df48fb", "superseded_key_fingerprint_note": "PBKDF2-HMAC-SHA256(passphrase) 지문이며 복호화 키가 아니다 — 지문에서 키를 역산할 수 없고, 공개가 이 필드의 목적이다. gitleaks:allow",
+  "superseded_population_sha256": "8bca8e06df9e041a3bed50e789be2301ef15713bf75348b0544b00fa38e49dd0",
+  "kdf": {
+    "name": "pbkdf2-hmac-sha256",
+    "iterations": 600000,
+    "dklen": 64
+  },
+  "cipher": "hmac-sha256-ctr + encrypt-then-mac(hmac-sha256)",
+  "sample_index_max_run": 4,
+  "sealed_at": "2026-08-03T09:51:18+00:00",
+  "custodian": "team-lead"
+}
