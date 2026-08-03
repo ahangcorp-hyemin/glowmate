@@ -1,0 +1,13 @@
+component,present,evidence_ref
+Button,true,"symbol:FxButton"
+Card,false,"absent-scan:example-ds/react@1.0.0#lib/**/*.d.ts symbols~/Card/i=0"
+Badge,true,"symbol:FxBadge"
+Chip,true,"symbol:FxChip"
+Input,true,"symbol:FxInput"
+Select,true,"symbol:FxSelect"
+Checkbox,true,"symbol:FxCheckbox"
+Radio,true,"symbol:FxRadio"
+Tabs,true,"symbol:FxTabs"
+Dialog,true,"symbol:FxDialog"
+Tooltip,true,"symbol:FxTooltip"
+Pagination,true,"symbol:FxPagination"

@@ -1,0 +1,371 @@
+{
+  "$meta": {
+    "_note": "[FIXTURE] 합성 토큰. 상류 값이 아니다.",
+    "source_package": "example-ds/css",
+    "source_version": "1.0.0",
+    "output_path": "extracted_tokens.json",
+    "leaf_count": 60
+  },
+  "tokens": [
+    {
+      "original_key": "--fx-token-001",
+      "original_value": "#000001",
+      "selector": ":root",
+      "source_line": 1
+    },
+    {
+      "original_key": "--fx-token-002",
+      "original_value": "#000002",
+      "selector": ":root",
+      "source_line": 2
+    },
+    {
+      "original_key": "--fx-token-003",
+      "original_value": "#000003",
+      "selector": ":root",
+      "source_line": 3
+    },
+    {
+      "original_key": "--fx-token-004",
+      "original_value": "#000004",
+      "selector": ":root",
+      "source_line": 4
+    },
+    {
+      "original_key": "--fx-token-005",
+      "original_value": "#000005",
+      "selector": ":root",
+      "source_line": 5
+    },
+    {
+      "original_key": "--fx-token-006",
+      "original_value": "#000006",
+      "selector": ":root",
+      "source_line": 6
+    },
+    {
+      "original_key": "--fx-token-007",
+      "original_value": "#000007",
+      "selector": ":root",
+      "source_line": 7
+    },
+    {
+      "original_key": "--fx-token-008",
+      "original_value": "#000008",
+      "selector": ":root",
+      "source_line": 8
+    },
+    {
+      "original_key": "--fx-token-009",
+      "original_value": "#000009",
+      "selector": ":root",
+      "source_line": 9
+    },
+    {
+      "original_key": "--fx-token-010",
+      "original_value": "#000010",
+      "selector": ":root",
+      "source_line": 10
+    },
+    {
+      "original_key": "--fx-token-011",
+      "original_value": "#000011",
+      "selector": ":root",
+      "source_line": 11
+    },
+    {
+      "original_key": "--fx-token-012",
+      "original_value": "#000012",
+      "selector": ":root",
+      "source_line": 12
+    },
+    {
+      "original_key": "--fx-token-013",
+      "original_value": "#000013",
+      "selector": ":root",
+      "source_line": 13
+    },
+    {
+      "original_key": "--fx-token-014",
+      "original_value": "#000014",
+      "selector": ":root",
+      "source_line": 14
+    },
+    {
+      "original_key": "--fx-token-015",
+      "original_value": "#000015",
+      "selector": ":root",
+      "source_line": 15
+    },
+    {
+      "original_key": "--fx-token-016",
+      "original_value": "#000016",
+      "selector": ":root",
+      "source_line": 16
+    },
+    {
+      "original_key": "--fx-token-017",
+      "original_value": "#000017",
+      "selector": ":root",
+      "source_line": 17
+    },
+    {
+      "original_key": "--fx-token-018",
+      "original_value": "#000018",
+      "selector": ":root",
+      "source_line": 18
+    },
+    {
+      "original_key": "--fx-token-019",
+      "original_value": "#000019",
+      "selector": ":root",
+      "source_line": 19
+    },
+    {
+      "original_key": "--fx-token-020",
+      "original_value": "#000020",
+      "selector": ":root",
+      "source_line": 20
+    },
+    {
+      "original_key": "--fx-token-021",
+      "original_value": "#000021",
+      "selector": ":root",
+      "source_line": 21
+    },
+    {
+      "original_key": "--fx-token-022",
+      "original_value": "#000022",
+      "selector": ":root",
+      "source_line": 22
+    },
+    {
+      "original_key": "--fx-token-023",
+      "original_value": "#000023",
+      "selector": ":root",
+      "source_line": 23
+    },
+    {
+      "original_key": "--fx-token-024",
+      "original_value": "#000024",
+      "selector": ":root",
+      "source_line": 24
+    },
+    {
+      "original_key": "--fx-token-025",
+      "original_value": "#000025",
+      "selector": ":root",
+      "source_line": 25
+    },
+    {
+      "original_key": "--fx-token-026",
+      "original_value": "#000026",
+      "selector": ":root",
+      "source_line": 26
+    },
+    {
+      "original_key": "--fx-token-027",
+      "original_value": "#000027",
+      "selector": ":root",
+      "source_line": 27
+    },
+    {
+      "original_key": "--fx-token-028",
+      "original_value": "#000028",
+      "selector": ":root",
+      "source_line": 28
+    },
+    {
+      "original_key": "--fx-token-029",
+      "original_value": "#000029",
+      "selector": ":root",
+      "source_line": 29
+    },
+    {
+      "original_key": "--fx-token-030",
+      "original_value": "#000030",
+      "selector": ":root",
+      "source_line": 30
+    },
+    {
+      "original_key": "--fx-token-031",
+      "original_value": "#000031",
+      "selector": ":root",
+      "source_line": 31
+    },
+    {
+      "original_key": "--fx-token-032",
+      "original_value": "#000032",
+      "selector": ":root",
+      "source_line": 32
+    },
+    {
+      "original_key": "--fx-token-033",
+      "original_value": "#000033",
+      "selector": ":root",
+      "source_line": 33
+    },
+    {
+      "original_key": "--fx-token-034",
+      "original_value": "#000034",
+      "selector": ":root",
+      "source_line": 34
+    },
+    {
+      "original_key": "--fx-token-035",
+      "original_value": "#000035",
+      "selector": ":root",
+      "source_line": 35
+    },
+    {
+      "original_key": "--fx-token-036",
+      "original_value": "#000036",
+      "selector": ":root",
+      "source_line": 36
+    },
+    {
+      "original_key": "--fx-token-037",
+      "original_value": "#000037",
+      "selector": ":root",
+      "source_line": 37
+    },
+    {
+      "original_key": "--fx-token-038",
+      "original_value": "#000038",
+      "selector": ":root",
+      "source_line": 38
+    },
+    {
+      "original_key": "--fx-token-039",
+      "original_value": "#000039",
+      "selector": ":root",
+      "source_line": 39
+    },
+    {
+      "original_key": "--fx-token-040",
+      "original_value": "#000040",
+      "selector": ":root",
+      "source_line": 40
+    },
+    {
+      "original_key": "--fx-token-041",
+      "original_value": "#000041",
+      "selector": ":root",
+      "source_line": 41
+    },
+    {
+      "original_key": "--fx-token-042",
+      "original_value": "#000042",
+      "selector": ":root",
+      "source_line": 42
+    },
+    {
+      "original_key": "--fx-token-043",
+      "original_value": "#000043",
+      "selector": ":root",
+      "source_line": 43
+    },
+    {
+      "original_key": "--fx-token-044",
+      "original_value": "#000044",
+      "selector": ":root",
+      "source_line": 44
+    },
+    {
+      "original_key": "--fx-token-045",
+      "original_value": "#000045",
+      "selector": ":root",
+      "source_line": 45
+    },
+    {
+      "original_key": "--fx-token-046",
+      "original_value": "#000046",
+      "selector": ":root",
+      "source_line": 46
+    },
+    {
+      "original_key": "--fx-token-047",
+      "original_value": "#000047",
+      "selector": ":root",
+      "source_line": 47
+    },
+    {
+      "original_key": "--fx-token-048",
+      "original_value": "#000048",
+      "selector": ":root",
+      "source_line": 48
+    },
+    {
+      "original_key": "--fx-token-049",
+      "original_value": "#000049",
+      "selector": ":root",
+      "source_line": 49
+    },
+    {
+      "original_key": "--fx-token-050",
+      "original_value": "#000050",
+      "selector": ":root",
+      "source_line": 50
+    },
+    {
+      "original_key": "--fx-token-051",
+      "original_value": "#000051",
+      "selector": ":root",
+      "source_line": 51
+    },
+    {
+      "original_key": "--fx-token-052",
+      "original_value": "#000052",
+      "selector": ":root",
+      "source_line": 52
+    },
+    {
+      "original_key": "--fx-token-053",
+      "original_value": "#000053",
+      "selector": ":root",
+      "source_line": 53
+    },
+    {
+      "original_key": "--fx-token-054",
+      "original_value": "#000054",
+      "selector": ":root",
+      "source_line": 54
+    },
+    {
+      "original_key": "--fx-token-055",
+      "original_value": "#000055",
+      "selector": ":root",
+      "source_line": 55
+    },
+    {
+      "original_key": "--fx-token-056",
+      "original_value": "#000056",
+      "selector": ":root",
+      "source_line": 56
+    },
+    {
+      "original_key": "--fx-token-057",
+      "original_value": "#000057",
+      "selector": ":root",
+      "source_line": 57
+    },
+    {
+      "original_key": "--fx-token-058",
+      "original_value": "#000058",
+      "selector": ":root",
+      "source_line": 58
+    },
+    {
+      "original_key": "--fx-token-059",
+      "original_value": "#000059",
+      "selector": ":root",
+      "source_line": 59
+    },
+    {
+      "original_key": "--fx-token-060",
+      "original_value": "#000060",
+      "selector": ":root",
+      "source_line": 60
+    }
+  ]
+}
