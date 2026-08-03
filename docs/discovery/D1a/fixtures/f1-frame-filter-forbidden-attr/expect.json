@@ -1,0 +1,7 @@
+{
+  "violation": "프레임 구축 필터에 K-5 금지 속성 `예약연동=Y` 를 포함",
+  "rule": "FORBID-1",
+  "must_fail_checks": [
+    "frame"
+  ]
+}

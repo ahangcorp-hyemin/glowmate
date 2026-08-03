@@ -1,0 +1,7 @@
+{
+  "violation": "allowed_channels 에 K-1 밖 값 `phone` 추가",
+  "rule": "FORBID-2",
+  "must_fail_checks": [
+    "definition"
+  ]
+}

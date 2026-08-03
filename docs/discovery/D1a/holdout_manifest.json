@@ -1,0 +1,21 @@
+{
+  "schema": "glowmate/d1a/holdout-manifest/1",
+  "record_count": 25,
+  "axis_allocation": {
+    "exercise_body": 9,
+    "relax_recovery": 8,
+    "medical_wellness": 8
+  },
+  "enc_sha256": "8e2107a96f2fbe87c4e5b5dcf3000e4c7bf0ff7d5e00762b095bf996241c2748",
+  "plaintext_sha256": "8e4ad26e9dbc94a33502d3c915f08726b2d5df9eea9c649cf1ca8c13b8bed774",
+  "unlock_fingerprint": "12f923d1088002fa15e851039388bb1f499e038640f7ee0471415430c8df48fb",
+  "kdf": {
+    "name": "pbkdf2-hmac-sha256",
+    "iterations": 600000,
+    "dklen": 64
+  },
+  "cipher": "hmac-sha256-ctr + encrypt-then-mac(hmac-sha256)",
+  "sample_index_max_run": 2,
+  "sealed_at": "2026-08-03T03:26:56Z",
+  "custodian": "team lead"
+}

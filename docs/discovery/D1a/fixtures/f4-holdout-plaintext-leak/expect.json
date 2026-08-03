@@ -1,0 +1,7 @@
+{
+  "violation": "확정 표본 venue_id 25건을 허용 위치 밖 추적 파일에 평문으로 기록",
+  "rule": "FORBID-4",
+  "must_fail_checks": [
+    "holdout-sealed"
+  ]
+}

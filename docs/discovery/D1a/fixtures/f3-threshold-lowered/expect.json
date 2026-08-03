@@ -1,0 +1,7 @@
+{
+  "violation": "proceed_threshold 를 K-4(0.40) 아래 0.35 로 잠금",
+  "rule": "FORBID-3",
+  "must_fail_checks": [
+    "thresholds"
+  ]
+}

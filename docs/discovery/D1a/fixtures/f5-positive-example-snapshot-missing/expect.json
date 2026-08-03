@@ -1,0 +1,7 @@
+{
+  "violation": "양성 예시 1건의 스냅샷 파일이 없는 상태로 정의 검증을 통과 처리",
+  "rule": "FORBID-5",
+  "must_fail_checks": [
+    "definition-recall"
+  ]
+}
