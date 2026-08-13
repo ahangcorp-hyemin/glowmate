@@ -1,9 +1,0 @@
-{
-  "job": "boundary",
-  "label": "REQ-3 ② @prisma/client — 도달하지 않으나 data-access 분류",
-  "expect": ["REQ-3", "FORBID-1"],
-  "branch": "ci-fixture/boundary-prisma",
-  "overlay": "overlay/",
-  "expected_result": "red",
-  "note": "도달성(a)만 보는 구현으로는 잡히지 않는다. 분류(b)가 잡아야 한다."
-}

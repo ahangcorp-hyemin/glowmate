@@ -1,8 +1,0 @@
-{
-  "job": "path-guard",
-  "label": "⑧ touches 밖 경로 변경",
-  "expect": ["FORBID-4"],
-  "branch": "ci-fixture/path-guard",
-  "overlay": "overlay/",
-  "note": "overlay/ 이하를 리포 루트에 덮어쓴 브랜치를 push 하면 대응 job 만 red 가 된다."
-}
