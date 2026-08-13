@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { seedProcedures, seedConcerns, seedRules } from "../src/lib/catalog/seed";
 import { HOSPS, hospitalPrices } from "../src/lib/catalog/hospitals";
 import { BANNED_PHRASES, assertCompliant } from "../src/lib/compliance/bannedPhrases";
+import { LESSON_SEED } from "../src/lib/lessons/seed";
 
 const URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -88,8 +89,21 @@ async function main() {
     }
   }
 
+  // 7) 레슨 + 카드 (clean-slate 후 재적재). §56 트리거 없음(리터러시 인용 보호).
+  const lessons = Object.values(LESSON_SEED);
+  must(await db.from("lesson_cards").delete().neq("id", -1), "clear lesson_cards");
+  must(await db.from("lessons").delete().neq("procedure_id", "__none__"), "clear lessons");
+  for (const l of lessons) {
+    must(await db.from("lessons").insert({ procedure_id: l.procedureId, name_ko: l.nameKo }), `lesson ${l.procedureId}`);
+    const cardRows = l.cards.map((c, i) => {
+      const { kind, ...payload } = c as { kind: string } & Record<string, unknown>;
+      return { procedure_id: l.procedureId, ord: i, kind, payload };
+    });
+    must(await db.from("lesson_cards").insert(cardRows), `lesson_cards ${l.procedureId}`);
+  }
+
   // 정적 hospitalPrices와 동일 로직 확인용 로그
-  console.log(`✓ 시드 완료 — 시술 ${seedProcedures.length} · 고민 ${seedConcerns.length} · 룰 ${seedRules.length} · 병원 ${HOSPS.length}`);
+  console.log(`✓ 시드 완료 — 시술 ${seedProcedures.length} · 고민 ${seedConcerns.length} · 룰 ${seedRules.length} · 병원 ${HOSPS.length} · 레슨 ${lessons.length}`);
   console.log(`  (참고: 울쎄라 최저가 예시 ${hospitalPrices(seedProcedures.find((p) => p.id === "ulthera")!.priceMin)[0].price.toLocaleString()}원)`);
 }
 

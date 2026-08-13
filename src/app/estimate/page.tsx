@@ -9,6 +9,7 @@ import type { Concern } from "@/lib/catalog/rules";
 import type { HospitalPriceRow } from "@/lib/catalog/hospitals";
 import type { Estimate, EstimateItem, AgeBand, BudgetBand } from "@/lib/estimate/engine";
 import { fetchConcerns, runEstimate, fetchHospitalPrices } from "./actions";
+import { fetchLessonIds } from "../learn/actions";
 
 // 분야별로 쪼갠 질문(화면당 선택지 적게)
 const DOMAINS = [
@@ -46,6 +47,7 @@ export default function EstimatePage() {
   const [hosp, setHosp] = useState<EstimateItem | null>(null);
   const [hospRows, setHospRows] = useState<HospitalPriceRow[] | null>(null);
   const [concernsById, setConcernsById] = useState<Record<string, Concern>>({});
+  const [lessonIds, setLessonIds] = useState<Set<string>>(new Set());
   const advTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const toggle = (id: string) => setConcerns((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
@@ -58,6 +60,7 @@ export default function EstimatePage() {
       if (!alive) return;
       setConcernsById(Object.fromEntries(list.map((c) => [c.id, c])));
     });
+    fetchLessonIds().then((ids) => { if (alive) setLessonIds(new Set(ids)); });
     return () => { alive = false; };
   }, []);
 
@@ -305,6 +308,17 @@ export default function EstimatePage() {
                   </div>
                 </div>
 
+                {lessonIds.has(it.procedureId) && (
+                  <Link href={`/learn/${it.procedureId}`} className="reset">
+                    <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "var(--coral-soft)", border: "1.5px solid var(--coral)", borderRadius: 14, padding: "13px 15px", cursor: "pointer" }}>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: 14.5, color: "var(--coral-strong)" }}>병원 가기 전, {it.nameKo} 알고 가기</div>
+                        <div className="disc" style={{ marginTop: 2 }}>깊이·효과·가격·후기 보는 법까지 5분 정리</div>
+                      </div>
+                      <span style={{ color: "var(--coral)", fontWeight: 900, fontSize: 18 }}>→</span>
+                    </div>
+                  </Link>
+                )}
                 <div className="disc" style={{ marginTop: 10, background: "var(--chip)", borderRadius: 12, padding: "10px 12px" }}>⚠ 이런 분은 상담이 필요해요 — {it.contraindication}</div>
                 <div className="srcbox" style={{ marginTop: 10 }}>
                   <div className="sub" style={{ fontWeight: 800, marginBottom: 6 }}>🔖 출처</div>
