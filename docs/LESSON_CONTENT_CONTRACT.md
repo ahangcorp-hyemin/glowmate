@@ -24,7 +24,7 @@ UI 카드 플레이어 (client)
   - `intro | layers | timeline | compare | contra | price | reviewLiteracy | realReviews | questionSheet | done`
 - **이 타입이 유일한 계약.** 필드 추가/변경은 여기서 하고 양쪽이 맞춘다.
 
-## DB 스키마 — `supabase/migrations/0002_lessons.sql`
+## DB 스키마 — `supabase/migrations/0004_lessons.sql`
 
 - `lessons (procedure_id PK → procedures.id, name_ko, updated_at)`
 - `lesson_cards (id, procedure_id → lessons, ord, kind, payload jsonb)`
@@ -35,7 +35,7 @@ UI 카드 플레이어 (client)
 
 ## 백엔드가 할 일
 
-1. `0002_lessons.sql` 적용(또는 자체 마이그레이션에 반영).
+1. `0004_lessons.sql` 적용(또는 자체 마이그레이션에 반영).
 2. 시드 이관: `src/lib/lessons/seed.ts`의 `ULTHERA_LESSON`을 `lessons` 1행 +
    `lesson_cards` N행(ord 순, kind, payload=카드의 나머지 필드)으로 insert.
    - `catalog/seed.ts`처럼 seed→DB 시더 스크립트에 함께 넣으면 됨.

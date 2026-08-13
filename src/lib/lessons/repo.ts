@@ -6,7 +6,7 @@ import { LESSON_SEED } from "@/lib/lessons/seed";
 // 레슨 데이터 seam. catalog/repo.ts와 동일한 규약:
 //   DB 우선 → snake→camel 매핑 → 실패/미설정/빈 테이블이면 정적 시드 폴백(앱 안 깨짐).
 // 백엔드는 lessons + lesson_cards 테이블만 채우면 UI 변경 0.
-// DB 스키마: supabase/migrations/0002_lessons.sql · 계약: docs/LESSON_CONTENT_CONTRACT.md
+// DB 스키마: supabase/migrations/0004_lessons.sql · 계약: docs/LESSON_CONTENT_CONTRACT.md
 
 let cache: { at: number; value: Record<string, LessonContent> } | null = null;
 const TTL_MS = 60_000;
