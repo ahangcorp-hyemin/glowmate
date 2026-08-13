@@ -1,23 +1,42 @@
-# 동기화 중간 산출물
-.tmp/
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# 파생물 — docs/tasks/*.md 계약에서 생성된다
-# (CI 재현성을 위해 커밋해 두되, 손으로 고치지 말 것)
-# docs/tasks.json
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
-# OS
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
 .DS_Store
+*.pem
 
-# Node
-node_modules/
-.next/
-out/
-dist/
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.local.example
+
+# vercel
+.vercel
+
+# typescript
 *.tsbuildinfo
-.env*.local
-
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
+next-env.d.ts
