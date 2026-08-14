@@ -10,6 +10,9 @@ import type { NearbyHospital } from "@/lib/hospitals/types";
 import type { Estimate, EstimateItem, AgeBand, BudgetBand } from "@/lib/estimate/engine";
 import { fetchConcerns, runEstimate, fetchNearbyHospitals, fetchRegionLabel } from "./actions";
 import { fetchLessonIds } from "../learn/actions";
+import Icon from "@/components/Icon";
+import { getEstimateSnapshots } from "@/lib/client/saved";
+import { track } from "@/lib/analytics";
 import { REGIONS } from "@/lib/geo/region";
 import { saveEstimateSnapshot } from "@/lib/client/saved";
 import { saveLoc } from "@/lib/geo/loc";
@@ -41,6 +44,8 @@ const card = (on: boolean): React.CSSProperties => ({
 export default function EstimatePage() {
   const [started, setStarted] = useState(false);
   const [stage, setStage] = useState(0);
+  const [hasPastEstimates, setHasPastEstimates] = useState(false);
+  useEffect(() => { setHasPastEstimates(getEstimateSnapshots().length > 0); }, []);
   const [concerns, setConcerns] = useState<string[]>([]);
   const [age, setAge] = useState<AgeBand | null>(null);
   const [budget, setBudget] = useState<BudgetBand | null>(null);
@@ -148,18 +153,25 @@ export default function EstimatePage() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 16 }}>
               {[
-                ["🔎", "왜 이 시술인지 근거·출처까지"],
-                ["🤝", "예약 수수료 안 받아요 · 밀어붙이지 않아요"],
-                ["🎯", "40·50대 또래 고민 기준으로 조합"],
+                ["search", "왜 이 시술인지 근거·출처까지"],
+                ["shield", "예약 수수료 안 받아요 · 밀어붙이지 않아요"],
+                ["sparkle", "40·50대 또래 고민 기준으로 조합"],
               ].map(([e, t]) => (
                 <div key={t} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14.5, fontWeight: 700, color: "var(--ink2)" }}>
-                  <span style={{ fontSize: 18 }}>{e}</span>{t}
+                  <span style={{ display: "flex", color: "var(--key-deep)" }}><Icon name={e} size={18} /></span>{t}
                 </div>
               ))}
             </div>
           </div>
           <div style={{ flex: 1 }} />
           <div className="cta">
+            {hasPastEstimates && (
+              <Link href="/saved" className="reset">
+                <p className="sub" style={{ textAlign: "center", marginBottom: 10, fontWeight: 700, textDecoration: "underline" }}>
+                  지난 견적 다시 보기
+                </p>
+              </Link>
+            )}
             <button className="btn" onClick={start}>내 고민부터 골라볼게요 →</button>
             <p className="disc" style={{ textAlign: "center", marginTop: 10 }}>
               가입 없이 60초 · 시작하면 <b>내 주변 병원</b>을 보여드리려 위치를 여쭤봐요(거부해도 이용 가능)
@@ -181,9 +193,9 @@ export default function EstimatePage() {
     const mapUrl = `https://map.kakao.com/?q=${encodeURIComponent([d.name, d.district].filter(Boolean).join(" "))}`;
     const home = d.homepageUrl ? (/^https?:\/\//.test(d.homepageUrl) ? d.homepageUrl : `http://${d.homepageUrl}`) : null;
     const badges: [string, string][] = [];
-    if (years != null) badges.push(["🗓", `개원 ${years}년차`]);
-    if (d.doctorCount != null) badges.push(["👩‍⚕️", `의사 ${d.doctorCount}명`]);
-    if (d.clNm) badges.push(["🏥", d.clNm]);
+    if (years != null) badges.push(["calendar", `개원 ${years}년차`]);
+    if (d.doctorCount != null) badges.push(["doctor", `의사 ${d.doctorCount}명`]);
+    if (d.clNm) badges.push(["hospital", d.clNm]);
     if (d.isAd) badges.push(["📣", "광고 제휴"]);
     const cta = (label: string, href: string | null, primary = false) => href ? (
       <a href={href} target="_blank" rel="noopener noreferrer" className="reset" style={{ flex: 1 }}>
@@ -208,7 +220,7 @@ export default function EstimatePage() {
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
             <div className="h2" style={{ fontSize: 23, lineHeight: 1.25 }}>{d.name}</div>
           </div>
-          <p className="sub" style={{ margin: "6px 0 10px" }}>📍 {d.distanceKm.toFixed(1)}km · {d.district}</p>
+          <p className="sub" style={{ margin: "6px 0 10px" }}>{d.distanceKm.toFixed(1)}km · {d.district}</p>
           {badges.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 4 }}>
               {badges.map(([e, t]) => (
@@ -261,9 +273,9 @@ export default function EstimatePage() {
         </div>
 
         <div className="cta" style={{ display: "flex", gap: 8 }}>
-          {cta("📞 전화 문의", tel, true)}
-          {cta("🗺 길찾기", mapUrl)}
-          {cta("🌐 홈페이지", home)}
+          {cta("전화 문의", tel, true)}
+          {cta("길찾기", mapUrl)}
+          {cta("홈페이지", home)}
         </div>
       </main>
     );
@@ -289,7 +301,7 @@ export default function EstimatePage() {
           <span style={{ fontWeight: 800, fontSize: 17 }}>{hosp.nameKo} · 근처 병원</span>
         </div>
         <div className="pad">
-          {geoState === "locating" && <p className="sub" style={{ padding: "20px 2px" }}>📍 내 위치로 근처 병원을 찾는 중…</p>}
+          {geoState === "locating" && <p className="sub" style={{ padding: "20px 2px" }}>내 위치로 근처 병원을 찾는 중…</p>}
 
           {geoState === "needRegion" && (
             <div style={{ padding: "6px 0" }}>
@@ -523,7 +535,27 @@ export default function EstimatePage() {
             <div className="top"><div className="logo">견적 <span className="m">요약</span></div>
               <button className="chip" style={{ padding: "6px 12px" }} onClick={() => { setResult(null); setConcerns([]); setAge(null); setBudget(null); setStage(0); }}>다시</button></div>
             <div className="pad">
-              <div style={{ display: "grid", placeItems: "center", marginBottom: 4 }}><GlowGuide mood="happy" size={92} /></div>
+              {/* 도착 프레이밍(#67 B7, UX_WRITING §1·§2) */}
+              <div className="h2" style={{ fontSize: 21, margin: "2px 0 4px" }}>맞춤 시술 조합이 도착했어요</div>
+              <p className="sub" style={{ marginBottom: 12, lineHeight: 1.55 }}>
+                병원 상담 전에 조합·비용·근거를 비교해보세요.
+              </p>
+
+              {/* 조건 요약(#67 B6) — 모두닥 '최근 설정한 조건' 문법 */}
+              <div className="card" style={{ padding: "12px 16px", marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div className="kick">내가 고른 조건</div>
+                  <button onClick={() => { setResult(null); setStage(0); }}
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "var(--key-deep)", fontFamily: "inherit", padding: 0 }}>
+                    수정하기
+                  </button>
+                </div>
+                <div className="sub" style={{ marginTop: 6, fontSize: 13.5, lineHeight: 1.6 }}>
+                  {concerns.map((id) => concernsById[id]?.nameKo).filter(Boolean).join(" · ") || "고민 미선택"}
+                  {age ? ` · ${age}` : ""}{budget ? ` · 예산 ${budget}` : ""}
+                </div>
+              </div>
+
               <div className="estcard">
                 <div className="kick">추천 시술 조합</div>
                 {items.map((it) => (

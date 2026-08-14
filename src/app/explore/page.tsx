@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Icon from "@/components/Icon";
 import TabBar from "@/components/TabBar";
 
 // 탐색(후기 필러) — MVP는 수집 모드: 4050 검증후기가 쌓이면 유튜브·홈쇼핑식 탐색 피드로 전환.
@@ -21,7 +22,7 @@ export default function ExplorePage() {
         </p>
 
         <div className="estcard" style={{ textAlign: "center", padding: "28px 20px" }}>
-          <div style={{ fontSize: 34 }}>🌱</div>
+          <div style={{ display: "flex", justifyContent: "center", color: "var(--sage)" }}><Icon name="sparkle" size={34} /></div>
           <div style={{ fontWeight: 800, fontSize: 17, marginTop: 8 }}>지금 첫 후기들을 모으고 있어요</div>
           <p className="sub" style={{ marginTop: 8, lineHeight: 1.6 }}>
             받아보신 시술이 있다면 경험을 나눠주세요.<br />

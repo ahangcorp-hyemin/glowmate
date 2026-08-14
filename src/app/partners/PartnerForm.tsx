@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Icon from "@/components/Icon";
 import { submitPartnerInquiry } from "./actions";
 
 export default function PartnerForm() {
@@ -11,7 +12,7 @@ export default function PartnerForm() {
   if (done) {
     return (
       <div className="estcard" style={{ textAlign: "center", padding: "26px 18px" }}>
-        <div style={{ fontSize: 30 }}>🤝</div>
+        <div style={{ display: "flex", justifyContent: "center", color: "var(--sage-deep)" }}><Icon name="shield" size={30} /></div>
         <div style={{ fontWeight: 800, fontSize: 16, marginTop: 8 }}>접수됐어요</div>
         <p className="sub" style={{ marginTop: 6, lineHeight: 1.55 }}>영업일 기준 2일 안에 담당자가 연락드릴게요.</p>
       </div>

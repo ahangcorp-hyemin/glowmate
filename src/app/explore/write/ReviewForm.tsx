@@ -14,6 +14,7 @@ export default function ReviewForm({ procedures }: { procedures: { id: string; n
   const [procedureId, setProcedureId] = useState("");
   const [rating, setRating] = useState(0);
   const [ageBand, setAgeBand] = useState("");
+  const [priceMatch, setPriceMatch] = useState("");
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +41,7 @@ export default function ReviewForm({ procedures }: { procedures: { id: string; n
     form.set("procedureId", procedureId);
     form.set("rating", String(rating));
     form.set("ageBand", ageBand);
+    form.set("priceMatch", priceMatch);
     const res = await submitReview(form);
     setSending(false);
     if (res.ok) setDone(true);
@@ -92,6 +94,24 @@ export default function ReviewForm({ procedures }: { procedures: { id: string; n
           <option value="26">6개월쯤</option>
           <option value="52">1년 이상</option>
         </select>
+
+        {/* 가격 데이터 수집(#67 C) — 모두닥 암묵지: '실제 낸 가격'이 4050에게 가장 중요한 정보 */}
+        <div className="kick" style={{ marginTop: 16 }}>실제로 내신 총액 (선택) <span className="disc">— 또래에게 가장 도움되는 정보예요</span></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+          <input name="paidAmount" inputMode="numeric" placeholder="예: 90" style={{ ...inp, marginTop: 0, flex: 1 }} />
+          <span style={{ fontWeight: 700, fontSize: 15, color: "var(--ink2)", flexShrink: 0 }}>만원</span>
+        </div>
+
+        <div className="kick" style={{ marginTop: 16 }}>글로우메이트 예상 범위와 비교하면? (선택)</div>
+        <div className="chipwrap" style={{ margin: "8px 0 4px" }}>
+          {([["in_range", "범위 안이었어요"], ["higher", "더 비쌌어요"], ["lower", "더 쌌어요"], ["unsure", "기억 안 나요"]] as const).map(([v, label]) => (
+            <button type="button" key={v} onClick={() => setPriceMatch((cur) => (cur === v ? "" : v))}
+              className={`chip${priceMatch === v ? " on" : ""}`} style={{ fontSize: 13.5, padding: "9px 13px" }}>{label}</button>
+          ))}
+        </div>
+
+        <div className="kick" style={{ marginTop: 16 }}>시술 부위·회차 (선택)</div>
+        <input name="procedureSpec" placeholder="예: 얼굴 전체 300샷 / 이마·눈가 1회" style={inp} />
 
         <div className="kick" style={{ marginTop: 16 }}>경험담 * <span className="disc">(30자 이상)</span></div>
         <textarea name="body" rows={6} style={{ ...inp, lineHeight: 1.6 }}

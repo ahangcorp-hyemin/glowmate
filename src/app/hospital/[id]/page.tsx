@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import TabBar from "@/components/TabBar";
 import HeartButton from "@/components/HeartButton";
+import Icon from "@/components/Icon";
 import { getHospitalById, getNearbyHospitals } from "@/lib/hospitals/repo";
 import { getLessonIds } from "@/lib/lessons/repo";
 import { getCatalog } from "@/lib/catalog/repo";
@@ -68,11 +69,11 @@ export default async function HospitalPage({ params }: Params) {
   const kakaoMap = `https://map.kakao.com/?q=${encodeURIComponent(`${h.name} ${h.district}`)}`;
   const home = h.homepageUrl ? (/^https?:\/\//.test(h.homepageUrl) ? h.homepageUrl : `http://${h.homepageUrl}`) : null;
 
-  const badges: string[] = [];
-  if (years != null) badges.push(`🗓 개원 ${years}년차`);
-  if (h.doctorCount != null) badges.push(`👩‍⚕️ 의사 ${h.doctorCount}명`);
-  if (h.clNm) badges.push(`🏥 ${h.clNm}`);
-  badges.push("✓ 전문의 표방 의료기관");
+  const badges: { icon: string; label: string }[] = [];
+  if (years != null) badges.push({ icon: "calendar", label: `개원 ${years}년차` });
+  if (h.doctorCount != null) badges.push({ icon: "doctor", label: `의사 ${h.doctorCount}명` });
+  if (h.clNm) badges.push({ icon: "hospital", label: h.clNm });
+  badges.push({ icon: "check", label: "전문의 표방 의료기관" });
 
   return (
     <main className="shell" style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
@@ -80,21 +81,25 @@ export default async function HospitalPage({ params }: Params) {
       <div className="top">
         <Link href="/hospitals" className="reset"><span style={{ fontSize: 20, color: "var(--ink2)" }}>‹</span></Link>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <div className="loc">📍 {h.district || "병원 정보"}</div>
+          <div className="loc" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <Icon name="pin" size={13} /> {h.district || "병원 정보"}
+          </div>
           <HeartButton hospitalId={h.id} />
         </div>
       </div>
 
       <div className="pad" style={{ flex: 1 }}>
         {h.isPartner && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 800, color: "#fff", background: "var(--coral)", padding: "5px 11px", borderRadius: 999, marginBottom: 10 }}>
-            ✓ 글로우메이트 파트너 병원
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 800, color: "#fff", background: "var(--sage-deep)", padding: "5px 12px", borderRadius: 999, marginBottom: 10 }}>
+            <Icon name="check" size={13} strokeWidth={2.4} /> 글로우메이트 파트너 병원
           </span>
         )}
-        <h1 className="h2" style={{ fontSize: 24, lineHeight: 1.28, margin: 0 }}>{h.name}</h1>
+        <h1 className="h2" style={{ fontSize: 24, margin: 0 }}>{h.name}</h1>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 7, margin: "10px 0 14px" }}>
           {badges.map((b) => (
-            <span key={b} style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink2)", background: "var(--chip)", padding: "6px 10px", borderRadius: 999 }}>{b}</span>
+            <span key={b.label} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 700, color: "var(--ink2)", background: "var(--chip)", padding: "6px 11px", borderRadius: 999 }}>
+              <Icon name={b.icon} size={13} /> {b.label}
+            </span>
           ))}
         </div>
         {h.isPartner && (
@@ -159,16 +164,37 @@ export default async function HospitalPage({ params }: Params) {
       <div className="cta">
         <Link href="/learn" className="reset">
           <p className="disc" style={{ textAlign: "center", marginBottom: 8 }}>
-            📋 <span style={{ textDecoration: "underline" }}>전화 전에 물어볼 질문 미리 보기</span> — 호구 잡히지 않게
+            <span style={{ textDecoration: "underline" }}>전화 전에 물어볼 질문 미리 보기</span> — 호구 잡히지 않게
           </p>
         </Link>
+        {/* 375px에서 4버튼이 짜부되던 문제 → 주 CTA 2개 + 보조 링크 행으로 재구성 */}
         <div style={{ display: "flex", gap: 8 }}>
-        <Link href={`/hospital/${h.id}/visit`} className="reset" style={{ flex: 1.2 }}>
-          <button className="btn" style={{ width: "100%" }}>🗓 {h.isPartner ? "방문 예약 신청" : "방문 예약"}</button>
-        </Link>
-        {tel && <a href={tel} className="reset" style={{ flex: 1 }}><button className="btn ghost" style={{ width: "100%" }}>📞 전화</button></a>}
-        <a href={kakaoMap} target="_blank" rel="noopener noreferrer" className="reset" style={{ flex: 1 }}><button className="btn ghost" style={{ width: "100%" }}>🗺 길찾기</button></a>
-        {home && <a href={home} target="_blank" rel="noopener noreferrer" className="reset" style={{ flex: 1 }}><button className="btn ghost" style={{ width: "100%" }}>🌐 홈페이지</button></a>}
+          <Link href={`/hospital/${h.id}/visit`} className="reset" style={{ flex: 1.35 }}>
+            <button className="btn" style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+              <Icon name="calendar" size={17} strokeWidth={2} /> {h.isPartner ? "방문 예약 신청" : "방문 예약"}
+            </button>
+          </Link>
+          {tel && (
+            <a href={tel} className="reset" style={{ flex: 1 }}>
+              <button className="btn ghost" style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                <Icon name="phone" size={17} /> 전화
+              </button>
+            </a>
+          )}
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", gap: 22, marginTop: 10 }}>
+          <a href={kakaoMap} target="_blank" rel="noopener noreferrer" className="reset">
+            <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 700, color: "var(--ink2)" }}>
+              <Icon name="map" size={15} /> 길찾기
+            </span>
+          </a>
+          {home && (
+            <a href={home} target="_blank" rel="noopener noreferrer" className="reset">
+              <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 700, color: "var(--ink2)" }}>
+                <Icon name="globe" size={15} /> 홈페이지
+              </span>
+            </a>
+          )}
         </div>
       </div>
       <TabBar />
