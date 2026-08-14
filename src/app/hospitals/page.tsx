@@ -10,6 +10,7 @@ import type { NearbyHospital } from "@/lib/hospitals/types";
 import { fetchNearbyHospitals, fetchRegionLabel } from "../estimate/actions";
 import { searchHospitalsAction } from "./actions";
 import dynamic from "next/dynamic";
+import Icon from "@/components/Icon";
 const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => <p className="sub" style={{ padding: 16 }}>지도를 불러오는 중…</p> });
 
 // 병원 찾기(공개 탐색) — 굿닥·모두닥 패턴:
@@ -91,11 +92,13 @@ export default function HospitalsBrowse() {
         <div className="logo">병원 <span className="m">찾기</span></div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Link href="/saved" className="reset" aria-label="내 활동">
-            <span style={{ fontSize: 20, color: "var(--coral)" }}>♥</span>
+            <span style={{ display: "flex", color: "var(--terra-strong)" }}><Icon name="heart" size={20} strokeWidth={2} /></span>
           </Link>
           <button className="loc" style={{ border: "none", cursor: "pointer", fontFamily: "inherit" }}
             onClick={() => setPickerOpen((v) => !v)}>
-            📍 {loc?.label || (loc ? "내 위치" : "위치 선택")} ▾
+            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <Icon name="pin" size={13} /> {loc?.label || (loc ? "내 위치" : "위치 선택")} ▾
+            </span>
           </button>
         </div>
       </div>
@@ -104,8 +107,8 @@ export default function HospitalsBrowse() {
       <div className="pad" style={{ paddingBottom: 8 }}>
         <input
           value={q} onChange={(e) => setQ(e.target.value)}
-          placeholder="🔎 찾는 병원 이름이 있나요?"
-          style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: "1.5px solid var(--line)", fontSize: 15, fontFamily: "inherit", background: "var(--white)" }}
+          placeholder="찾는 병원 이름이 있나요?"
+          style={{ width: "100%", padding: "13px 15px", borderRadius: 14, fontSize: 15 }}
         />
       </div>
 
@@ -130,7 +133,7 @@ export default function HospitalsBrowse() {
       {searchRows === null && pickerOpen && (
         <div className="pad" style={{ paddingBottom: 12 }}>
           <div className="card" style={{ padding: 14 }}>
-            <button className="btn ghost" style={{ marginBottom: 10 }} onClick={requestGps}>📍 내 위치로 찾기</button>
+            <button className="btn ghost" style={{ marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={requestGps}><Icon name="pin" size={16} /> 내 위치로 찾기</button>
             <div className="chipwrap">
               {REGIONS.map((r) => (
                 <button key={r.id} className={`chip${loc?.label === r.label ? " on" : ""}`}
@@ -157,7 +160,7 @@ export default function HospitalsBrowse() {
             {(["list", "map"] as const).map((v) => (
               <button key={v} onClick={() => setView(v)}
                 className={`chip${view === v ? " on" : ""}`} style={{ fontSize: 13.5, padding: "8px 14px" }}>
-                {v === "list" ? "☰ 목록" : "🗺 지도"}
+                <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Icon name={v === "list" ? "list" : "map"} size={14} /> {v === "list" ? "목록" : "지도"}</span>
               </button>
             ))}
           </div>
@@ -169,11 +172,11 @@ export default function HospitalsBrowse() {
         )}
 
         {/* 상태 */}
-        {!loc && !ready && <p className="sub" style={{ padding: "18px 2px" }}>📍 내 위치를 확인하는 중…</p>}
+        {!loc && !ready && <p className="sub" style={{ padding: "18px 2px" }}>내 위치를 확인하는 중…</p>}
         {!loc && ready && (
           <div style={{ padding: "18px 2px" }}>
             <p className="sub" style={{ marginBottom: 10 }}>위치를 허용하거나 동네를 골라주시면 가까운 순으로 보여드려요.</p>
-            <button className="btn" onClick={requestGps}>📍 내 위치로 찾기</button>
+            <button className="btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={requestGps}><Icon name="pin" size={16} strokeWidth={2.1} /> 내 위치로 찾기</button>
             <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => setPickerOpen(true)}>동네 직접 고르기</button>
           </div>
         )}
@@ -182,33 +185,41 @@ export default function HospitalsBrowse() {
           <p className="sub" style={{ padding: "18px 2px" }}>이 근처엔 등록된 병원이 없어요. 위쪽에서 동네를 바꿔보세요.</p>
         )}
 
-        {/* 리스트(주인공) */}
-        {view === "list" && rows?.map((h) => (
-          <Link key={h.id} href={`/hospital/${h.id}`} className="reset">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "14px 2px", borderBottom: "1px solid var(--line)" }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 800, fontSize: 15.5, display: "flex", gap: 7, alignItems: "center" }}>
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</span>
-                  {h.isPartner && <span style={{ fontSize: 10, fontWeight: 800, color: "#fff", background: "var(--coral)", padding: "2px 6px", borderRadius: 5, flexShrink: 0 }}>파트너</span>}
-                  {h.isAd && <span style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", background: "var(--chip)", padding: "2px 6px", borderRadius: 5, flexShrink: 0 }}>광고</span>}
-                </div>
-                <div className="sub" style={{ marginTop: 4 }}>
-                  <b style={{ color: "var(--coral)" }}>{h.distanceKm.toFixed(1)}km</b>
-                  {h.district ? ` · ${h.district}` : ""}{h.doctorCount != null ? ` · 의사 ${h.doctorCount}명` : ""}
-                </div>
-              </div>
-              <div style={{ textAlign: "right", flexShrink: 0, display: "flex", alignItems: "center", gap: 8 }}>
-                {h.price != null && (
-                  <div>
-                    <div className="price" style={{ fontSize: 15 }}>{won(h.price)}원</div>
-                    <div className="disc">{procName}</div>
+        {/* 리스트(주인공) — Warby Parker식 카드형 로케이션 리스트 + 소프트 태그 */}
+        {view === "list" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {rows?.map((h) => (
+              <Link key={h.id} href={`/hospital/${h.id}`} className="reset">
+                <div className="card" style={{ padding: "15px 16px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: "-0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</div>
+                      <div className="sub" style={{ marginTop: 3, fontSize: 13.5 }}>
+                        <b style={{ color: "var(--key-strong)" }}>{h.distanceKm.toFixed(1)}km</b>
+                        {h.district ? ` · ${h.district}` : ""}
+                      </div>
+                    </div>
+                    {h.price != null ? (
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div className="price" style={{ fontSize: 15 }}>{won(h.price)}원</div>
+                        <div className="disc">{procName}</div>
+                      </div>
+                    ) : (
+                      <span style={{ color: "var(--faint)", fontSize: 18, fontWeight: 700, flexShrink: 0 }}>›</span>
+                    )}
                   </div>
-                )}
-                <span style={{ color: "var(--faint)", fontSize: 18, fontWeight: 700 }}>›</span>
-              </div>
-            </div>
-          </Link>
-        ))}
+                  {(h.isPartner || h.isAd || h.doctorCount != null) && (
+                    <div style={{ display: "flex", gap: 6, marginTop: 9, flexWrap: "wrap" }}>
+                      {h.isPartner && <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--key-deep)", background: "var(--key-soft)", padding: "4px 9px", borderRadius: 999 }}>파트너 · 예약 바로 전달</span>}
+                      {h.doctorCount != null && <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--ink2)", background: "var(--chip)", padding: "4px 9px", borderRadius: 999 }}>의사 {h.doctorCount}명</span>}
+                      {h.isAd && <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--muted)", background: "var(--chip)", padding: "4px 9px", borderRadius: 999 }}>광고</span>}
+                    </div>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
 
         {rows !== null && rows.length > 0 && (
           <p className="disc" style={{ marginTop: 12, paddingBottom: 8, lineHeight: 1.6 }}>

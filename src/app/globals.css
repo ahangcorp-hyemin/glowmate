@@ -1,46 +1,63 @@
 :root {
-  --coral: #F0563C; --coral-strong: #E84E30; --coral-soft: #FCEDE8;
-  --ink: #1C1B1A; --ink2: #4C4A48; --muted: #8C8884; --faint: #B8B4AF;
-  --line: #EDEBE8; --chip: #F5F3F1; --peach: #FBEDE7; --white: #FFFFFF; --page: #F3F1EE;
-  --hi: #2F9E6E; --hi-bg: #E7F4EE; --mid: #D69A2A; --mid-bg: #FAF1DE;
+  /* v3 — 토스 컴포넌트 시스템 이식(docs/DESIGN_PRINCIPLES.md). 흰 바탕 + 회색 구획 + 그린 액센트.
+     기존 화면들이 coral·sage·terra 변수를 참조하므로 별칭을 그린·그레이로 리매핑. */
+  --key: #12A15A; --key-strong: #0E8A4C; --key-soft: #E8F7EF; --key-deep: #0B7A43;
+  --coral: var(--key); --coral-strong: var(--key-strong); --coral-soft: var(--key-soft);
+  --terra: var(--key); --terra-strong: var(--key-strong); --terra-soft: var(--key-soft);
+  --sage: var(--key); --sage-deep: var(--key-deep); --sage-soft: var(--key-soft);
+  --ink: #191F28; --ink2: #4E5968; --muted: #6B7684; --faint: #B0B8C1;
+  --line: #E5E8EB; --chip: #F2F4F6; --peach: #F9FAFB; --white: #FFFFFF; --page: #F2F4F6;
+  --hi: #12A15A; --hi-bg: #E8F7EF; --mid: #D9730D; --mid-bg: #FDF0E3;
   --sans: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; }
-body { background: var(--page); color: var(--ink); font-family: var(--sans); line-height: 1.5; }
+body { background: var(--page); color: var(--ink); font-family: var(--sans); line-height: 1.55; letter-spacing: -0.02em; }
 .shell { max-width: 480px; margin: 0 auto; min-height: 100dvh; background: var(--white); }
 .pad { padding: 0 22px; }
-.top { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 8px; }
-.logo { font-weight: 800; font-size: 19px; letter-spacing: -.02em; }
-.logo .m { color: var(--coral); }
-.loc { font-size: 12.5px; color: var(--ink2); background: var(--chip); border-radius: 999px; padding: 6px 12px; font-weight: 600; }
-.hero { background: linear-gradient(160deg, #FDF1EC, #FBE7DF); border-radius: 24px; padding: 26px 22px; margin: 8px 22px 18px; }
-.kick { font-size: 12.5px; font-weight: 800; color: var(--coral); }
-.hero h1 { font-size: 26px; font-weight: 800; letter-spacing: -.03em; line-height: 1.32; margin: 10px 0 8px; }
-.hero p { font-size: 14px; color: var(--ink2); margin: 0; }
+.top { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px 8px; min-height: 56px; }
+.logo { font-weight: 800; font-size: 20px; letter-spacing: -0.03em; display: flex; align-items: center; }
+.logo .m { color: inherit; }
+.loc { font-size: 13px; color: var(--ink2); background: var(--chip); border-radius: 999px; padding: 7px 12px; font-weight: 600; }
+/* 히어로 = 토스 랜딩식: 흰 바탕 위 큰 볼드 타이포. 면·그라데이션 없음 */
+.hero { background: none; border-radius: 0; padding: 20px 22px 8px; margin: 0; }
+.kick { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: -0.01em; }
+.hero .kick { color: var(--muted); }
+.hero h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.32; margin: 10px 0 10px; color: var(--ink); }
+.hero p { font-size: 15px; color: var(--ink2); margin: 0; line-height: 1.6; }
 .steps { display: flex; gap: 8px; padding: 0 22px; }
-.step { flex: 1; background: var(--chip); border-radius: 12px; padding: 12px 10px; text-align: center; }
-.step .n { font-size: 11px; font-weight: 800; color: var(--coral); }
-.step .l { font-size: 12px; font-weight: 700; margin-top: 4px; }
-.cta { position: sticky; bottom: 0; padding: 12px 22px calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(to top, var(--white) 72%, rgba(255,255,255,0)); }
+.step { flex: 1; background: var(--peach); border-radius: 16px; padding: 14px 10px; text-align: center; }
+.step .n { font-size: 11px; font-weight: 700; color: var(--muted); }
+.step .l { font-size: 13px; font-weight: 700; margin-top: 4px; color: var(--ink); }
+.cta { position: sticky; bottom: 0; padding: 12px 22px calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(to top, var(--white) 78%, rgba(255,255,255,0)); }
 .tabbar { position: sticky; bottom: 0; z-index: 20; display: flex; background: var(--white); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
-.btn { width: 100%; background: var(--coral-strong); color: #fff; border: none; border-radius: 14px; padding: 16px; font-size: 16px; font-weight: 800; cursor: pointer; font-family: inherit; }
-.btn:disabled { background: #E7E3DF; }
-.btn.ghost { background: var(--white); color: var(--ink); border: 1.5px solid var(--line); }
-.h2 { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+.btn { width: 100%; background: var(--key); color: #fff; border: none; border-radius: 14px; padding: 16px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; letter-spacing: -0.02em; transition: background .15s, transform .1s; }
+.btn:active { background: var(--key-strong); transform: scale(0.985); }
+.btn:disabled { background: #D1D6DB; }
+.btn.ghost { background: var(--chip); color: var(--ink); border: none; }
+.h2 { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.35; color: var(--ink); }
 .sub { font-size: 14px; color: var(--muted); }
-.chipwrap { display: flex; flex-wrap: wrap; gap: 10px; }
-.chip { font-size: 15px; font-weight: 700; padding: 12px 16px; border-radius: 14px; background: var(--white); border: 1.5px solid var(--line); color: var(--ink2); cursor: pointer; }
-.chip.on { border-color: var(--coral); background: var(--coral-soft); color: var(--coral); }
-.card { background: var(--white); border: 1px solid var(--line); border-radius: 18px; padding: 18px; }
-.estcard { background: linear-gradient(160deg, #fff, #FFF7F4); border: 1px solid var(--coral-soft); border-radius: 20px; padding: 20px; }
+.chipwrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-size: 14.5px; font-weight: 600; padding: 10px 15px; border-radius: 999px; background: var(--chip); border: none; color: var(--ink2); cursor: pointer; font-family: inherit; letter-spacing: -0.02em; }
+.chip.on { background: var(--key-soft); color: var(--key-deep); font-weight: 700; }
+/* 카드 = 회색 면 섹션(보더·그림자 없음). 떠 있는 요소만 .card.elev */
+.card { background: var(--peach); border: none; border-radius: 20px; padding: 18px; box-shadow: none; }
+.card.elev { background: var(--white); box-shadow: 0 4px 14px rgba(25, 31, 40, .10), 0 0 1px rgba(25, 31, 40, .16); }
+.estcard { background: var(--peach); border: none; border-radius: 20px; padding: 20px; }
 .eitem { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
-.badge { font-size: 11px; font-weight: 700; color: var(--ink2); background: var(--chip); padding: 3px 8px; border-radius: 8px; }
-.price { font-family: "DM Mono", ui-monospace, monospace; font-weight: 700; color: var(--coral); }
-.answer p { font-size: 14px; color: var(--ink2); margin: 0 0 10px; }
-.ref { font-size: 10px; font-weight: 800; color: var(--coral); vertical-align: super; }
-.srcbox { background: var(--chip); border-radius: 12px; padding: 13px 14px; margin-top: 6px; }
-.srcbox .si { font-size: 12px; color: var(--ink2); margin: 6px 0; }
-.srcbox .num { color: var(--coral); font-weight: 800; }
-.disc { font-size: 11.5px; color: var(--faint); line-height: 1.6; }
+.badge { font-size: 11.5px; font-weight: 600; color: var(--ink2); background: var(--chip); padding: 3px 8px; border-radius: 999px; }
+.price { font-weight: 800; color: var(--key-deep); letter-spacing: -0.02em; }
+.answer p { font-size: 14.5px; color: var(--ink2); margin: 0 0 10px; }
+.ref { font-size: 10px; font-weight: 700; color: var(--key-deep); vertical-align: super; }
+.srcbox { background: var(--peach); border-radius: 16px; padding: 13px 14px; margin-top: 6px; }
+.srcbox .si { font-size: 12.5px; color: var(--muted); margin: 6px 0; }
+.srcbox .num { color: var(--ink2); font-weight: 700; }
+.disc { font-size: 12px; color: var(--faint); line-height: 1.6; }
 a.reset { color: inherit; text-decoration: none; }
+input, textarea { font-family: inherit; }
+/* 토스식 입력: 회색 필 + 포커스 그린 링 */
+input[type="text"], input[type="tel"], input[type="password"], input:not([type]), textarea {
+  background: var(--chip); border: 1.5px solid transparent; border-radius: 14px; outline: none;
+  transition: border-color .15s, background .15s;
+}
+input:focus, textarea:focus { border-color: var(--key); background: var(--white); }

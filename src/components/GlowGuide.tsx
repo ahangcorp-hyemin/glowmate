@@ -16,10 +16,10 @@ export default function GlowGuide({ mood = "hi", arrows = false, size = 132 }: {
     >
       <svg viewBox="0 0 200 200" width={size} height={size}>
         {/* 볼 홍조 */}
-        <ellipse cx="70" cy="112" rx="12" ry="8" fill="#F7C9BC" opacity="0.7" />
-        <ellipse cx="130" cy="112" rx="12" ry="8" fill="#F7C9BC" opacity="0.7" />
+        <ellipse cx="70" cy="112" rx="12" ry="8" fill="#C0EBD3" opacity="0.7" />
+        <ellipse cx="130" cy="112" rx="12" ry="8" fill="#C0EBD3" opacity="0.7" />
         {/* 얼굴 */}
-        <ellipse cx="100" cy="100" rx="60" ry="68" fill="#FBEDE7" stroke="#F2D8CC" strokeWidth="2.5" />
+        <ellipse cx="100" cy="100" rx="60" ry="68" fill="#E8F7EF" stroke="#C0EBD3" strokeWidth="2.5" />
         {/* 눈 (깜빡임) */}
         {[80, 120].map((cx) => (
           <motion.ellipse
@@ -43,13 +43,13 @@ export default function GlowGuide({ mood = "hi", arrows = false, size = 132 }: {
         {arrows && (
           <>
             <motion.path
-              d="M40 128 Q34 96 52 74" stroke="#F0563C" strokeWidth="4" fill="none" strokeLinecap="round"
+              d="M40 128 Q34 96 52 74" stroke="#12A15A" strokeWidth="4" fill="none" strokeLinecap="round"
               animate={{ opacity: [0.35, 1, 0.35] }} transition={{ duration: 1.8, repeat: Infinity }} />
-            <path d="M52 74 l-9 3 M52 74 l1 9" stroke="#F0563C" strokeWidth="4" fill="none" strokeLinecap="round" />
+            <path d="M52 74 l-9 3 M52 74 l1 9" stroke="#12A15A" strokeWidth="4" fill="none" strokeLinecap="round" />
             <motion.path
-              d="M160 128 Q166 96 148 74" stroke="#F0563C" strokeWidth="4" fill="none" strokeLinecap="round"
+              d="M160 128 Q166 96 148 74" stroke="#12A15A" strokeWidth="4" fill="none" strokeLinecap="round"
               animate={{ opacity: [0.35, 1, 0.35] }} transition={{ duration: 1.8, repeat: Infinity, delay: 0.3 }} />
-            <path d="M148 74 l9 3 M148 74 l-1 9" stroke="#F0563C" strokeWidth="4" fill="none" strokeLinecap="round" />
+            <path d="M148 74 l9 3 M148 74 l-1 9" stroke="#12A15A" strokeWidth="4" fill="none" strokeLinecap="round" />
           </>
         )}
 
@@ -57,7 +57,7 @@ export default function GlowGuide({ mood = "hi", arrows = false, size = 132 }: {
         {mood === "think" &&
           [70, 100, 130].map((cx, i) => (
             <motion.circle
-              key={cx} cx={cx} cy="184" r="5" fill="#F0563C"
+              key={cx} cx={cx} cy="184" r="5" fill="#12A15A"
               animate={{ opacity: [0.3, 1, 0.3], y: [0, -4, 0] }}
               transition={{ duration: 1, repeat: Infinity, delay: i * 0.18 }} />
           ))}

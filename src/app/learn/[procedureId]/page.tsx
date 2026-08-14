@@ -426,7 +426,7 @@ function QuestionSheet({ card }: { card: Extract<LessonCard, { kind: "questionSh
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <button className="btn ghost" style={{ flex: 1 }} onClick={() => alert("카카오톡 공유 (연동 예정)")}>💬 카톡 공유</button>
+          <button className="btn ghost" style={{ flex: 1 }} onClick={() => alert("카카오톡 공유 (연동 예정)")}>카톡으로 공유</button>
           <button className="btn ghost" style={{ flex: 1 }} onClick={() => alert("이미지로 저장 (연동 예정)")}>⬇ 저장</button>
         </div>
         <p className="disc" style={{ marginTop: 10, lineHeight: 1.6 }}>이 질문지는 의료 진단이 아니라 정보 제공이에요. 실제 판단은 병원 상담에서 확인하세요.</p>

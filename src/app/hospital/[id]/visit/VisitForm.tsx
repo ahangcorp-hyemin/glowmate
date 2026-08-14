@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import Icon from "@/components/Icon";
 import GlowGuide from "@/components/GlowGuide";
 import { submitVisitRequest } from "../../../visit/actions";
 import { saveVisitRecord } from "@/lib/client/saved";
@@ -45,7 +46,7 @@ export default function VisitForm({ hospitalId, hospitalName, district, isPartne
               ? <>병원에서 예약 가능 여부와 일정 확인을 위해<br />직접 연락드릴 예정이에요.</>
               : <>이 병원은 아직 입점 전이라, <b>글로우메이트가</b><br />병원에 확인한 뒤 연락드릴게요(영업시간 기준 반나절 내).</>}
           </p>
-          <Link href="/learn" className="reset"><button className="btn" style={{ marginTop: 18 }}>📋 방문 전 질문 미리 보기</button></Link>
+          <Link href="/learn" className="reset"><button className="btn" style={{ marginTop: 18, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}><Icon name="clipboard" size={17} /> 방문 전 질문 미리 보기</button></Link>
           <Link href="/saved" className="reset"><button className="btn ghost" style={{ marginTop: 8 }}>방문 희망 내역 보기</button></Link>
           <Link href={`/hospital/${hospitalId}`} className="reset"><p className="sub" style={{ marginTop: 12 }}>확인</p></Link>
         </div>
@@ -130,6 +131,5 @@ export default function VisitForm({ hospitalId, hospitalName, district, isPartne
 }
 
 const inp: React.CSSProperties = {
-  width: "100%", padding: "13px 14px", borderRadius: 12, border: "1.5px solid var(--line)",
-  fontSize: 15, fontFamily: "inherit", background: "var(--white)", marginTop: 6,
+  width: "100%", padding: "14px 15px", borderRadius: 14, fontSize: 15, marginTop: 6,
 };

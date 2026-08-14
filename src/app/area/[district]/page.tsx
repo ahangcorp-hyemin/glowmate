@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Icon from "@/components/Icon";
 import { notFound } from "next/navigation";
 import TabBar from "@/components/TabBar";
 import { getHospitalsInDistrict } from "@/lib/hospitals/repo";
@@ -42,7 +43,7 @@ export default async function AreaPage({ params }: Params) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div className="top">
         <Link href="/hospitals" className="reset"><span style={{ fontSize: 20, color: "var(--ink2)" }}>‹</span></Link>
-        <div className="loc">📍 {d}</div>
+        <div className="loc" style={{ display: "flex", alignItems: "center", gap: 5 }}><Icon name="pin" size={13} /> {d}</div>
       </div>
       <div className="pad" style={{ flex: 1 }}>
         <h1 className="h2" style={{ fontSize: 21, margin: "4px 0 6px" }}>{d} 피부과·성형외과 {hospitals.length}곳</h1>

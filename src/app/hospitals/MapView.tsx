@@ -27,7 +27,7 @@ export default function MapView({ rows, center }: { rows: NearbyHospital[]; cent
         .addTo(map).bindTooltip("내 위치");
       for (const h of rows) {
         const m = L.circleMarker([h.lat, h.lng], {
-          radius: 9, color: "#E84E30", weight: 2, fillColor: "#F0563C", fillOpacity: 0.85,
+          radius: 9, color: "#0E8A4C", weight: 2, fillColor: "#12A15A", fillOpacity: 0.85,
         }).addTo(map);
         m.on("click", () => setSel(h));
       }

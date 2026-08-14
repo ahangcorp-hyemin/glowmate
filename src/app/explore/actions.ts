@@ -25,6 +25,12 @@ export async function submitReview(form: FormData): Promise<SubmitResult> {
   const body = String(form.get("body") ?? "").trim();
   const consented = form.get("consented") === "on";
   const independent = form.get("independent") === "on";
+  // 가격 데이터(#67 C, 전부 선택) — docs/PRICE_DATA_STRATEGY.md
+  const paidRaw = String(form.get("paidAmount") ?? "").replace(/[^0-9]/g, "");
+  const paidAmount = paidRaw ? Math.min(Number(paidRaw), 100000) : null; // 만원 단위, 상한 10억
+  const priceMatchRaw = String(form.get("priceMatch") ?? "");
+  const priceMatch = ["in_range", "higher", "lower", "unsure"].includes(priceMatchRaw) ? priceMatchRaw : null;
+  const procedureSpec = String(form.get("procedureSpec") ?? "").trim().slice(0, 200) || null;
 
   const catalog = await getCatalog();
   if (!catalog.proceduresById[procedureId]) return { ok: false, error: "시술을 선택해주세요." };
@@ -57,7 +63,17 @@ export async function submitReview(form: FormData): Promise<SubmitResult> {
     rating, weeks_elapsed: weeks, body, receipt_path: receiptPath,
     flagged_phrases: flagged, source: "web", status: "hidden",
     is_verified_visit: false, is_sponsored: false, reward_disclosed: false,
+    paid_amount: paidAmount, price_match: priceMatch, procedure_spec: procedureSpec,
   });
-  if (error) return { ok: false, error: "저장에 실패했어요. 잠시 후 다시 시도해주세요." };
+  if (error) {
+    // 0010 미적용(컬럼 없음)일 수 있음 — 가격 필드 없이 1회 재시도(후기 유실 방지)
+    const retry = await db.from("reviews").insert({
+      procedure_id: procedureId, hospital_name: hospitalName, age_band: ageBand,
+      rating, weeks_elapsed: weeks, body, receipt_path: receiptPath,
+      flagged_phrases: flagged, source: "web", status: "hidden",
+      is_verified_visit: false, is_sponsored: false, reward_disclosed: false,
+    });
+    if (retry.error) return { ok: false, error: "저장에 실패했어요. 잠시 후 다시 시도해주세요." };
+  }
   return { ok: true };
 }

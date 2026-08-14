@@ -1,5 +1,6 @@
 import Link from "next/link";
 import TabBar from "@/components/TabBar";
+import Icon from "@/components/Icon";
 import { getLessonIds } from "@/lib/lessons/repo";
 import { getCatalog } from "@/lib/catalog/repo";
 
@@ -29,12 +30,16 @@ export default async function LearnIndex() {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {lessons.map((p) => (
             <Link key={p.id} href={`/learn/${p.id}`} className="reset">
-              <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16 }}>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: 16 }}>{p.nameKo}, 알고 가기</div>
-                  <div className="sub" style={{ marginTop: 4 }}>{p.tagline}</div>
+              <div className="card" style={{ display: "flex", alignItems: "center", gap: 13, padding: 16 }}>
+                <span style={{ display: "grid", placeItems: "center", width: 42, height: 42, borderRadius: 14, background: "var(--key-soft)", color: "var(--key-deep)", flexShrink: 0 }}>
+                  <Icon name="book" size={21} />
+                </span>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: "-0.02em" }}>{p.nameKo}, 알고 가기</div>
+                  <div className="sub" style={{ marginTop: 3, fontSize: 13.5 }}>{p.tagline}</div>
+                  <div style={{ marginTop: 6, fontSize: 12, fontWeight: 700, color: "var(--key-strong)" }}>5분 레슨</div>
                 </div>
-                <span style={{ color: "var(--coral)", fontWeight: 900, fontSize: 18 }}>→</span>
+                <span style={{ color: "var(--faint)", fontWeight: 700, fontSize: 18 }}>›</span>
               </div>
             </Link>
           ))}
@@ -51,7 +56,9 @@ export default async function LearnIndex() {
 
         <div className="kick" style={{ margin: "20px 0 10px" }}>곧 열려요</div>
         <div className="card" style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: 16, opacity: 0.65 }}>
-          <span style={{ fontSize: 22 }}>🆚</span>
+          <span style={{ display: "grid", placeItems: "center", width: 38, height: 38, borderRadius: 12, background: "var(--chip)", color: "var(--ink2)", flexShrink: 0 }}>
+            <Icon name="sparkle" size={19} />
+          </span>
           <div>
             <div style={{ fontWeight: 800, fontSize: 15 }}>울쎄라 vs 써마지, 나는 뭐가 맞을까? <span className="badge">준비중</span></div>
             <div className="sub" style={{ marginTop: 4 }}>2~3개 문답으로 조건별 비교</div>
