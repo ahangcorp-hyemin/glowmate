@@ -22,10 +22,9 @@ function assertKey(): string {
 /** 아주 단순한 XML <item> 리스트 파서(HIRA 응답은 평면 구조). */
 function parseItems(xml: string): Record<string, string>[] {
   const items: Record<string, string>[] = [];
-  const blocks = xml.match(/<item>[\s\S]*?<\/item>/g) ?? [];
-  for (const b of blocks) {
+  for (const block of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
     const obj: Record<string, string> = {};
-    for (const m of b.matchAll(/<([a-zA-Z0-9_]+)>([\s\S]*?)<\/\1>/g)) {
+    for (const m of block[1].matchAll(/<([a-zA-Z0-9_]+)>([\s\S]*?)<\/\1>/g)) {
       obj[m[1]] = m[2].replace(/<!\[CDATA\[|\]\]>/g, "").trim();
     }
     items.push(obj);
@@ -49,13 +48,13 @@ async function get(url: string, params: Record<string, string | number>): Promis
 
 export interface HiraHospital {
   ykiho: string; yadmNm: string; addr: string; telno: string;
-  XPos: string; YPos: string; sgguCdNm: string;
+  XPos: string; YPos: string; sgguCdNm: string; clCd: string;
 }
 
 function mapHosp(r: Record<string, string>): HiraHospital {
   return {
     ykiho: r.ykiho ?? "", yadmNm: r.yadmNm ?? "", addr: r.addr ?? "", telno: r.telno ?? "",
-    XPos: r.XPos ?? "", YPos: r.YPos ?? "", sgguCdNm: r.sgguCdNm ?? "",
+    XPos: r.XPos ?? "", YPos: r.YPos ?? "", sgguCdNm: r.sgguCdNm ?? "", clCd: r.clCd ?? "",
   };
 }
 
