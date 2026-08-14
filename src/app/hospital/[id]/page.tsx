@@ -153,7 +153,10 @@ export default async function HospitalPage({ params }: Params) {
           </p>
         </Link>
         <div style={{ display: "flex", gap: 8 }}>
-        {tel && <a href={tel} className="reset" style={{ flex: 1 }}><button className="btn" style={{ width: "100%" }}>📞 전화 문의</button></a>}
+        <Link href={`/hospital/${h.id}/visit`} className="reset" style={{ flex: 1.2 }}>
+          <button className="btn" style={{ width: "100%" }}>🗓 방문 예약</button>
+        </Link>
+        {tel && <a href={tel} className="reset" style={{ flex: 1 }}><button className="btn ghost" style={{ width: "100%" }}>📞 전화</button></a>}
         <a href={kakaoMap} target="_blank" rel="noopener noreferrer" className="reset" style={{ flex: 1 }}><button className="btn ghost" style={{ width: "100%" }}>🗺 길찾기</button></a>
         {home && <a href={home} target="_blank" rel="noopener noreferrer" className="reset" style={{ flex: 1 }}><button className="btn ghost" style={{ width: "100%" }}>🌐 홈페이지</button></a>}
         </div>

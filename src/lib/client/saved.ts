@@ -43,3 +43,23 @@ export function getEstimateSnapshots(): EstimateSnapshot[] {
   if (typeof window === "undefined") return [];
   try { return JSON.parse(localStorage.getItem(E_KEY) ?? "[]"); } catch { return []; }
 }
+
+// ── 방문 희망 내역(신청 사본 — 서버 원본은 익명이라 이 기기 사본으로 조회) ──
+const V_KEY = "glowmate.visitRequests";
+
+export interface VisitRecord {
+  hospitalId: string; hospitalName: string; date: string; times: string[]; at: string; isPartner: boolean;
+}
+
+export function saveVisitRecord(v: VisitRecord) {
+  if (typeof window === "undefined") return;
+  try {
+    const list: VisitRecord[] = JSON.parse(localStorage.getItem(V_KEY) ?? "[]");
+    localStorage.setItem(V_KEY, JSON.stringify([v, ...list].slice(0, 20)));
+  } catch { /* ignore */ }
+}
+
+export function getVisitRecords(): VisitRecord[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem(V_KEY) ?? "[]"); } catch { return []; }
+}
