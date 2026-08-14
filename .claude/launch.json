@@ -5,7 +5,8 @@
       "name": "glowmate",
       "runtimeExecutable": "/Users/yimminseo/.npm-global/bin/bun",
       "runtimeArgs": ["run", "dev"],
-      "port": 3000
+      "port": 3000,
+      "autoPort": true
     }
   ]
 }
