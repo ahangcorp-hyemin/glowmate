@@ -53,10 +53,23 @@ export default function EstimatePage() {
   const [placeLabel, setPlaceLabel] = useState<string>("");
   const [concernsById, setConcernsById] = useState<Record<string, Concern>>({});
   const [lessonIds, setLessonIds] = useState<Set<string>>(new Set());
+  const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const advTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const toggle = (id: string) => setConcerns((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
   const auto = (next: number) => { if (advTimer.current) clearTimeout(advTimer.current); advTimer.current = setTimeout(() => setStage(next), 320); };
+
+  // 시작 시 위치 요청(D4: 허가 + 폴백). 여기서 받아두면 병원 화면에서 바로 근처가 뜬다.
+  const start = () => {
+    setStarted(true);
+    if (typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {},
+        { timeout: 10000, maximumAge: 600000 }
+      );
+    }
+  };
 
   // 고민 목록(sentence/emoji) 서버에서 로드
   useEffect(() => {
@@ -76,14 +89,15 @@ export default function EstimatePage() {
     if (!label) fetchRegionLabel(lat, lng).then((l) => { if (l) setPlaceLabel(l); });
   };
 
-  // 병원 오버레이: 위치 권한 요청 → 근처 실데이터. 거부/실패면 지역 수동선택 폴백.
+  // 병원 오버레이: 시작 때 받아둔 위치가 있으면 즉시, 없으면 재요청 → 실패 시 지역 수동선택 폴백.
   useEffect(() => {
     if (!hosp) { setHospRows(null); setGeoState("locating"); setPlaceLabel(""); setDetailHosp(null); return; }
     const procId = hosp.procedureId;
     setGeoState("locating"); setHospRows(null); setPlaceLabel("");
+    if (userLoc) { loadNearby(userLoc.lat, userLoc.lng, "", procId); return; }
     if (typeof navigator === "undefined" || !navigator.geolocation) { setGeoState("needRegion"); return; }
     navigator.geolocation.getCurrentPosition(
-      (pos) => loadNearby(pos.coords.latitude, pos.coords.longitude, "", procId),
+      (pos) => { setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }); loadNearby(pos.coords.latitude, pos.coords.longitude, "", procId); },
       () => setGeoState("needRegion"),
       { timeout: 8000, maximumAge: 300000 }
     );
@@ -135,9 +149,9 @@ export default function EstimatePage() {
           </div>
           <div style={{ flex: 1 }} />
           <div className="cta">
-            <button className="btn" onClick={() => setStarted(true)}>내 고민부터 골라볼게요 →</button>
+            <button className="btn" onClick={start}>내 고민부터 골라볼게요 →</button>
             <p className="disc" style={{ textAlign: "center", marginTop: 10 }}>
-              가입 없이 60초 · 의료 진단이 아닌 정보 제공이에요
+              가입 없이 60초 · 시작하면 <b>내 주변 병원</b>을 보여드리려 위치를 여쭤봐요(거부해도 이용 가능)
             </p>
           </div>
         </motion.div>
