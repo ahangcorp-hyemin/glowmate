@@ -48,6 +48,19 @@ export default async function HospitalPage({ params }: Params) {
 
   const estbYear = h.estbDd ? new Date(h.estbDd).getFullYear() : null;
   const years = estbYear ? new Date().getFullYear() - estbYear : null;
+
+  // schema.org MedicalClinic — 구글이 '병원 페이지'로 인식(프로그래매틱 SEO 핵심)
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "MedicalClinic",
+    name: h.name,
+    address: h.address ? { "@type": "PostalAddress", streetAddress: h.address, addressCountry: "KR" } : undefined,
+    geo: { "@type": "GeoCoordinates", latitude: h.lat, longitude: h.lng },
+    telephone: h.phone ?? undefined,
+    foundingDate: h.estbDd ?? undefined,
+    url: h.homepageUrl ?? undefined,
+    medicalSpecialty: ["Dermatologic", "PlasticSurgery"],
+  };
   const tel = h.phone ? `tel:${h.phone.replace(/[^0-9]/g, "")}` : null;
   const q = encodeURIComponent(h.address || `${h.name} ${h.district}`);
   const mapEmbed = `https://maps.google.com/maps?q=${q}&z=16&hl=ko&output=embed`;
@@ -62,6 +75,7 @@ export default async function HospitalPage({ params }: Params) {
 
   return (
     <main className="shell" style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div className="top">
         <Link href="/hospitals" className="reset"><span style={{ fontSize: 20, color: "var(--ink2)" }}>‹</span></Link>
         <div className="loc">📍 {h.district || "병원 정보"}</div>

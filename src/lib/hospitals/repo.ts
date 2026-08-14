@@ -49,6 +49,44 @@ export async function getAllHospitalIds(): Promise<string[]> {
   return ids;
 }
 
+/** 구 단위 허브: 활성 병원이 있는 district 목록(+count). 지역 SEO 허브 페이지용. */
+export async function getDistricts(): Promise<{ district: string; region: string; count: number }[]> {
+  const db = getServerClient();
+  if (!db) return [];
+  const counts = new Map<string, { region: string; count: number }>();
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await db.from("hospitals").select("district,region")
+      .eq("status", "active").eq("is_aesthetic", true).not("district", "is", null)
+      .range(from, from + 999);
+    if (error || !data?.length) break;
+    for (const r of data as { district: string; region: string | null }[]) {
+      const cur = counts.get(r.district) ?? { region: r.region ?? "", count: 0 };
+      cur.count += 1;
+      counts.set(r.district, cur);
+    }
+    if (data.length < 1000) break;
+  }
+  return [...counts.entries()].map(([district, v]) => ({ district, ...v }))
+    .sort((a, b) => b.count - a.count);
+}
+
+/** 특정 구의 병원 목록(이름순). 허브 페이지용. */
+export async function getHospitalsInDistrict(district: string): Promise<NearbyHospital[]> {
+  const db = getServerClient();
+  if (!db) return [];
+  const { data, error } = await db.from("hospitals")
+    .select("id,name,district,address,phone,homepage_url,cl_nm,doctor_count,estb_dd,lat,lng,rating,review_count")
+    .eq("status", "active").eq("is_aesthetic", true).eq("district", district)
+    .order("name").limit(500);
+  if (error || !data) return [];
+  return (data as Row[]).map((r) => ({
+    id: r.id, name: r.name, district: r.district ?? "", address: r.address,
+    phone: r.phone, homepageUrl: r.homepage_url, clNm: r.cl_nm,
+    doctorCount: r.doctor_count, estbDd: r.estb_dd, lat: r.lat, lng: r.lng,
+    rating: r.rating, reviews: r.review_count ?? 0, distanceKm: 0, price: null, isAd: false,
+  }));
+}
+
 export async function getNearbyHospitals(
   lat: number, lng: number, procedureId: string, radiusKm = 10, limit = 20
 ): Promise<NearbyHospital[]> {
