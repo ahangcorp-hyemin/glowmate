@@ -24,7 +24,9 @@ function parseItems(xml: string): Record<string, string>[] {
   for (const block of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
     const obj: Record<string, string> = {};
     for (const m of block[1].matchAll(/<([a-zA-Z0-9_]+)>([\s\S]*?)<\/\1>/g)) {
-      obj[m[1]] = m[2].replace(/<!\[CDATA\[|\]\]>/g, "").trim();
+      obj[m[1]] = m[2].replace(/<!\[CDATA\[|\]\]>/g, "")
+        .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+        .trim();
     }
     items.push(obj);
   }

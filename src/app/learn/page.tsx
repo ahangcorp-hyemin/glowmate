@@ -40,20 +40,22 @@ export default async function LearnIndex() {
           ))}
         </div>
 
-        <div className="kick" style={{ margin: "20px 0 10px" }}>곧 열려요</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {[
-            ["🆚", "울쎄라 vs 써마지, 나는 뭐가 맞을까?", "2~3개 문답으로 조건별 비교"],
-            ["💬", "자주 묻는 질문", "“해보신 분?” 커뮤니티 단골 질문, 출처 있는 답으로"],
-          ].map(([e, t, d]) => (
-            <div key={t} className="card" style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: 16, opacity: 0.65 }}>
-              <span style={{ fontSize: 22 }}>{e}</span>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 15 }}>{t} <span className="badge">준비중</span></div>
-                <div className="sub" style={{ marginTop: 4 }}>{d}</div>
-              </div>
-            </div>
+        <div className="kick" style={{ margin: "20px 0 10px" }}>자주 묻는 질문</div>
+        <div className="chipwrap">
+          {Object.values(catalog.proceduresById).map((p) => (
+            <Link key={p.id} href={`/learn/qa/${p.id}`} className="reset">
+              <span className="chip">{p.nameKo} Q&A</span>
+            </Link>
           ))}
+        </div>
+
+        <div className="kick" style={{ margin: "20px 0 10px" }}>곧 열려요</div>
+        <div className="card" style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: 16, opacity: 0.65 }}>
+          <span style={{ fontSize: 22 }}>🆚</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15 }}>울쎄라 vs 써마지, 나는 뭐가 맞을까? <span className="badge">준비중</span></div>
+            <div className="sub" style={{ marginTop: 4 }}>2~3개 문답으로 조건별 비교</div>
+          </div>
         </div>
 
         <Link href="/estimate" className="reset">
