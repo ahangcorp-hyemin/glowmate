@@ -2,21 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { AnimatePresence, motion, useMotionValue, useTransform } from "framer-motion";
 import GlowGuide from "@/components/GlowGuide";
 import type { LessonCard, LessonContent, ReviewSample } from "@/lib/lessons/types";
 import { fetchLesson } from "../actions";
 
-const PROC = "ulthera";
 const won = (n: number) => n.toLocaleString();
 const slide = { initial: { opacity: 0, x: 28 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -28 }, transition: { duration: 0.25 } };
 
-export default function UltheraLessonPage() {
+export default function LessonPage() {
+  const { procedureId } = useParams<{ procedureId: string }>();
   const [lesson, setLesson] = useState<LessonContent | null>(null);
   const [i, setI] = useState(0);
   const [canNext, setCanNext] = useState(false);
 
-  useEffect(() => { fetchLesson(PROC).then(setLesson); }, []);
+  useEffect(() => { if (procedureId) fetchLesson(procedureId).then(setLesson); }, [procedureId]);
 
   const cards = lesson?.cards ?? [];
   const card = cards[i];
