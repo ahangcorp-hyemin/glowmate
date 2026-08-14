@@ -10,7 +10,7 @@ interface Row {
   phone: string | null; homepage_url: string | null; cl_nm: string | null;
   doctor_count: number | null; estb_dd: string | null; lat: number; lng: number;
   rating: number | null; review_count: number | null;
-  distance_km: number; price: number | null; is_ad: boolean;
+  distance_km: number; price: number | null; is_ad: boolean; is_partner?: boolean | null;
 }
 
 /** 병원 1곳 상세(공개 페이지용). 없으면 null. */
@@ -19,22 +19,16 @@ export async function getHospitalById(id: string): Promise<NearbyHospital | null
   if (!db) return null;
   try {
     const { data, error } = await db.from("hospitals")
-      .select("id,name,district,address,phone,homepage_url,cl_nm,doctor_count,estb_dd,lat,lng,rating,review_count,region,emdong,status")
+      .select("id,name,district,address,phone,homepage_url,cl_nm,doctor_count,estb_dd,lat,lng,rating,review_count,region,emdong,status,is_partner")
       .eq("id", id).single();
     if (error || !data || data.status !== "active") return null;
     const r = data as unknown as Row & { region: string | null; emdong: string | null; status: string };
-    // is_partner는 0008 이후 존재 — 마이그레이션 전에도 상세가 죽지 않게 소프트 조회
-    let isPartner = false;
-    try {
-      const p = await db.from("hospitals").select("is_partner").eq("id", id).single();
-      isPartner = Boolean((p.data as { is_partner?: boolean } | null)?.is_partner);
-    } catch { /* pre-0008 */ }
     return {
       id: r.id, name: r.name, district: r.district ?? "", address: r.address,
       phone: r.phone, homepageUrl: r.homepage_url, clNm: r.cl_nm,
       doctorCount: r.doctor_count, estbDd: r.estb_dd, lat: r.lat, lng: r.lng,
       rating: r.rating, reviews: r.review_count ?? 0, distanceKm: 0, price: null, isAd: false,
-      isPartner,
+      isPartner: Boolean(r.is_partner),
     };
   } catch {
     return null;
@@ -62,7 +56,7 @@ export async function searchHospitals(q: string, limit = 30): Promise<NearbyHosp
   const query = q.trim();
   if (!db || query.length < 2) return [];
   const { data, error } = await db.from("hospitals")
-    .select("id,name,district,address,phone,homepage_url,cl_nm,doctor_count,estb_dd,lat,lng,rating,review_count")
+    .select("id,name,district,address,phone,homepage_url,cl_nm,doctor_count,estb_dd,lat,lng,rating,review_count,is_partner")
     .eq("status", "active").eq("is_aesthetic", true)
     .ilike("name", `%${query}%`)
     .order("name").limit(limit);
@@ -72,6 +66,7 @@ export async function searchHospitals(q: string, limit = 30): Promise<NearbyHosp
     phone: r.phone, homepageUrl: r.homepage_url, clNm: r.cl_nm,
     doctorCount: r.doctor_count, estbDd: r.estb_dd, lat: r.lat, lng: r.lng,
     rating: r.rating, reviews: r.review_count ?? 0, distanceKm: 0, price: null, isAd: false,
+    isPartner: Boolean(r.is_partner),
   }));
 }
 
@@ -80,7 +75,7 @@ export async function getHospitalsByIds(ids: string[]): Promise<NearbyHospital[]
   const db = getServerClient();
   if (!db || !ids.length) return [];
   const { data, error } = await db.from("hospitals")
-    .select("id,name,district,address,phone,homepage_url,cl_nm,doctor_count,estb_dd,lat,lng,rating,review_count")
+    .select("id,name,district,address,phone,homepage_url,cl_nm,doctor_count,estb_dd,lat,lng,rating,review_count,is_partner")
     .eq("status", "active").in("id", ids.slice(0, 50));
   if (error || !data) return [];
   const byId = new Map((data as Row[]).map((r) => [r.id, r]));
@@ -89,6 +84,7 @@ export async function getHospitalsByIds(ids: string[]): Promise<NearbyHospital[]
     phone: r!.phone, homepageUrl: r!.homepage_url, clNm: r!.cl_nm,
     doctorCount: r!.doctor_count, estbDd: r!.estb_dd, lat: r!.lat, lng: r!.lng,
     rating: r!.rating, reviews: r!.review_count ?? 0, distanceKm: 0, price: null, isAd: false,
+    isPartner: Boolean(r!.is_partner),
   }));
 }
 
@@ -118,7 +114,7 @@ export async function getHospitalsInDistrict(district: string): Promise<NearbyHo
   const db = getServerClient();
   if (!db) return [];
   const { data, error } = await db.from("hospitals")
-    .select("id,name,district,address,phone,homepage_url,cl_nm,doctor_count,estb_dd,lat,lng,rating,review_count")
+    .select("id,name,district,address,phone,homepage_url,cl_nm,doctor_count,estb_dd,lat,lng,rating,review_count,is_partner")
     .eq("status", "active").eq("is_aesthetic", true).eq("district", district)
     .order("name").limit(500);
   if (error || !data) return [];
@@ -127,6 +123,7 @@ export async function getHospitalsInDistrict(district: string): Promise<NearbyHo
     phone: r.phone, homepageUrl: r.homepage_url, clNm: r.cl_nm,
     doctorCount: r.doctor_count, estbDd: r.estb_dd, lat: r.lat, lng: r.lng,
     rating: r.rating, reviews: r.review_count ?? 0, distanceKm: 0, price: null, isAd: false,
+    isPartner: Boolean(r.is_partner),
   }));
 }
 
@@ -146,6 +143,7 @@ export async function getNearbyHospitals(
       doctorCount: r.doctor_count, estbDd: r.estb_dd, lat: r.lat, lng: r.lng,
       rating: r.rating, reviews: r.review_count ?? 0,
       distanceKm: r.distance_km, price: r.price, isAd: r.is_ad,
+      isPartner: Boolean(r.is_partner),
     }));
   } catch (e) {
     if (process.env.NODE_ENV !== "production") console.warn(`[hospitals/repo] nearby 실패: ${(e as Error).message}`);

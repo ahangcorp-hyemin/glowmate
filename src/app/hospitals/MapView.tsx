@@ -45,7 +45,10 @@ export default function MapView({ rows, center }: { rows: NearbyHospital[]; cent
             <div className="card" style={{ padding: 14, boxShadow: "0 8px 24px rgba(0,0,0,0.14)", background: "var(--white)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 15 }}>{sel.name}</div>
+                  <div style={{ fontWeight: 800, fontSize: 15, display: "flex", gap: 6, alignItems: "center" }}>
+                    {sel.name}
+                    {sel.isPartner && <span style={{ fontSize: 10, fontWeight: 800, color: "#fff", background: "var(--coral)", padding: "2px 6px", borderRadius: 5 }}>파트너</span>}
+                  </div>
                   <div className="sub" style={{ marginTop: 3 }}>
                     {sel.distanceKm ? `${sel.distanceKm.toFixed(1)}km · ` : ""}{sel.district}
                     {sel.doctorCount ? ` · 의사 ${sel.doctorCount}명` : ""}
