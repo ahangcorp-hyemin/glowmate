@@ -23,11 +23,18 @@ export async function getHospitalById(id: string): Promise<NearbyHospital | null
       .eq("id", id).single();
     if (error || !data || data.status !== "active") return null;
     const r = data as unknown as Row & { region: string | null; emdong: string | null; status: string };
+    // is_partner는 0008 이후 존재 — 마이그레이션 전에도 상세가 죽지 않게 소프트 조회
+    let isPartner = false;
+    try {
+      const p = await db.from("hospitals").select("is_partner").eq("id", id).single();
+      isPartner = Boolean((p.data as { is_partner?: boolean } | null)?.is_partner);
+    } catch { /* pre-0008 */ }
     return {
       id: r.id, name: r.name, district: r.district ?? "", address: r.address,
       phone: r.phone, homepageUrl: r.homepage_url, clNm: r.cl_nm,
       doctorCount: r.doctor_count, estbDd: r.estb_dd, lat: r.lat, lng: r.lng,
       rating: r.rating, reviews: r.review_count ?? 0, distanceKm: 0, price: null, isAd: false,
+      isPartner,
     };
   } catch {
     return null;

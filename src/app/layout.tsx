@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/react";
 export const metadata: Metadata = {
   title: "글로우메이트 — 시술 자동견적",
   description: "고민만 입력하면 내게 맞는 시술과 예상 비용을 출처와 함께.",
+  verification: { google: "rQHUuoGehBoBrOgJCJooHzE-nidvu8ZMcp0J8ZxLY_o" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

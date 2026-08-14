@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import TabBar from "@/components/TabBar";
 import HeartButton from "@/components/HeartButton";
-import { getSavedHospitalIds, getEstimateSnapshots, type EstimateSnapshot } from "@/lib/client/saved";
+import { getSavedHospitalIds, getEstimateSnapshots, getVisitRecords, type EstimateSnapshot, type VisitRecord } from "@/lib/client/saved";
 import { fetchHospitalsByIds } from "../hospitals/actions";
 import type { NearbyHospital } from "@/lib/hospitals/types";
 
@@ -14,9 +14,11 @@ const man = (won: number) => Math.round(won / 10000).toLocaleString();
 export default function SavedPage() {
   const [hospitals, setHospitals] = useState<NearbyHospital[] | null>(null);
   const [estimates, setEstimates] = useState<EstimateSnapshot[]>([]);
+  const [visits, setVisits] = useState<VisitRecord[]>([]);
 
   useEffect(() => {
     setEstimates(getEstimateSnapshots());
+    setVisits(getVisitRecords());
     const ids = getSavedHospitalIds();
     if (!ids.length) { setHospitals([]); return; }
     fetchHospitalsByIds(ids).then(setHospitals);
@@ -31,6 +33,27 @@ export default function SavedPage() {
         <p className="disc" style={{ marginBottom: 16, lineHeight: 1.55 }}>
           가입 없이 이 기기에만 저장돼요. 기기를 바꾸면 사라지니 중요한 건 캡처해두세요.
         </p>
+
+        {visits.length > 0 && (
+          <>
+            <div className="kick" style={{ marginBottom: 8 }}>방문 희망 내역</div>
+            <div className="card" style={{ padding: "4px 14px 8px", marginBottom: 18 }}>
+              {visits.map((v, i) => (
+                <Link key={i} href={`/hospital/${v.hospitalId}`} className="reset">
+                  <div style={{ padding: "11px 0", borderBottom: i < visits.length - 1 ? "1px solid var(--line)" : "none" }}>
+                    <div style={{ fontWeight: 800, fontSize: 14.5 }}>{v.hospitalName}</div>
+                    <div className="sub" style={{ marginTop: 3 }}>
+                      {v.date} · {v.times.join(", ")} · {v.isPartner ? "병원에서 연락드려요" : "글로우메이트가 확인 후 연락드려요"}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+              <p className="disc" style={{ margin: "8px 0 6px", lineHeight: 1.5 }}>
+                연락을 못 받으셨다면 병원 상세의 전화 문의를 이용해주세요.
+              </p>
+            </div>
+          </>
+        )}
 
         <div className="kick" style={{ marginBottom: 8 }}>저장한 병원</div>
         {hospitals === null && <p className="sub" style={{ padding: "8px 0" }}>불러오는 중…</p>}

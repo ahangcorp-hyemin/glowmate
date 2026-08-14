@@ -16,6 +16,7 @@ export interface NearbyHospital {
   distanceKm: number;
   price: number | null; // HIRA 비급여 공개가. 없으면 null → '문의'
   isAd: boolean;        // §27 정액 광고 노출(건당 수수료 없음)
+  isPartner?: boolean;  // 입점(파트너) 여부 — 방문신청 전달 경로 결정
 }
 
 export interface RegionOption {

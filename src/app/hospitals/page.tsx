@@ -9,6 +9,8 @@ import { PROCEDURES } from "@/lib/catalog/procedures";
 import type { NearbyHospital } from "@/lib/hospitals/types";
 import { fetchNearbyHospitals, fetchRegionLabel } from "../estimate/actions";
 import { searchHospitalsAction } from "./actions";
+import dynamic from "next/dynamic";
+const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => <p className="sub" style={{ padding: 16 }}>지도를 불러오는 중…</p> });
 
 // 병원 찾기(공개 탐색) — 굿닥·모두닥 패턴:
 //  · 위치는 자동(저장된 위치 → 즉시 목록, GPS 성공 시 갱신·저장)
@@ -25,6 +27,7 @@ export default function HospitalsBrowse() {
   const [rows, setRows] = useState<NearbyHospital[] | null>(null);
   const [q, setQ] = useState("");
   const [searchRows, setSearchRows] = useState<NearbyHospital[] | null>(null);
+  const [view, setView] = useState<"list" | "map">("list");
 
   // 병원명 검색(2자+, 디바운스). 검색 중엔 거리 목록 대신 전국 이름 매칭.
   useEffect(() => {
@@ -148,6 +151,23 @@ export default function HospitalsBrowse() {
           ))}
         </div>
 
+        {/* 목록/지도 토글 */}
+        {loc && (
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            {(["list", "map"] as const).map((v) => (
+              <button key={v} onClick={() => setView(v)}
+                className={`chip${view === v ? " on" : ""}`} style={{ fontSize: 13.5, padding: "8px 14px" }}>
+                {v === "list" ? "☰ 목록" : "🗺 지도"}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* 지도 뷰 */}
+        {view === "map" && loc && rows && rows.length > 0 && (
+          <MapView rows={rows} center={{ lat: loc.lat, lng: loc.lng }} />
+        )}
+
         {/* 상태 */}
         {!loc && !ready && <p className="sub" style={{ padding: "18px 2px" }}>📍 내 위치를 확인하는 중…</p>}
         {!loc && ready && (
@@ -163,7 +183,7 @@ export default function HospitalsBrowse() {
         )}
 
         {/* 리스트(주인공) */}
-        {rows?.map((h) => (
+        {view === "list" && rows?.map((h) => (
           <Link key={h.id} href={`/hospital/${h.id}`} className="reset">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "14px 2px", borderBottom: "1px solid var(--line)" }}>
               <div style={{ minWidth: 0 }}>
