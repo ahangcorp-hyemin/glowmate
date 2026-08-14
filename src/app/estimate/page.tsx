@@ -149,7 +149,7 @@ export default function EstimatePage() {
     const d = detailHosp;
     const years = d.estbDd ? new Date().getFullYear() - new Date(d.estbDd).getFullYear() : null;
     const tel = d.phone ? `tel:${d.phone.replace(/[^0-9]/g, "")}` : null;
-    const mapUrl = `https://map.kakao.com/link/to/${encodeURIComponent(d.name)},${d.lat},${d.lng}`;
+    const mapUrl = `https://map.kakao.com/?q=${encodeURIComponent([d.name, d.district].filter(Boolean).join(" "))}`;
     const home = d.homepageUrl ? (/^https?:\/\//.test(d.homepageUrl) ? d.homepageUrl : `http://${d.homepageUrl}`) : null;
     const cta = (label: string, href: string | null, primary = false) => href ? (
       <a href={href} target="_blank" rel="noopener noreferrer" className="reset" style={{ flex: 1 }}>
