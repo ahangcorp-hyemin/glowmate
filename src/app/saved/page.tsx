@@ -67,7 +67,10 @@ export default function SavedPage() {
           <Link key={h.id} href={`/hospital/${h.id}`} className="reset">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 2px", borderBottom: "1px solid var(--line)" }}>
               <div>
-                <div style={{ fontWeight: 800, fontSize: 15 }}>{h.name}</div>
+                <div style={{ fontWeight: 800, fontSize: 15, display: "flex", gap: 6, alignItems: "center" }}>
+                  {h.name}
+                  {h.isPartner && <span style={{ fontSize: 10, fontWeight: 800, color: "#fff", background: "var(--coral)", padding: "2px 6px", borderRadius: 5 }}>파트너</span>}
+                </div>
                 <div className="sub" style={{ marginTop: 3 }}>{h.district}{h.doctorCount ? ` · 의사 ${h.doctorCount}명` : ""}</div>
               </div>
               <HeartButton hospitalId={h.id} />

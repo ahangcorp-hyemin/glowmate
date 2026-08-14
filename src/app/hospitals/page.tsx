@@ -189,6 +189,7 @@ export default function HospitalsBrowse() {
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: 15.5, display: "flex", gap: 7, alignItems: "center" }}>
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</span>
+                  {h.isPartner && <span style={{ fontSize: 10, fontWeight: 800, color: "#fff", background: "var(--coral)", padding: "2px 6px", borderRadius: 5, flexShrink: 0 }}>파트너</span>}
                   {h.isAd && <span style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", background: "var(--chip)", padding: "2px 6px", borderRadius: 5, flexShrink: 0 }}>광고</span>}
                 </div>
                 <div className="sub" style={{ marginTop: 4 }}>

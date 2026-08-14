@@ -27,12 +27,9 @@ export async function submitVisitRequest(form: FormData): Promise<VisitResult> {
   if (!consented) return { ok: false, error: "연락처 수집·이용 동의가 필요해요." };
 
   const { data: h, error: hErr } = await db.from("hospitals")
-    .select("id,name,status").eq("id", hospitalId).single();
+    .select("id,name,status,is_partner").eq("id", hospitalId).single();
   if (hErr || !h || h.status !== "active") return { ok: false, error: "병원 정보를 찾지 못했어요." };
-  // is_partner는 0008 이후 존재 — 소프트 조회(전 상태에선 미입점 취급)
-  let isPartner = false;
-  const p = await db.from("hospitals").select("is_partner").eq("id", hospitalId).single();
-  if (!p.error) isPartner = Boolean((p.data as { is_partner?: boolean } | null)?.is_partner);
+  const isPartner = Boolean((h as { is_partner?: boolean }).is_partner);
 
   const { data, error } = await db.from("visit_requests").insert({
     hospital_id: h.id, hospital_name: h.name, is_partner: isPartner,

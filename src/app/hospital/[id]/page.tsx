@@ -86,12 +86,22 @@ export default async function HospitalPage({ params }: Params) {
       </div>
 
       <div className="pad" style={{ flex: 1 }}>
+        {h.isPartner && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 800, color: "#fff", background: "var(--coral)", padding: "5px 11px", borderRadius: 999, marginBottom: 10 }}>
+            ✓ 글로우메이트 파트너 병원
+          </span>
+        )}
         <h1 className="h2" style={{ fontSize: 24, lineHeight: 1.28, margin: 0 }}>{h.name}</h1>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 7, margin: "10px 0 14px" }}>
           {badges.map((b) => (
             <span key={b} style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink2)", background: "var(--chip)", padding: "6px 10px", borderRadius: 999 }}>{b}</span>
           ))}
         </div>
+        {h.isPartner && (
+          <p className="disc" style={{ margin: "-6px 0 12px", lineHeight: 1.5, color: "var(--coral-strong)" }}>
+            입점 병원이라 방문 예약을 병원에 바로 전달해드려요.
+          </p>
+        )}
 
         <div className="estcard">
           <Info k="종별" v={h.clNm ?? "의원"} />
@@ -154,7 +164,7 @@ export default async function HospitalPage({ params }: Params) {
         </Link>
         <div style={{ display: "flex", gap: 8 }}>
         <Link href={`/hospital/${h.id}/visit`} className="reset" style={{ flex: 1.2 }}>
-          <button className="btn" style={{ width: "100%" }}>🗓 방문 예약</button>
+          <button className="btn" style={{ width: "100%" }}>🗓 {h.isPartner ? "방문 예약 신청" : "방문 예약"}</button>
         </Link>
         {tel && <a href={tel} className="reset" style={{ flex: 1 }}><button className="btn ghost" style={{ width: "100%" }}>📞 전화</button></a>}
         <a href={kakaoMap} target="_blank" rel="noopener noreferrer" className="reset" style={{ flex: 1 }}><button className="btn ghost" style={{ width: "100%" }}>🗺 길찾기</button></a>
