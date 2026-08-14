@@ -12,6 +12,8 @@ alter table hospitals
   add column if not exists postal text;             -- 우편번호
 
 -- 근처 병원 + 상세 + 시술 공개가. 상세뷰/CTA용 필드 포함(추가 조회 불필요).
+-- 0005의 반환형과 달라 재정의 전에 반드시 DROP(그렇지 않으면 42P13).
+drop function if exists nearby_hospitals(double precision, double precision, text, double precision, integer);
 create or replace function nearby_hospitals(
   p_lat double precision, p_lng double precision,
   p_proc text, p_radius_km double precision default 10, p_limit int default 20
