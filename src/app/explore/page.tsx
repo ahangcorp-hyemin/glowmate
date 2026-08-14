@@ -13,7 +13,7 @@ export default function ExplorePage() {
   return (
     <main className="shell" style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
       <div className="top">
-        <div className="logo">탐<span className="m">색</span></div>
+        <div className="logo">또래 <span className="m">후기</span></div>
       </div>
       <div className="pad" style={{ flex: 1 }}>
         <p className="sub" style={{ margin: "2px 0 18px", lineHeight: 1.55 }}>
