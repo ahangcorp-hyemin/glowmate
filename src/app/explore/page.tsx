@@ -27,7 +27,10 @@ export default function ExplorePage() {
             받아보신 시술이 있다면 경험을 나눠주세요.<br />
             같은 고민을 하는 또래에게 큰 도움이 돼요.
           </p>
-          <div className="badge" style={{ marginTop: 12 }}>후기 남기기 · 곧 열려요</div>
+          <Link href="/explore/write" className="reset">
+            <button className="btn" style={{ marginTop: 14 }}>후기 남기기 →</button>
+          </Link>
+          <p className="disc" style={{ marginTop: 8 }}>익명 · 검수 후 공개 · 영수증 첨부 시 인증 배지</p>
         </div>
 
         <div className="kick" style={{ margin: "20px 0 10px" }}>기다리는 동안</div>
