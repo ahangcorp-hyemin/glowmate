@@ -8,6 +8,7 @@ import { loadLoc, saveLoc } from "@/lib/geo/loc";
 import { PROCEDURES } from "@/lib/catalog/procedures";
 import type { NearbyHospital } from "@/lib/hospitals/types";
 import { fetchNearbyHospitals, fetchRegionLabel } from "../estimate/actions";
+import { searchHospitalsAction } from "./actions";
 
 // 병원 찾기(공개 탐색) — 굿닥·모두닥 패턴:
 //  · 위치는 자동(저장된 위치 → 즉시 목록, GPS 성공 시 갱신·저장)
@@ -22,6 +23,19 @@ export default function HospitalsBrowse() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [proc, setProc] = useState("ulthera");
   const [rows, setRows] = useState<NearbyHospital[] | null>(null);
+  const [q, setQ] = useState("");
+  const [searchRows, setSearchRows] = useState<NearbyHospital[] | null>(null);
+
+  // 병원명 검색(2자+, 디바운스). 검색 중엔 거리 목록 대신 전국 이름 매칭.
+  useEffect(() => {
+    const query = q.trim();
+    if (query.length < 2) { setSearchRows(null); return; }
+    let alive = true;
+    const t = setTimeout(() => {
+      searchHospitalsAction(query).then((r) => { if (alive) setSearchRows(r); });
+    }, 250);
+    return () => { alive = false; clearTimeout(t); };
+  }, [q]);
 
   const applyLoc = (lat: number, lng: number, label: string) => {
     setLoc({ lat, lng, label });
@@ -72,14 +86,45 @@ export default function HospitalsBrowse() {
       {/* 헤더: 타이틀 + 위치 필(탭하면 지역 패널) */}
       <div className="top">
         <div className="logo">병원 <span className="m">찾기</span></div>
-        <button className="loc" style={{ border: "none", cursor: "pointer", fontFamily: "inherit" }}
-          onClick={() => setPickerOpen((v) => !v)}>
-          📍 {loc?.label || (loc ? "내 위치" : "위치 선택")} ▾
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Link href="/saved" className="reset" aria-label="내 활동">
+            <span style={{ fontSize: 20, color: "var(--coral)" }}>♥</span>
+          </Link>
+          <button className="loc" style={{ border: "none", cursor: "pointer", fontFamily: "inherit" }}
+            onClick={() => setPickerOpen((v) => !v)}>
+            📍 {loc?.label || (loc ? "내 위치" : "위치 선택")} ▾
+          </button>
+        </div>
       </div>
 
+      {/* 병원명 검색 */}
+      <div className="pad" style={{ paddingBottom: 8 }}>
+        <input
+          value={q} onChange={(e) => setQ(e.target.value)}
+          placeholder="🔎 찾는 병원 이름이 있나요?"
+          style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: "1.5px solid var(--line)", fontSize: 15, fontFamily: "inherit", background: "var(--white)" }}
+        />
+      </div>
+
+      {searchRows !== null && (
+        <div className="pad" style={{ flex: 1 }}>
+          {searchRows.length === 0 && <p className="sub" style={{ padding: "12px 2px" }}>‘{q.trim()}’ 이름의 병원을 못 찾았어요. 철자를 확인해보세요.</p>}
+          {searchRows.map((h) => (
+            <Link key={h.id} href={`/hospital/${h.id}`} className="reset">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 2px", borderBottom: "1px solid var(--line)" }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 15 }}>{h.name}</div>
+                  <div className="sub" style={{ marginTop: 3 }}>{h.district}{h.doctorCount ? ` · 의사 ${h.doctorCount}명` : ""}</div>
+                </div>
+                <span style={{ color: "var(--coral)", fontWeight: 900 }}>›</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+
       {/* 지역 패널(접이식) */}
-      {pickerOpen && (
+      {searchRows === null && pickerOpen && (
         <div className="pad" style={{ paddingBottom: 12 }}>
           <div className="card" style={{ padding: 14 }}>
             <button className="btn ghost" style={{ marginBottom: 10 }} onClick={requestGps}>📍 내 위치로 찾기</button>
@@ -93,7 +138,7 @@ export default function HospitalsBrowse() {
         </div>
       )}
 
-      <div className="pad" style={{ flex: 1 }}>
+      <div className="pad" style={{ flex: 1, display: searchRows !== null ? "none" : undefined }}>
         {/* 시술 필터(보조, 한 줄) */}
         <div style={{ display: "flex", gap: 7, overflowX: "auto", padding: "2px 0 10px", marginTop: 2 }}>
           {PROCEDURES.map((p) => (

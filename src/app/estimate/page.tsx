@@ -11,6 +11,7 @@ import type { Estimate, EstimateItem, AgeBand, BudgetBand } from "@/lib/estimate
 import { fetchConcerns, runEstimate, fetchNearbyHospitals, fetchRegionLabel } from "./actions";
 import { fetchLessonIds } from "../learn/actions";
 import { REGIONS } from "@/lib/geo/region";
+import { saveEstimateSnapshot } from "@/lib/client/saved";
 import { saveLoc } from "@/lib/geo/loc";
 
 // 분야별로 쪼갠 질문(화면당 선택지 적게)
@@ -114,7 +115,16 @@ export default function EstimatePage() {
     runEstimate({ concerns, ageBand: age ?? "40대", budgetBand: budget ?? "상관없음" }).then((est) => {
       // 최소 2.6s 로더(노동 착시) 보장
       const wait = Math.max(0, 2600 - (Date.now() - started));
-      setTimeout(() => { if (!alive) return; setResult(est); setXi(0); setStage(7); }, wait);
+      setTimeout(() => {
+        if (!alive) return;
+        setResult(est); setXi(0); setStage(7);
+        // '내 활동'용 스냅샷(가입 없이 이 기기에 저장)
+        if (!est.needsConsult) saveEstimateSnapshot({
+          at: new Date().toISOString(), concerns,
+          items: est.items.map((i) => ({ nameKo: i.nameKo, role: i.role, priceMin: i.priceMin, priceMax: i.priceMax })),
+          totalMin: est.totalMin, totalMax: est.totalMax,
+        });
+      }, wait);
     });
     return () => { alive = false; clearInterval(int); };
   }, [stage, concerns, age, budget]);
