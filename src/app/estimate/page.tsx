@@ -11,6 +11,7 @@ import type { Estimate, EstimateItem, AgeBand, BudgetBand } from "@/lib/estimate
 import { fetchConcerns, runEstimate, fetchNearbyHospitals, fetchRegionLabel } from "./actions";
 import { fetchLessonIds } from "../learn/actions";
 import { REGIONS } from "@/lib/geo/region";
+import { saveLoc } from "@/lib/geo/loc";
 
 // 분야별로 쪼갠 질문(화면당 선택지 적게)
 const DOMAINS = [
@@ -64,7 +65,7 @@ export default function EstimatePage() {
     setStarted(true);
     if (typeof navigator !== "undefined" && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (pos) => { setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }); saveLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: "" }); },
         () => {},
         { timeout: 10000, maximumAge: 600000 }
       );
