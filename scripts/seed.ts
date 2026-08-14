@@ -4,7 +4,6 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { seedProcedures, seedConcerns, seedRules } from "../src/lib/catalog/seed";
-import { HOSPS, hospitalPrices } from "../src/lib/catalog/hospitals";
 import { BANNED_PHRASES, assertCompliant } from "../src/lib/compliance/bannedPhrases";
 import { LESSON_SEED } from "../src/lib/lessons/seed";
 
@@ -61,33 +60,7 @@ async function main() {
     concern_id: r.concernId, procedure_id: r.procedureId, role: r.role, weight: r.weight, rationale: r.rationale,
   }))), "rules");
 
-  // 6) 병원 + 가격: clean-slate 후 재적재(스냅샷 1개)
-  must(await db.from("hospital_procedure_prices").delete().neq("id", "00000000-0000-0000-0000-000000000000"), "clear prices");
-  must(await db.from("hospitals").delete().neq("id", "00000000-0000-0000-0000-000000000000"), "clear hospitals");
-
-  const snapshotId = crypto.randomUUID();
-  const nowIso = new Date().toISOString();
-  for (const h of HOSPS) {
-    const inserted = must<{ id: string }[]>(await db.from("hospitals").insert({
-      name: h.n, region: h.d.split(" ")[0], district: h.d, rating: h.r, review_count: h.rv,
-      source_url: null, fetched_at: nowIso, status: "active",
-    }).select("id"), `hospital ${h.n}`);
-    const hospitalId = inserted[0].id;
-    // 이 병원의 시술별 참고가(시드 룰: priceMin*mult)
-    const priceRows = seedProcedures.map((p) => ({
-      hospital_id: hospitalId, procedure_id: p.id, unit: p.priceUnit,
-      price: Math.round((p.priceMin * h.mult) / 1000) * 1000,
-      is_promo: false, source_url: "seed://glowmate", fetched_at: nowIso,
-      snapshot_id: snapshotId, is_current: true,
-    }));
-    must(await db.from("hospital_procedure_prices").insert(priceRows), `prices ${h.n}`);
-    // 광고(정액) 시드: isAd 병원 1곳만
-    if (h.ad) {
-      must(await db.from("ad_placements").insert(seedProcedures.map((p) => ({
-        hospital_id: hospitalId, procedure_id: p.id, slot: "list", monthly_fee: 300000, active: true,
-      }))), `ad ${h.n}`);
-    }
-  }
+  // 6) 병원·가격은 시드하지 않는다 — scripts/ingest-hira.ts가 실데이터로 채운다(목업 제거).
 
   // 7) 레슨 + 카드 (clean-slate 후 재적재). §56 트리거 없음(리터러시 인용 보호).
   const lessons = Object.values(LESSON_SEED);
@@ -102,9 +75,8 @@ async function main() {
     must(await db.from("lesson_cards").insert(cardRows), `lesson_cards ${l.procedureId}`);
   }
 
-  // 정적 hospitalPrices와 동일 로직 확인용 로그
-  console.log(`✓ 시드 완료 — 시술 ${seedProcedures.length} · 고민 ${seedConcerns.length} · 룰 ${seedRules.length} · 병원 ${HOSPS.length} · 레슨 ${lessons.length}`);
-  console.log(`  (참고: 울쎄라 최저가 예시 ${hospitalPrices(seedProcedures.find((p) => p.id === "ulthera")!.priceMin)[0].price.toLocaleString()}원)`);
+  console.log(`✓ 시드 완료 — 시술 ${seedProcedures.length} · 고민 ${seedConcerns.length} · 룰 ${seedRules.length} · 레슨 ${lessons.length}`);
+  console.log("  병원·가격은 `bun run ingest`(HIRA 실데이터)로 채우세요.");
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

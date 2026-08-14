@@ -6,10 +6,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import GlowGuide from "@/components/GlowGuide";
 import GlowHero from "@/components/GlowHero";
 import type { Concern } from "@/lib/catalog/rules";
-import type { HospitalPriceRow } from "@/lib/catalog/hospitals";
+import type { NearbyHospital } from "@/lib/hospitals/types";
 import type { Estimate, EstimateItem, AgeBand, BudgetBand } from "@/lib/estimate/engine";
-import { fetchConcerns, runEstimate, fetchHospitalPrices } from "./actions";
+import { fetchConcerns, runEstimate, fetchNearbyHospitals, fetchRegionLabel } from "./actions";
 import { fetchLessonIds } from "../learn/actions";
+import { REGIONS } from "@/lib/geo/region";
 
 // 분야별로 쪼갠 질문(화면당 선택지 적게)
 const DOMAINS = [
@@ -45,7 +46,9 @@ export default function EstimatePage() {
   const [msgIdx, setMsgIdx] = useState(0);
   const [xi, setXi] = useState(0); // 탐색 카드 인덱스
   const [hosp, setHosp] = useState<EstimateItem | null>(null);
-  const [hospRows, setHospRows] = useState<HospitalPriceRow[] | null>(null);
+  const [hospRows, setHospRows] = useState<NearbyHospital[] | null>(null);
+  const [geoState, setGeoState] = useState<"locating" | "ready" | "needRegion">("locating");
+  const [placeLabel, setPlaceLabel] = useState<string>("");
   const [concernsById, setConcernsById] = useState<Record<string, Concern>>({});
   const [lessonIds, setLessonIds] = useState<Set<string>>(new Set());
   const advTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -64,13 +67,25 @@ export default function EstimatePage() {
     return () => { alive = false; };
   }, []);
 
-  // 병원 오버레이 열릴 때 참고가 로드
+  // 좌표 기준 근처 병원 실데이터 로드(위치 or 지역폴백 공용)
+  const loadNearby = (lat: number, lng: number, label: string, procId: string) => {
+    setHospRows(null); setPlaceLabel(label); setGeoState("ready");
+    fetchNearbyHospitals(lat, lng, procId).then(setHospRows);
+    if (!label) fetchRegionLabel(lat, lng).then((l) => { if (l) setPlaceLabel(l); });
+  };
+
+  // 병원 오버레이: 위치 권한 요청 → 근처 실데이터. 거부/실패면 지역 수동선택 폴백.
   useEffect(() => {
-    if (!hosp) { setHospRows(null); return; }
-    let alive = true;
-    setHospRows(null);
-    fetchHospitalPrices(hosp.procedureId).then((rows) => { if (alive) setHospRows(rows); });
-    return () => { alive = false; };
+    if (!hosp) { setHospRows(null); setGeoState("locating"); setPlaceLabel(""); return; }
+    const procId = hosp.procedureId;
+    setGeoState("locating"); setHospRows(null); setPlaceLabel("");
+    if (typeof navigator === "undefined" || !navigator.geolocation) { setGeoState("needRegion"); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => loadNearby(pos.coords.latitude, pos.coords.longitude, "", procId),
+      () => setGeoState("needRegion"),
+      { timeout: 8000, maximumAge: 300000 }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hosp]);
 
   useEffect(() => {
@@ -120,7 +135,7 @@ export default function EstimatePage() {
           <div className="cta">
             <button className="btn" onClick={() => setStarted(true)}>내 고민부터 골라볼게요 →</button>
             <p className="disc" style={{ textAlign: "center", marginTop: 10 }}>
-              지금까지 1,240명이 견적을 받았어요 · 의료 진단이 아닌 정보 제공이에요
+              가입 없이 60초 · 의료 진단이 아닌 정보 제공이에요
             </p>
           </div>
         </motion.div>
@@ -128,37 +143,80 @@ export default function EstimatePage() {
     );
   }
 
-  // ── 병원 오버레이 ──
+  // ── 병원 오버레이 (실위치 기준 근처 병원) ──
   if (hosp) {
     const rows = hospRows ?? [];
+    const picker = (
+      <div style={{ marginTop: 8 }}>
+        <p className="sub" style={{ marginBottom: 8 }}>지역을 골라주세요</p>
+        <div className="chipwrap">
+          {REGIONS.map((r) => (
+            <button key={r.id} className="chip" onClick={() => loadNearby(r.lat, r.lng, r.label, hosp.procedureId)}>{r.label}</button>
+          ))}
+        </div>
+      </div>
+    );
     return (
       <main className="shell">
         <div className="backbar" style={{ display: "flex", alignItems: "center", gap: 6, padding: "16px 22px 6px" }}>
           <span style={{ fontSize: 22, color: "var(--ink2)", cursor: "pointer" }} onClick={() => setHosp(null)}>‹</span>
-          <span style={{ fontWeight: 800, fontSize: 17 }}>{hosp.nameKo} · 병원 비교</span>
+          <span style={{ fontWeight: 800, fontSize: 17 }}>{hosp.nameKo} · 근처 병원</span>
         </div>
         <div className="pad">
-          <p className="sub" style={{ margin: "4px 0 6px" }}>강남·분당 · {hosp.priceUnit} 기준 · 참고가 낮은 순</p>
-          {hospRows === null && <p className="sub" style={{ padding: "20px 2px" }}>병원 참고가를 불러오는 중…</p>}
-          {rows.map((h, i) => (
-            <div key={i} onClick={() => alert("병원 상담 페이지로 이동 (링크아웃 · 건당 수수료 없음)")}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "15px 2px", borderBottom: "1px solid var(--line)", cursor: "pointer" }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 15, display: "flex", gap: 7, alignItems: "center" }}>
-                  {h.hospital}{h.isAd && <span style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", background: "var(--chip)", padding: "2px 6px", borderRadius: 5 }}>광고</span>}
-                </div>
-                <div className="sub" style={{ marginTop: 4 }}>{h.district} · 후기 {h.reviews.toLocaleString()} · ★{h.rating}</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div className="price" style={{ fontSize: 17 }}>{h.price.toLocaleString()}</div>
-                <div className="disc">원</div>
-              </div>
+          {geoState === "locating" && <p className="sub" style={{ padding: "20px 2px" }}>📍 내 위치로 근처 병원을 찾는 중…</p>}
+
+          {geoState === "needRegion" && (
+            <div style={{ padding: "6px 0" }}>
+              <p className="sub" style={{ marginBottom: 4 }}>위치를 못 받았어요. 지역을 골라주시면 근처 병원을 보여드릴게요.</p>
+              {picker}
             </div>
-          ))}
-          <p className="disc" style={{ marginTop: 14, paddingBottom: 24 }}>
-            표시 가격은 공개 정보 기준 참고가(예시 시드)예요. 실제 비용은 상담 시 달라질 수 있어요.
-            '광고'는 병원이 노출을 위해 게재한 정액 광고이며, 예약·시술 건당 수수료를 받지 않아요.
-          </p>
+          )}
+
+          {geoState === "ready" && (
+            <>
+              <p className="sub" style={{ margin: "4px 0 6px" }}>{placeLabel || "내 주변"} · 가까운 순 · {hosp.priceUnit} 공개가</p>
+              {hospRows === null && <p className="sub" style={{ padding: "20px 2px" }}>근처 병원을 불러오는 중…</p>}
+
+              {hospRows !== null && rows.length === 0 && (
+                <div style={{ padding: "10px 0" }}>
+                  <p className="sub" style={{ marginBottom: 10, lineHeight: 1.55 }}>이 위치엔 아직 등록된 실데이터가 없어요. 다른 지역으로 확인해볼까요?</p>
+                  {picker}
+                </div>
+              )}
+
+              {rows.map((h) => {
+                const inner = (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "15px 2px", borderBottom: "1px solid var(--line)" }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 15, display: "flex", gap: 7, alignItems: "center" }}>
+                        {h.name}{h.isAd && <span style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", background: "var(--chip)", padding: "2px 6px", borderRadius: 5 }}>광고</span>}
+                      </div>
+                      <div className="sub" style={{ marginTop: 4 }}>
+                        {h.distanceKm.toFixed(1)}km{h.district ? ` · ${h.district}` : ""}{h.rating ? ` · ★${h.rating}` : ""}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      {h.price != null ? (
+                        <><div className="price" style={{ fontSize: 17 }}>{h.price.toLocaleString()}</div><div className="disc">원</div></>
+                      ) : (
+                        <div className="sub" style={{ fontWeight: 700 }}>병원 문의</div>
+                      )}
+                    </div>
+                  </div>
+                );
+                return h.kakaoUrl
+                  ? <a key={h.id} href={h.kakaoUrl} target="_blank" rel="noopener noreferrer" className="reset" style={{ display: "block" }}>{inner}</a>
+                  : <div key={h.id}>{inner}</div>;
+              })}
+
+              {hospRows !== null && rows.length > 0 && (
+                <p className="disc" style={{ marginTop: 14, paddingBottom: 24 }}>
+                  가격은 병원이 공개한 비급여 진료비(건강보험심사평가원)예요. 실제 비용은 상담 시 달라질 수 있어요.
+                  병원 링크는 안내 페이지로 이동하며, 예약·시술 건당 수수료를 받지 않아요.
+                </p>
+              )}
+            </>
+          )}
         </div>
       </main>
     );

@@ -4,7 +4,6 @@ import type { Procedure, Source } from "@/lib/catalog/procedures";
 import type { Concern } from "@/lib/catalog/rules";
 import type { Catalog } from "@/lib/estimate/engine";
 import { seedCatalog } from "@/lib/catalog/seed";
-import { hospitalPrices as seedHospitalPrices, type HospitalPriceRow } from "@/lib/catalog/hospitals";
 
 // DB read + snake→camel 매핑. DB 미설정/오류 시 정적 시드로 폴백(앱 안 깨짐).
 // D3=B: DB가 설정되면 DB가 주인. 키 없으면 부트스트랩 시드.
@@ -80,41 +79,4 @@ export async function getConcerns(): Promise<Concern[]> {
   const cat = await getCatalog();
   // seed 순서를 신뢰(도메인 그룹핑은 UI 상수). DB도 동일 id 집합.
   return Object.values(cat.concernsById);
-}
-
-/** 특정 시술의 병원 참고가 비교(낮은 순). DB current price join active hospital, 실패 시 시드. */
-export async function getHospitalPrices(procedureId: string): Promise<HospitalPriceRow[]> {
-  const db = getServerClient();
-  const cat = await getCatalog();
-  const proc = cat.proceduresById[procedureId];
-  const fallback = () => (proc ? seedHospitalPrices(proc.priceMin) : []);
-  if (!db) return fallback();
-
-  try {
-    const { data, error } = await db
-      .from("hospital_procedure_prices")
-      .select("price, hospitals!inner(name, district, rating, review_count, status)")
-      .eq("procedure_id", procedureId)
-      .eq("is_current", true)
-      .eq("hospitals.status", "active")
-      .order("price", { ascending: true });
-    if (error) throw error;
-    if (!data?.length) return fallback();
-
-    // 광고 병원(정액 노출) 표시용
-    const ads = await db.from("ad_placements").select("hospital_id").eq("procedure_id", procedureId).eq("active", true);
-    const adSet = new Set((ads.data ?? []).map((a: { hospital_id: string }) => a.hospital_id));
-
-    return (data as unknown as Array<{ price: number; hospital_id?: string; hospitals: { name: string; district: string | null; rating: number | null; review_count: number | null } }>).map((r) => ({
-      hospital: r.hospitals.name,
-      district: r.hospitals.district ?? "",
-      rating: r.hospitals.rating ?? 0,
-      reviews: r.hospitals.review_count ?? 0,
-      price: r.price,
-      isAd: r.hospital_id ? adSet.has(r.hospital_id) : false,
-    }));
-  } catch (e) {
-    warn(`hospital price DB read 실패 → 시드 폴백: ${(e as Error).message}`);
-    return fallback();
-  }
 }
