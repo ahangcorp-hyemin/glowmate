@@ -47,6 +47,7 @@ export default function EstimatePage() {
   const [xi, setXi] = useState(0); // 탐색 카드 인덱스
   const [hosp, setHosp] = useState<EstimateItem | null>(null);
   const [hospRows, setHospRows] = useState<NearbyHospital[] | null>(null);
+  const [detailHosp, setDetailHosp] = useState<NearbyHospital | null>(null);
   const [geoState, setGeoState] = useState<"locating" | "ready" | "needRegion">("locating");
   const [placeLabel, setPlaceLabel] = useState<string>("");
   const [concernsById, setConcernsById] = useState<Record<string, Concern>>({});
@@ -76,7 +77,7 @@ export default function EstimatePage() {
 
   // 병원 오버레이: 위치 권한 요청 → 근처 실데이터. 거부/실패면 지역 수동선택 폴백.
   useEffect(() => {
-    if (!hosp) { setHospRows(null); setGeoState("locating"); setPlaceLabel(""); return; }
+    if (!hosp) { setHospRows(null); setGeoState("locating"); setPlaceLabel(""); setDetailHosp(null); return; }
     const procId = hosp.procedureId;
     setGeoState("locating"); setHospRows(null); setPlaceLabel("");
     if (typeof navigator === "undefined" || !navigator.geolocation) { setGeoState("needRegion"); return; }
@@ -143,6 +144,58 @@ export default function EstimatePage() {
     );
   }
 
+  // ── 병원 상세 + 문의 CTA ──
+  if (detailHosp && hosp) {
+    const d = detailHosp;
+    const years = d.estbDd ? new Date().getFullYear() - new Date(d.estbDd).getFullYear() : null;
+    const tel = d.phone ? `tel:${d.phone.replace(/[^0-9]/g, "")}` : null;
+    const mapUrl = `https://map.kakao.com/link/to/${encodeURIComponent(d.name)},${d.lat},${d.lng}`;
+    const home = d.homepageUrl ? (/^https?:\/\//.test(d.homepageUrl) ? d.homepageUrl : `http://${d.homepageUrl}`) : null;
+    const cta = (label: string, href: string | null, primary = false) => href ? (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="reset" style={{ flex: 1 }}>
+        <button className={primary ? "btn" : "btn ghost"} style={{ width: "100%" }}>{label}</button>
+      </a>
+    ) : null;
+    return (
+      <main className="shell" style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
+        <div className="backbar" style={{ display: "flex", alignItems: "center", gap: 6, padding: "16px 22px 6px" }}>
+          <span style={{ fontSize: 22, color: "var(--ink2)", cursor: "pointer" }} onClick={() => setDetailHosp(null)}>‹</span>
+          <span style={{ fontWeight: 800, fontSize: 17 }}>병원 정보</span>
+        </div>
+        <div className="pad" style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+            <div className="h2" style={{ fontSize: 22 }}>{d.name}</div>
+            {d.isAd && <span className="badge" style={{ color: "var(--coral)" }}>광고</span>}
+          </div>
+          <p className="sub" style={{ margin: "6px 0 14px" }}>{d.distanceKm.toFixed(1)}km · {d.district}{d.clNm ? ` · ${d.clNm}` : ""}</p>
+
+          <div className="estcard">
+            <Info k="주소" v={d.address ?? "-"} />
+            <Info k="전화" v={d.phone ?? "-"} />
+            {years != null && <Info k="개원" v={`${new Date(d.estbDd!).getFullYear()}년 (${years}년차)`} />}
+            {d.doctorCount != null && <Info k="의사 수" v={`${d.doctorCount}명`} />}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", borderTop: "1px dashed #E7DAD3", marginTop: 10, paddingTop: 12 }}>
+              <span className="sub">{hosp.nameKo} · {hosp.priceUnit}</span>
+              {d.price != null
+                ? <span className="price" style={{ fontSize: 20 }}>{d.price.toLocaleString()}원</span>
+                : <span className="sub" style={{ fontWeight: 800 }}>공개가 없음 · 병원 문의</span>}
+            </div>
+          </div>
+
+          <div className="disc" style={{ marginTop: 12, lineHeight: 1.6 }}>
+            정보 출처: 건강보험심사평가원 공개데이터. 가격은 병원이 공개한 비급여 진료비이며 실제 비용은 상담 시 달라질 수 있어요.
+            아래 버튼은 병원 안내로 연결되며 예약·시술 건당 수수료를 받지 않아요(의료법 §27).
+          </div>
+        </div>
+        <div className="cta" style={{ display: "flex", gap: 8 }}>
+          {cta("📞 전화 문의", tel, true)}
+          {cta("🗺 길찾기", mapUrl)}
+          {cta("🌐 홈페이지", home)}
+        </div>
+      </main>
+    );
+  }
+
   // ── 병원 오버레이 (실위치 기준 근처 병원) ──
   if (hosp) {
     const rows = hospRows ?? [];
@@ -184,35 +237,34 @@ export default function EstimatePage() {
                 </div>
               )}
 
-              {rows.map((h) => {
-                const inner = (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "15px 2px", borderBottom: "1px solid var(--line)" }}>
-                    <div>
-                      <div style={{ fontWeight: 800, fontSize: 15, display: "flex", gap: 7, alignItems: "center" }}>
-                        {h.name}{h.isAd && <span style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", background: "var(--chip)", padding: "2px 6px", borderRadius: 5 }}>광고</span>}
-                      </div>
-                      <div className="sub" style={{ marginTop: 4 }}>
-                        {h.distanceKm.toFixed(1)}km{h.district ? ` · ${h.district}` : ""}{h.rating ? ` · ★${h.rating}` : ""}
-                      </div>
+              {rows.map((h) => (
+                <div key={h.id} onClick={() => setDetailHosp(h)}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "15px 2px", borderBottom: "1px solid var(--line)", cursor: "pointer" }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 15, display: "flex", gap: 7, alignItems: "center" }}>
+                      {h.name}{h.isAd && <span style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", background: "var(--chip)", padding: "2px 6px", borderRadius: 5 }}>광고</span>}
                     </div>
+                    <div className="sub" style={{ marginTop: 4 }}>
+                      {h.distanceKm.toFixed(1)}km{h.district ? ` · ${h.district}` : ""}{h.doctorCount ? ` · 의사 ${h.doctorCount}명` : ""}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ textAlign: "right" }}>
                       {h.price != null ? (
                         <><div className="price" style={{ fontSize: 17 }}>{h.price.toLocaleString()}</div><div className="disc">원</div></>
                       ) : (
-                        <div className="sub" style={{ fontWeight: 700 }}>병원 문의</div>
+                        <div className="sub" style={{ fontWeight: 700 }}>문의</div>
                       )}
                     </div>
+                    <span style={{ color: "var(--faint)", fontWeight: 800 }}>›</span>
                   </div>
-                );
-                return h.kakaoUrl
-                  ? <a key={h.id} href={h.kakaoUrl} target="_blank" rel="noopener noreferrer" className="reset" style={{ display: "block" }}>{inner}</a>
-                  : <div key={h.id}>{inner}</div>;
-              })}
+                </div>
+              ))}
 
               {hospRows !== null && rows.length > 0 && (
                 <p className="disc" style={{ marginTop: 14, paddingBottom: 24 }}>
-                  가격은 병원이 공개한 비급여 진료비(건강보험심사평가원)예요. 실제 비용은 상담 시 달라질 수 있어요.
-                  병원 링크는 안내 페이지로 이동하며, 예약·시술 건당 수수료를 받지 않아요.
+                  병원을 누르면 상세정보·전화·길찾기로 이동해요. 공개 비급여가 없는 시술은 '문의'로 표시돼요(건강보험심사평가원).
+                  예약·시술 건당 수수료를 받지 않아요.
                 </p>
               )}
             </>
@@ -429,5 +481,14 @@ export default function EstimatePage() {
         )}
       </AnimatePresence>
     </main>
+  );
+}
+
+function Info({ k, v }: { k: string; v: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "7px 0", borderBottom: "1px solid var(--line)" }}>
+      <span className="sub" style={{ flexShrink: 0 }}>{k}</span>
+      <span style={{ fontWeight: 600, fontSize: 13.5, textAlign: "right" }}>{v}</span>
+    </div>
   );
 }

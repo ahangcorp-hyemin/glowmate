@@ -5,7 +5,6 @@
 
 const KEY = process.env.DATA_GO_KR_SERVICE_KEY;
 const HOSP_BASE = "https://apis.data.go.kr/B551182/hospInfoServicev2/getHospBasisList";
-const NONPAY_ITEM = "https://apis.data.go.kr/B551182/nonPaymentDamtInfoService/getNonPaymentItemInfo";
 const NONPAY_HOSP = "https://apis.data.go.kr/B551182/nonPaymentDamtInfoService/getNonPaymentItemHospList";
 // 의료기관별상세정보서비스 — 진료과목정보. 버전 접미사(2.7 등)는 활용가이드에서 확인해 맞추세요.
 const DTL_DGSBJT = "https://apis.data.go.kr/B551182/MadmDtlInfoService2.7/getDgsbjtInfo2.7";
@@ -48,13 +47,16 @@ async function get(url: string, params: Record<string, string | number>): Promis
 
 export interface HiraHospital {
   ykiho: string; yadmNm: string; addr: string; telno: string;
-  XPos: string; YPos: string; sgguCdNm: string; clCd: string;
+  XPos: string; YPos: string; sgguCdNm: string; clCd: string; clCdNm: string;
+  estbDd: string; drTotCnt: string; hospUrl: string; emdongNm: string; postNo: string;
 }
 
 function mapHosp(r: Record<string, string>): HiraHospital {
   return {
     ykiho: r.ykiho ?? "", yadmNm: r.yadmNm ?? "", addr: r.addr ?? "", telno: r.telno ?? "",
     XPos: r.XPos ?? "", YPos: r.YPos ?? "", sgguCdNm: r.sgguCdNm ?? "", clCd: r.clCd ?? "",
+    clCdNm: r.clCdNm ?? "", estbDd: r.estbDd ?? "", drTotCnt: r.drTotCnt ?? "",
+    hospUrl: r.hospUrl ?? "", emdongNm: r.emdongNm ?? "", postNo: r.postNo ?? "",
   };
 }
 
@@ -64,25 +66,23 @@ export async function fetchHospitalsNear(lng: number, lat: number, radiusM: numb
   return rows.map(mapHosp);
 }
 
-export interface HiraNonPayItem { npayCd: string; itemNm: string }
-/** 비급여 항목 목록(코드↔명칭). 매핑 구축용. */
-export async function fetchNonPayItems(pageNo: number, numOfRows = 1000): Promise<HiraNonPayItem[]> {
-  const rows = await get(NONPAY_ITEM, { pageNo, numOfRows });
-  return rows.map((r) => ({ npayCd: r.npayCd ?? r.itemCd ?? "", itemNm: r.itemNm ?? r.npayKorNm ?? "" }));
+export interface HiraNonPayRow {
+  ykiho: string; itmCd: string; itmCdNm: string; divNm: string;
+  prcMin: number; prcMax: number; url: string;
 }
-
-export interface HiraNonPayPrice { ykiho: string; npayCd: string; minAmt: number; maxAmt: number }
-/** 특정 비급여코드의 병원별 금액. */
-export async function fetchNonPayHospList(npayCd: string, pageNo: number, numOfRows = 1000): Promise<HiraNonPayPrice[]> {
-  const rows = await get(NONPAY_HOSP, { npayCd, pageNo, numOfRows });
+/** 비급여 병원별 항목·금액(전국, 페이지). 항목명(itmCdNm)으로 우리 시술과 매칭. */
+export async function fetchNonPay(pageNo: number, numOfRows = 1000): Promise<HiraNonPayRow[]> {
+  const rows = await get(NONPAY_HOSP, { pageNo, numOfRows });
   return rows.map((r) => ({
-    ykiho: r.ykiho ?? "", npayCd,
-    minAmt: Number(r.minStlmAmt ?? r.minAmt ?? r.curAmt ?? 0) || 0,
-    maxAmt: Number(r.maxStlmAmt ?? r.maxAmt ?? r.curAmt ?? 0) || 0,
+    ykiho: r.ykiho ?? "", itmCd: r.itmCd ?? "", itmCdNm: r.itmCdNm ?? "",
+    divNm: [r.divCd1Nm, r.divCd2Nm, r.divCd3Nm].filter(Boolean).join(" · "),
+    prcMin: Number(r.itmPrcMin ?? r.prcMin ?? 0) || 0,
+    prcMax: Number(r.itmPrcMax ?? r.prcMax ?? 0) || 0,
+    url: r.url ?? "",
   }));
 }
 
-/** 특정 병원(ykiho)의 진료과목 코드 목록. 피부과/성형외과 정확 판별용. */
+/** 특정 병원(ykiho)의 진료과목 코드 목록. 피부과/성형외과 판별(전파 지연으로 미가용일 수 있음). */
 export async function fetchDepartments(ykiho: string): Promise<string[]> {
   const rows = await get(DTL_DGSBJT, { ykiho, pageNo: 1, numOfRows: 100 });
   return rows.map((r) => r.dgsbjtCd ?? "").filter(Boolean);
