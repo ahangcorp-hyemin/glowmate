@@ -31,6 +31,15 @@ export default function ExplorePage() {
         </div>
 
         <div className="kick" style={{ margin: "20px 0 10px" }}>기다리는 동안</div>
+        <Link href="/hospitals" className="reset">
+          <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, marginBottom: 10 }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 15 }}>내 주변 병원 탐색</div>
+              <div className="sub" style={{ marginTop: 4 }}>전국 2,791곳 · 광고 순위 없이 가까운 순</div>
+            </div>
+            <span style={{ color: "var(--coral)", fontWeight: 900, fontSize: 18 }}>→</span>
+          </div>
+        </Link>
         <Link href="/learn" className="reset">
           <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16 }}>
             <div>
