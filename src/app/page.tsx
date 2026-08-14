@@ -1,8 +1,9 @@
 import Link from "next/link";
 import GlowHero from "@/components/GlowHero";
+import TabBar from "@/components/TabBar";
 
-// 유입 순간의 후킹 랜딩. 애니메이션으로 '고민→근거로 정리'를 즉시 보여주고,
-// 여신티켓·바비톡과의 차별점(근거·내 편·4050)을 앞세운다.
+// 유입 순간의 후킹 랜딩. 4050 실어휘(리서치 §1: "확 늙었다"·"티 안 나게"·"상술") 기반 카피 —
+// 회피 어휘("동안 되세요"·비포애프터 극대화·특가)는 쓰지 않는다. §56 금지표현 아님 확인됨.
 
 const DIFF = [
   {
@@ -12,7 +13,7 @@ const DIFF = [
   },
   {
     icon: "🤝",
-    t: "병원 편이 아니라 내 편",
+    t: "상술 걱정 없이, 내 편",
     d: "예약·시술 건당 수수료를 받지 않아요. 그래서 특정 병원을 밀어붙이지 않아요.",
   },
   {
@@ -30,11 +31,11 @@ export default function Home() {
         <div className="loc">📍 강남 · 분당</div>
       </div>
 
-      {/* 후킹 히어로 */}
+      {/* 후킹 히어로 — 4050 실어휘 */}
       <div className="hero" style={{ paddingBottom: 8 }}>
-        <div className="kick">AI 시술 견적 · 4050 맞춤</div>
-        <h1>‘뭘 받아야 하지…’<br />여기서 멈춰 있다면.</h1>
-        <p>고민만 말하면 시술 조합·예상 비용·근거까지 <b>1분 만에</b> 정리해드려요.</p>
+        <div className="kick">병원 가기 전, 알고 가는 시술 정보 · 4050</div>
+        <h1>거울 보다<br />‘확 늙었다’ 싶은 날.</h1>
+        <p><b>티 안 나게, 자연스럽게.</b> 상술 걱정 없이 시술 조합·비용·근거를 정리해드려요.</p>
         <GlowHero />
       </div>
 
@@ -72,12 +73,16 @@ export default function Home() {
         <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--muted)", marginTop: 9, fontWeight: 600 }}>
           가입 없이 바로 · 개인 연락처 입력 안 해도 돼요
         </p>
+        <p style={{ textAlign: "center", fontSize: 13, color: "var(--ink2)", marginTop: 14, fontWeight: 700 }}>
+          관리는 사치가 아니라 안목이에요.
+        </p>
       </div>
 
-      <p className="disc pad" style={{ marginTop: 20, paddingBottom: 28 }}>
+      <p className="disc pad" style={{ marginTop: 16, paddingBottom: 24 }}>
         글로우메이트는 공개 정보를 모아 제공하는 정보·비교 서비스로 의료 진단·효능을 보증하지 않아요.
         실제 시술 가능 여부·비용은 병원 상담에서 확인하세요.
       </p>
+      <TabBar />
     </main>
   );
 }
