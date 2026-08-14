@@ -64,7 +64,7 @@ export default function Home() {
       {/* 사회적 증거 + CTA */}
       <div className="pad" style={{ marginTop: 18 }}>
         <div style={{ textAlign: "center", fontSize: 13, color: "var(--ink2)", fontWeight: 600, marginBottom: 10 }}>
-          이번 주 <b style={{ color: "var(--coral)" }}>1,240명</b>이 견적을 받아봤어요
+          공개된 병원·비급여 정보만 모아 <b style={{ color: "var(--coral)" }}>출처와 함께</b> 정리해요
         </div>
         <Link href="/estimate" className="reset">
           <button className="btn">1분, 무료로 내 시술 견적 받기 →</button>

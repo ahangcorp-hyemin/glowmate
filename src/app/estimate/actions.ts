@@ -1,9 +1,11 @@
 "use server";
 
 import { buildEstimate, type EstimateInput, type Estimate } from "@/lib/estimate/engine";
-import { getCatalog, getConcerns, getHospitalPrices } from "@/lib/catalog/repo";
+import { getCatalog, getConcerns } from "@/lib/catalog/repo";
+import { getNearbyHospitals } from "@/lib/hospitals/repo";
+import { regionLabel } from "@/lib/geo/kakao";
 import type { Concern } from "@/lib/catalog/rules";
-import type { HospitalPriceRow } from "@/lib/catalog/hospitals";
+import type { NearbyHospital } from "@/lib/hospitals/types";
 
 // 서버에서 카탈로그를 읽어 결정론 견적을 계산. 데이터·§56검증은 서버/DB에.
 
@@ -16,6 +18,11 @@ export async function runEstimate(input: EstimateInput): Promise<Estimate> {
   return buildEstimate(input, catalog);
 }
 
-export async function fetchHospitalPrices(procedureId: string): Promise<HospitalPriceRow[]> {
-  return getHospitalPrices(procedureId);
+// 실위치(또는 폴백 지역 좌표) 기준 근처 병원 실데이터 + 공개가(없으면 문의).
+export async function fetchNearbyHospitals(lat: number, lng: number, procedureId: string): Promise<NearbyHospital[]> {
+  return getNearbyHospitals(lat, lng, procedureId);
+}
+
+export async function fetchRegionLabel(lat: number, lng: number): Promise<string | null> {
+  return regionLabel(lat, lng);
 }
