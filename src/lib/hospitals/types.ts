@@ -3,8 +3,14 @@ export interface NearbyHospital {
   id: string;
   name: string;
   district: string;
+  address: string | null;
   phone: string | null;
-  kakaoUrl: string | null;
+  homepageUrl: string | null;
+  clNm: string | null;        // 종별(의원/병원)
+  doctorCount: number | null; // 총 의사수
+  estbDd: string | null;      // 개원일(ISO date)
+  lat: number;
+  lng: number;
   rating: number | null;
   reviews: number;
   distanceKm: number;

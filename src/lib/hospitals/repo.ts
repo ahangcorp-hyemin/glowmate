@@ -6,8 +6,10 @@ import type { NearbyHospital } from "@/lib/hospitals/types";
 // DB 미설정/미인제스트면 빈 배열 — 가짜 대신 정직한 빈 상태(UI가 안내).
 
 interface Row {
-  id: string; name: string; district: string | null; phone: string | null;
-  kakao_url: string | null; rating: number | null; review_count: number | null;
+  id: string; name: string; district: string | null; address: string | null;
+  phone: string | null; homepage_url: string | null; cl_nm: string | null;
+  doctor_count: number | null; estb_dd: string | null; lat: number; lng: number;
+  rating: number | null; review_count: number | null;
   distance_km: number; price: number | null; is_ad: boolean;
 }
 
@@ -22,8 +24,10 @@ export async function getNearbyHospitals(
     });
     if (error) throw error;
     return (data as Row[]).map((r) => ({
-      id: r.id, name: r.name, district: r.district ?? "", phone: r.phone,
-      kakaoUrl: r.kakao_url, rating: r.rating, reviews: r.review_count ?? 0,
+      id: r.id, name: r.name, district: r.district ?? "", address: r.address,
+      phone: r.phone, homepageUrl: r.homepage_url, clNm: r.cl_nm,
+      doctorCount: r.doctor_count, estbDd: r.estb_dd, lat: r.lat, lng: r.lng,
+      rating: r.rating, reviews: r.review_count ?? 0,
       distanceKm: r.distance_km, price: r.price, isAd: r.is_ad,
     }));
   } catch (e) {
