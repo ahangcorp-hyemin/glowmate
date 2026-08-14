@@ -78,9 +78,12 @@ export default function Home() {
         </p>
       </div>
 
-      <p className="disc pad" style={{ marginTop: 16, paddingBottom: 24 }}>
+      <p className="disc pad" style={{ marginTop: 16 }}>
         글로우메이트는 공개 정보를 모아 제공하는 정보·비교 서비스로 의료 진단·효능을 보증하지 않아요.
         실제 시술 가능 여부·비용은 병원 상담에서 확인하세요.
+      </p>
+      <p className="pad" style={{ paddingBottom: 24, marginTop: 10 }}>
+        <Link href="/partners" className="reset"><span className="disc" style={{ textDecoration: "underline" }}>병원 파트너 안내 →</span></Link>
       </p>
       <TabBar />
     </main>
