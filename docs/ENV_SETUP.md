@@ -11,9 +11,11 @@
 | `KAKAO_REST_API_KEY` | 좌표→지역명, 지도 링크 | [Kakao Developers](https://developers.kakao.com) → 내 애플리케이션 → **REST API 키** | 없어도 동작(지역명만 생략) |
 
 ### 공공데이터포털 활용신청 (DATA_GO_KR_SERVICE_KEY)
-1. [병원정보서비스](https://www.data.go.kr/data/15001698/openapi.do) → **활용신청**
-2. [비급여진료비정보](https://www.data.go.kr/data/15001700/openapi.do) → **활용신청**
-3. 마이페이지 → 오픈API → 인증키(일반 인증키, Decoding) 복사 → `DATA_GO_KR_SERVICE_KEY`
+인증키는 **계정당 1개**로 아래 3개 서비스 전부에 쓰입니다.
+1. [병원정보서비스 15001698](https://www.data.go.kr/data/15001698/openapi.do) → **활용신청** (병원·좌표·전화)
+2. [비급여진료비정보 15001700](https://www.data.go.kr/data/15001700/openapi.do) → **활용신청** (실가격)
+3. [의료기관별상세정보서비스 15001699](https://www.data.go.kr/data/15001699/openapi.do) → **활용신청** (진료과목=피부과/성형외과 판별)
+4. 마이페이지 → 오픈API → 인증키(일반 인증키, Decoding) 복사 → `DATA_GO_KR_SERVICE_KEY`
 
 ### 위치(Geolocation)
 브라우저 `navigator.geolocation` 사용 — **키 불필요**. 사용자가 권한 거부/실패하면 앱이 지역 수동선택으로 폴백합니다. (참고: 배포는 HTTPS에서만 위치 권한이 동작해요.)
