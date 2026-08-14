@@ -48,6 +48,7 @@ export default function EstimatePage() {
   const [hosp, setHosp] = useState<EstimateItem | null>(null);
   const [hospRows, setHospRows] = useState<NearbyHospital[] | null>(null);
   const [detailHosp, setDetailHosp] = useState<NearbyHospital | null>(null);
+  const [detailTab, setDetailTab] = useState<"info" | "location">("info");
   const [geoState, setGeoState] = useState<"locating" | "ready" | "needRegion">("locating");
   const [placeLabel, setPlaceLabel] = useState<string>("");
   const [concernsById, setConcernsById] = useState<Record<string, Concern>>({});
@@ -144,49 +145,96 @@ export default function EstimatePage() {
     );
   }
 
-  // ── 병원 상세 + 문의 CTA ──
+  // ── 병원 상세 (탭: 정보 / 위치) + 문의 CTA ──
   if (detailHosp && hosp) {
     const d = detailHosp;
-    const years = d.estbDd ? new Date().getFullYear() - new Date(d.estbDd).getFullYear() : null;
+    const estbYear = d.estbDd ? new Date(d.estbDd).getFullYear() : null;
+    const years = estbYear ? new Date().getFullYear() - estbYear : null;
     const tel = d.phone ? `tel:${d.phone.replace(/[^0-9]/g, "")}` : null;
+    const q = encodeURIComponent(d.address || [d.name, d.district].filter(Boolean).join(" "));
+    const mapEmbed = `https://maps.google.com/maps?q=${q}&z=16&hl=ko&output=embed`;
     const mapUrl = `https://map.kakao.com/?q=${encodeURIComponent([d.name, d.district].filter(Boolean).join(" "))}`;
     const home = d.homepageUrl ? (/^https?:\/\//.test(d.homepageUrl) ? d.homepageUrl : `http://${d.homepageUrl}`) : null;
+    const badges: [string, string][] = [];
+    if (years != null) badges.push(["🗓", `개원 ${years}년차`]);
+    if (d.doctorCount != null) badges.push(["👩‍⚕️", `의사 ${d.doctorCount}명`]);
+    if (d.clNm) badges.push(["🏥", d.clNm]);
+    if (d.isAd) badges.push(["📣", "광고 제휴"]);
     const cta = (label: string, href: string | null, primary = false) => href ? (
       <a href={href} target="_blank" rel="noopener noreferrer" className="reset" style={{ flex: 1 }}>
         <button className={primary ? "btn" : "btn ghost"} style={{ width: "100%" }}>{label}</button>
       </a>
     ) : null;
+    const tab = (id: "info" | "location", label: string) => (
+      <button onClick={() => setDetailTab(id)} style={{
+        flex: 1, padding: "12px 0", fontFamily: "inherit", fontSize: 15, cursor: "pointer",
+        fontWeight: detailTab === id ? 800 : 600, color: detailTab === id ? "var(--ink)" : "var(--muted)",
+        background: "none", border: "none", borderBottom: `2px solid ${detailTab === id ? "var(--coral)" : "var(--line)"}`,
+      }}>{label}</button>
+    );
     return (
       <main className="shell" style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
         <div className="backbar" style={{ display: "flex", alignItems: "center", gap: 6, padding: "16px 22px 6px" }}>
           <span style={{ fontSize: 22, color: "var(--ink2)", cursor: "pointer" }} onClick={() => setDetailHosp(null)}>‹</span>
-          <span style={{ fontWeight: 800, fontSize: 17 }}>병원 정보</span>
+          <span style={{ fontWeight: 800, fontSize: 17 }}>병원 상세</span>
         </div>
-        <div className="pad" style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-            <div className="h2" style={{ fontSize: 22 }}>{d.name}</div>
-            {d.isAd && <span className="badge" style={{ color: "var(--coral)" }}>광고</span>}
-          </div>
-          <p className="sub" style={{ margin: "6px 0 14px" }}>{d.distanceKm.toFixed(1)}km · {d.district}{d.clNm ? ` · ${d.clNm}` : ""}</p>
 
-          <div className="estcard">
-            <Info k="주소" v={d.address ?? "-"} />
-            <Info k="전화" v={d.phone ?? "-"} />
-            {years != null && <Info k="개원" v={`${new Date(d.estbDd!).getFullYear()}년 (${years}년차)`} />}
-            {d.doctorCount != null && <Info k="의사 수" v={`${d.doctorCount}명`} />}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", borderTop: "1px dashed #E7DAD3", marginTop: 10, paddingTop: 12 }}>
-              <span className="sub">{hosp.nameKo} · {hosp.priceUnit}</span>
-              {d.price != null
-                ? <span className="price" style={{ fontSize: 20 }}>{d.price.toLocaleString()}원</span>
-                : <span className="sub" style={{ fontWeight: 800 }}>공개가 없음 · 병원 문의</span>}
+        <div className="pad">
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+            <div className="h2" style={{ fontSize: 23, lineHeight: 1.25 }}>{d.name}</div>
+          </div>
+          <p className="sub" style={{ margin: "6px 0 10px" }}>📍 {d.distanceKm.toFixed(1)}km · {d.district}</p>
+          {badges.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 4 }}>
+              {badges.map(([e, t]) => (
+                <span key={t} style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink2)", background: "var(--chip)", padding: "6px 10px", borderRadius: 999 }}>{e} {t}</span>
+              ))}
             </div>
-          </div>
-
-          <div className="disc" style={{ marginTop: 12, lineHeight: 1.6 }}>
-            정보 출처: 건강보험심사평가원 공개데이터. 가격은 병원이 공개한 비급여 진료비이며 실제 비용은 상담 시 달라질 수 있어요.
-            아래 버튼은 병원 안내로 연결되며 예약·시술 건당 수수료를 받지 않아요(의료법 §27).
-          </div>
+          )}
+          <div style={{ display: "flex", marginTop: 10 }}>{tab("info", "병원 정보")}{tab("location", "위치·지도")}</div>
         </div>
+
+        <div className="pad" style={{ flex: 1, paddingTop: 14 }}>
+          {detailTab === "info" && (
+            <>
+              <div className="estcard">
+                <Info k="종별" v={d.clNm ?? "-"} />
+                <Info k="주소" v={d.address ?? "-"} />
+                <Info k="전화" v={d.phone ?? "-"} />
+                {estbYear && <Info k="개원" v={`${estbYear}년${years != null ? ` (${years}년차)` : ""}`} />}
+                {d.doctorCount != null && <Info k="의사 수" v={`${d.doctorCount}명`} />}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", borderTop: "1px dashed #E7DAD3", marginTop: 10, paddingTop: 12 }}>
+                  <span className="sub">{hosp.nameKo} · {hosp.priceUnit}</span>
+                  {d.price != null
+                    ? <span className="price" style={{ fontSize: 20 }}>{d.price.toLocaleString()}원</span>
+                    : <span className="sub" style={{ fontWeight: 800 }}>공개가 없음 · 문의</span>}
+                </div>
+              </div>
+              <div className="srcbox" style={{ marginTop: 10 }}>
+                <div className="si"><span className="num">출처</span> 건강보험심사평가원 공개데이터(병원정보·비급여). 가짜 정보 없이 공식 데이터만 보여드려요.</div>
+              </div>
+              <p className="disc" style={{ marginTop: 10, lineHeight: 1.6 }}>
+                실제 비용·시술 가능 여부는 상담에서 확인하세요. 아래 버튼은 병원 안내로 연결되며 예약·건당 수수료를 받지 않아요(§27).
+              </p>
+            </>
+          )}
+
+          {detailTab === "location" && (
+            <>
+              <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid var(--line)" }}>
+                <iframe title="지도" src={mapEmbed} style={{ width: "100%", height: 240, border: 0, display: "block" }} loading="lazy" />
+              </div>
+              <div className="estcard" style={{ marginTop: 10 }}>
+                <Info k="주소" v={d.address ?? "-"} />
+                {d.phone && <Info k="전화" v={d.phone} />}
+              </div>
+              <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="reset">
+                <button className="btn ghost" style={{ marginTop: 10 }}>카카오맵에서 열기 →</button>
+              </a>
+            </>
+          )}
+        </div>
+
         <div className="cta" style={{ display: "flex", gap: 8 }}>
           {cta("📞 전화 문의", tel, true)}
           {cta("🗺 길찾기", mapUrl)}
@@ -238,7 +286,7 @@ export default function EstimatePage() {
               )}
 
               {rows.map((h) => (
-                <div key={h.id} onClick={() => setDetailHosp(h)}
+                <div key={h.id} onClick={() => { setDetailHosp(h); setDetailTab("info"); }}
                   style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "15px 2px", borderBottom: "1px solid var(--line)", cursor: "pointer" }}>
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 15, display: "flex", gap: 7, alignItems: "center" }}>
