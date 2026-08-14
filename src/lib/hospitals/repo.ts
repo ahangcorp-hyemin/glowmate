@@ -49,6 +49,42 @@ export async function getAllHospitalIds(): Promise<string[]> {
   return ids;
 }
 
+/** 병원 이름 검색(전국, 이름순). 검색바용. */
+export async function searchHospitals(q: string, limit = 30): Promise<NearbyHospital[]> {
+  const db = getServerClient();
+  const query = q.trim();
+  if (!db || query.length < 2) return [];
+  const { data, error } = await db.from("hospitals")
+    .select("id,name,district,address,phone,homepage_url,cl_nm,doctor_count,estb_dd,lat,lng,rating,review_count")
+    .eq("status", "active").eq("is_aesthetic", true)
+    .ilike("name", `%${query}%`)
+    .order("name").limit(limit);
+  if (error || !data) return [];
+  return (data as Row[]).map((r) => ({
+    id: r.id, name: r.name, district: r.district ?? "", address: r.address,
+    phone: r.phone, homepageUrl: r.homepage_url, clNm: r.cl_nm,
+    doctorCount: r.doctor_count, estbDd: r.estb_dd, lat: r.lat, lng: r.lng,
+    rating: r.rating, reviews: r.review_count ?? 0, distanceKm: 0, price: null, isAd: false,
+  }));
+}
+
+/** id 목록으로 병원 조회(찜 목록용). 입력 순서 유지. */
+export async function getHospitalsByIds(ids: string[]): Promise<NearbyHospital[]> {
+  const db = getServerClient();
+  if (!db || !ids.length) return [];
+  const { data, error } = await db.from("hospitals")
+    .select("id,name,district,address,phone,homepage_url,cl_nm,doctor_count,estb_dd,lat,lng,rating,review_count")
+    .eq("status", "active").in("id", ids.slice(0, 50));
+  if (error || !data) return [];
+  const byId = new Map((data as Row[]).map((r) => [r.id, r]));
+  return ids.map((id) => byId.get(id)).filter(Boolean).map((r) => ({
+    id: r!.id, name: r!.name, district: r!.district ?? "", address: r!.address,
+    phone: r!.phone, homepageUrl: r!.homepage_url, clNm: r!.cl_nm,
+    doctorCount: r!.doctor_count, estbDd: r!.estb_dd, lat: r!.lat, lng: r!.lng,
+    rating: r!.rating, reviews: r!.review_count ?? 0, distanceKm: 0, price: null, isAd: false,
+  }));
+}
+
 /** 구 단위 허브: 활성 병원이 있는 district 목록(+count). 지역 SEO 허브 페이지용. */
 export async function getDistricts(): Promise<{ district: string; region: string; count: number }[]> {
   const db = getServerClient();

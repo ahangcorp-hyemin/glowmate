@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import TabBar from "@/components/TabBar";
+import HeartButton from "@/components/HeartButton";
 import { getHospitalById, getNearbyHospitals } from "@/lib/hospitals/repo";
 import { getLessonIds } from "@/lib/lessons/repo";
 import { getCatalog } from "@/lib/catalog/repo";
@@ -78,7 +79,10 @@ export default async function HospitalPage({ params }: Params) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div className="top">
         <Link href="/hospitals" className="reset"><span style={{ fontSize: 20, color: "var(--ink2)" }}>‹</span></Link>
-        <div className="loc">📍 {h.district || "병원 정보"}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <div className="loc">📍 {h.district || "병원 정보"}</div>
+          <HeartButton hospitalId={h.id} />
+        </div>
       </div>
 
       <div className="pad" style={{ flex: 1 }}>
@@ -142,10 +146,17 @@ export default async function HospitalPage({ params }: Params) {
         </p>
       </div>
 
-      <div className="cta" style={{ display: "flex", gap: 8 }}>
+      <div className="cta">
+        <Link href="/learn" className="reset">
+          <p className="disc" style={{ textAlign: "center", marginBottom: 8 }}>
+            📋 <span style={{ textDecoration: "underline" }}>전화 전에 물어볼 질문 미리 보기</span> — 호구 잡히지 않게
+          </p>
+        </Link>
+        <div style={{ display: "flex", gap: 8 }}>
         {tel && <a href={tel} className="reset" style={{ flex: 1 }}><button className="btn" style={{ width: "100%" }}>📞 전화 문의</button></a>}
         <a href={kakaoMap} target="_blank" rel="noopener noreferrer" className="reset" style={{ flex: 1 }}><button className="btn ghost" style={{ width: "100%" }}>🗺 길찾기</button></a>
         {home && <a href={home} target="_blank" rel="noopener noreferrer" className="reset" style={{ flex: 1 }}><button className="btn ghost" style={{ width: "100%" }}>🌐 홈페이지</button></a>}
+        </div>
       </div>
       <TabBar />
     </main>
