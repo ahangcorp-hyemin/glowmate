@@ -4,9 +4,8 @@
 // ⚠️ 첫 실행 시 sido 코드·비급여 항목명은 각 데이터셋 활용가이드와 대조해 조정하세요.
 
 import { createClient } from "@supabase/supabase-js";
-import { fetchHospitalsNear, fetchNonPay } from "../src/lib/hospitals/hira";
+import { fetchHospitalsByDept, fetchNonPay, DEPT_DERMATOLOGY, DEPT_PLASTIC } from "../src/lib/hospitals/hira";
 import { seedProcedures } from "../src/lib/catalog/seed";
-import { REGIONS } from "../src/lib/geo/region";
 
 // 우리 시술 → HIRA 비급여 항목명 키워드(매칭). 넓게 잡되, HIRA 비급여는 미용 커버리지가
 // 희박해 대부분 '문의'로 남는다(리서치 확인). 매칭되는 소수만 실가격 표시.
@@ -21,7 +20,8 @@ const NONPAY_KEYWORDS: Record<string, string[]> = {
   thread: ["실리프팅", "매선"],
 };
 const estbToDate = (s: string) => (/^\d{8}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : null);
-const RADIUS_M = 3000;                             // 지역 중심 반경(m)
+// 전국 인제스트. 이름에 '피부과/성형외과'를 쓸 수 있는 의원은 전문의뿐(의료법 명칭 규정)
+// → 이름 필터가 곧 전문의 큐레이션. dgsbjtCd 서버 필터로 페이징 볼륨만 줄인다.
 const AESTHETIC = /(피부과|성형외과)/;
 
 const URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -43,22 +43,24 @@ async function pageAll<T>(fn: (page: number) => Promise<T[]>, cap = 20): Promise
 async function main() {
   console.log("→ HIRA 인제스트 시작");
 
-  // 1) 병원(피부과/성형외과) 업서트 — 지역 중심 반경검색으로 볼륨 최소화.
-  //    진료과목(의료기관별상세정보서비스)으로 정확 판별. 이름에 이미 매칭되면 상세호출 생략(콜 절약).
+  // 1) 병원(전국 피부과/성형외과) 업서트 — dgsbjtCd 서버 필터 2패스(피부과·성형외과) + 이름 필터.
   const ykihoToId = new Map<string, string>();
   const seen = new Set<string>();
-  for (const region of REGIONS) {
-    const near = await pageAll((p) => fetchHospitalsNear(region.lng, region.lat, RADIUS_M, p));
-    const rows: Record<string, unknown>[] = [];
-    for (const h of near) {
+  const rows: Record<string, unknown>[] = [];
+  const bySido = new Map<string, number>();
+  for (const dept of [DEPT_DERMATOLOGY, DEPT_PLASTIC]) {
+    const all = await pageAll((p) => fetchHospitalsByDept(dept, p), 25);
+    for (const h of all) {
       if (!h.ykiho || seen.has(h.ykiho)) continue;
       if (!["31", "21"].includes(h.clCd)) continue; // 의원·병원만(상급종합/치과/한방 등 제외)
-      if (!AESTHETIC.test(h.yadmNm)) continue;       // 진료과목명(피부과/성형외과)로 판별
+      if (!AESTHETIC.test(h.yadmNm)) continue;       // 명칭 규정상 전문의만 과목명 표기 가능
       const lat = Number(h.YPos), lng = Number(h.XPos);
       if (!lat || !lng) continue;
       seen.add(h.ykiho);
+      const sido = h.sidoCdNm || "기타";
+      bySido.set(sido, (bySido.get(sido) ?? 0) + 1);
       rows.push({
-        ykiho: h.ykiho, name: h.yadmNm, region: region.label,
+        ykiho: h.ykiho, name: h.yadmNm, region: sido,
         district: h.sgguCdNm || null, address: h.addr || null, lat, lng,
         phone: h.telno || null, is_aesthetic: true, status: "active", fetched_at: nowIso,
         cl_nm: h.clCdNm || null, emdong: h.emdongNm || null, postal: h.postNo || null,
@@ -66,14 +68,16 @@ async function main() {
         homepage_url: h.hospUrl || null,
       });
     }
-    if (rows.length) {
-      const { data, error } = await db.from("hospitals").upsert(rows, { onConflict: "ykiho" }).select("id,ykiho");
-      if (error) console.warn(`  ${region.label} 업서트:`, error.message);
-      else (data as { id: string; ykiho: string }[]).forEach((d) => ykihoToId.set(d.ykiho, d.id));
-    }
-    console.log(`  ${region.label}: 피부/성형 ${rows.length}곳`);
   }
-  console.log(`  병원 총 ${ykihoToId.size}곳`);
+  // 청크 업서트(payload 안정)
+  for (let i = 0; i < rows.length; i += 500) {
+    const chunk = rows.slice(i, i + 500);
+    const { data, error } = await db.from("hospitals").upsert(chunk, { onConflict: "ykiho" }).select("id,ykiho");
+    if (error) console.warn(`  업서트 실패(${i}~):`, error.message);
+    else (data as { id: string; ykiho: string }[]).forEach((d) => ykihoToId.set(d.ykiho, d.id));
+  }
+  for (const [sido, n] of [...bySido.entries()].sort((a, b) => b[1] - a[1])) console.log(`  ${sido}: ${n}곳`);
+  console.log(`  병원 총 ${ykihoToId.size}곳 (전국)`);
 
   // 2) 비급여 가격(best-effort) — 전국 비급여를 훑어 우리 병원(ykiho) + 미용 항목명 매칭분만 저장.
   //    HIRA 비급여는 미용 커버리지가 희박해 대부분 '문의'로 남는다(리서치). 매칭 소수만 실가격.

@@ -28,7 +28,7 @@ export default function Home() {
     <main className="shell">
       <div className="top">
         <div className="logo">글로우<span className="m">메이트</span></div>
-        <div className="loc">📍 강남 · 분당</div>
+        <div className="loc">📍 내 주변 병원</div>
       </div>
 
       {/* 후킹 히어로 — 4050 실어휘 */}

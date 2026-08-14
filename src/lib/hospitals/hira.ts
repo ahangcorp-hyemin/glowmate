@@ -47,22 +47,28 @@ async function get(url: string, params: Record<string, string | number>): Promis
 
 export interface HiraHospital {
   ykiho: string; yadmNm: string; addr: string; telno: string;
-  XPos: string; YPos: string; sgguCdNm: string; clCd: string; clCdNm: string;
+  XPos: string; YPos: string; sidoCdNm: string; sgguCdNm: string; clCd: string; clCdNm: string;
   estbDd: string; drTotCnt: string; hospUrl: string; emdongNm: string; postNo: string;
 }
 
 function mapHosp(r: Record<string, string>): HiraHospital {
   return {
     ykiho: r.ykiho ?? "", yadmNm: r.yadmNm ?? "", addr: r.addr ?? "", telno: r.telno ?? "",
-    XPos: r.XPos ?? "", YPos: r.YPos ?? "", sgguCdNm: r.sgguCdNm ?? "", clCd: r.clCd ?? "",
-    clCdNm: r.clCdNm ?? "", estbDd: r.estbDd ?? "", drTotCnt: r.drTotCnt ?? "",
+    XPos: r.XPos ?? "", YPos: r.YPos ?? "", sidoCdNm: r.sidoCdNm ?? "", sgguCdNm: r.sgguCdNm ?? "",
+    clCd: r.clCd ?? "", clCdNm: r.clCdNm ?? "", estbDd: r.estbDd ?? "", drTotCnt: r.drTotCnt ?? "",
     hospUrl: r.hospUrl ?? "", emdongNm: r.emdongNm ?? "", postNo: r.postNo ?? "",
   };
 }
 
-/** 병원 목록(좌표+반경 기준, 페이지). radius=미터. 지역 중심 근처만 조회해 볼륨 최소화. */
+/** 병원 목록(좌표+반경 기준, 페이지). radius=미터. */
 export async function fetchHospitalsNear(lng: number, lat: number, radiusM: number, pageNo: number, numOfRows = 1000): Promise<HiraHospital[]> {
   const rows = await get(HOSP_BASE, { xPos: lng, yPos: lat, radius: radiusM, pageNo, numOfRows });
+  return rows.map(mapHosp);
+}
+
+/** 병원 목록(진료과목 필터, 전국 페이징). dgsbjtCd 서버측 필터 실측 확인(14 피부과=1.8만, 08 성형=5.2천). */
+export async function fetchHospitalsByDept(dgsbjtCd: string, pageNo: number, numOfRows = 1000): Promise<HiraHospital[]> {
+  const rows = await get(HOSP_BASE, { dgsbjtCd, pageNo, numOfRows });
   return rows.map(mapHosp);
 }
 
