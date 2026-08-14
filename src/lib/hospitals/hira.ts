@@ -7,6 +7,12 @@ const KEY = process.env.DATA_GO_KR_SERVICE_KEY;
 const HOSP_BASE = "https://apis.data.go.kr/B551182/hospInfoServicev2/getHospBasisList";
 const NONPAY_ITEM = "https://apis.data.go.kr/B551182/nonPaymentDamtInfoService/getNonPaymentItemInfo";
 const NONPAY_HOSP = "https://apis.data.go.kr/B551182/nonPaymentDamtInfoService/getNonPaymentItemHospList";
+// 의료기관별상세정보서비스 — 진료과목정보. 버전 접미사(2.7 등)는 활용가이드에서 확인해 맞추세요.
+const DTL_DGSBJT = "https://apis.data.go.kr/B551182/MadmDtlInfoService2.7/getDgsbjtInfo2.7";
+
+// 진료과목 코드(HIRA 표시과목): 피부과=14, 성형외과=08. 가이드에서 재확인 권장.
+export const DEPT_DERMATOLOGY = "14";
+export const DEPT_PLASTIC = "08";
 
 function assertKey(): string {
   if (!KEY) throw new Error("DATA_GO_KR_SERVICE_KEY 미설정 (.env.local)");
@@ -28,10 +34,16 @@ function parseItems(xml: string): Record<string, string>[] {
 }
 
 async function get(url: string, params: Record<string, string | number>): Promise<Record<string, string>[]> {
-  const q = new URLSearchParams({ serviceKey: assertKey(), ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])) });
-  const res = await fetch(`${url}?${q.toString()}`);
+  const key = assertKey();
+  // data.go.kr 키 두 형태 모두 지원: Encoding키(%포함)는 그대로, Decoding키(+/=)는 한 번만 인코딩.
+  const serviceKey = key.includes("%") ? key : encodeURIComponent(key);
+  const q = new URLSearchParams(Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])));
+  const res = await fetch(`${url}?serviceKey=${serviceKey}&${q.toString()}`);
   const text = await res.text();
   if (!res.ok) throw new Error(`HIRA ${res.status}: ${text.slice(0, 200)}`);
+  if (text.includes("SERVICE_KEY_IS_NOT_REGISTERED_ERROR")) {
+    throw new Error("HIRA 서비스키 미등록: data.go.kr에서 승인 확인 + Encoding 인증키인지 확인(승인 직후 최대 1시간 지연 가능)");
+  }
   return parseItems(text);
 }
 
@@ -40,13 +52,17 @@ export interface HiraHospital {
   XPos: string; YPos: string; sgguCdNm: string;
 }
 
-/** 병원 목록(시도코드 기준, 페이지). */
-export async function fetchHospitals(sidoCd: string, pageNo: number, numOfRows = 1000): Promise<HiraHospital[]> {
-  const rows = await get(HOSP_BASE, { sidoCd, pageNo, numOfRows });
-  return rows.map((r) => ({
+function mapHosp(r: Record<string, string>): HiraHospital {
+  return {
     ykiho: r.ykiho ?? "", yadmNm: r.yadmNm ?? "", addr: r.addr ?? "", telno: r.telno ?? "",
     XPos: r.XPos ?? "", YPos: r.YPos ?? "", sgguCdNm: r.sgguCdNm ?? "",
-  }));
+  };
+}
+
+/** 병원 목록(좌표+반경 기준, 페이지). radius=미터. 지역 중심 근처만 조회해 볼륨 최소화. */
+export async function fetchHospitalsNear(lng: number, lat: number, radiusM: number, pageNo: number, numOfRows = 1000): Promise<HiraHospital[]> {
+  const rows = await get(HOSP_BASE, { xPos: lng, yPos: lat, radius: radiusM, pageNo, numOfRows });
+  return rows.map(mapHosp);
 }
 
 export interface HiraNonPayItem { npayCd: string; itemNm: string }
@@ -65,4 +81,10 @@ export async function fetchNonPayHospList(npayCd: string, pageNo: number, numOfR
     minAmt: Number(r.minStlmAmt ?? r.minAmt ?? r.curAmt ?? 0) || 0,
     maxAmt: Number(r.maxStlmAmt ?? r.maxAmt ?? r.curAmt ?? 0) || 0,
   }));
+}
+
+/** 특정 병원(ykiho)의 진료과목 코드 목록. 피부과/성형외과 정확 판별용. */
+export async function fetchDepartments(ykiho: string): Promise<string[]> {
+  const rows = await get(DTL_DGSBJT, { ykiho, pageNo: 1, numOfRows: 100 });
+  return rows.map((r) => r.dgsbjtCd ?? "").filter(Boolean);
 }

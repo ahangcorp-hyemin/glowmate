@@ -4,8 +4,9 @@
 // ⚠️ 첫 실행 시 sido 코드·비급여 항목명은 각 데이터셋 활용가이드와 대조해 조정하세요.
 
 import { createClient } from "@supabase/supabase-js";
-import { fetchHospitals, fetchNonPayItems, fetchNonPayHospList } from "../src/lib/hospitals/hira";
+import { fetchHospitalsNear, fetchNonPayItems, fetchNonPayHospList, fetchDepartments, DEPT_DERMATOLOGY, DEPT_PLASTIC } from "../src/lib/hospitals/hira";
 import { seedProcedures } from "../src/lib/catalog/seed";
+import { REGIONS } from "../src/lib/geo/region";
 
 // 우리 시술 → HIRA 비급여 항목명 키워드(매칭). 매핑 안 되면 그 시술은 '문의'로 남음(정직).
 const NONPAY_KEYWORDS: Record<string, string[]> = {
@@ -15,8 +16,7 @@ const NONPAY_KEYWORDS: Record<string, string[]> = {
   pico: ["피코"],
   skinbooster: ["스킨부스터", "물광"],
 };
-const SIDOS = ["110000", "310000"];               // 서울, 경기 (활용가이드에서 확인)
-const REGION_KEYS = ["강남구", "서초구", "송파구", "분당구", "마포구", "용산구"];
+const RADIUS_M = 3000;                             // 지역 중심 반경(m)
 const AESTHETIC = /(피부과|성형외과)/;
 
 const URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -38,26 +38,39 @@ async function pageAll<T>(fn: (page: number) => Promise<T[]>, cap = 20): Promise
 async function main() {
   console.log("→ HIRA 인제스트 시작");
 
-  // 1) 병원(피부과/성형외과, 대상 지역) 업서트
+  // 1) 병원(피부과/성형외과) 업서트 — 지역 중심 반경검색으로 볼륨 최소화.
+  //    진료과목(의료기관별상세정보서비스)으로 정확 판별. 이름에 이미 매칭되면 상세호출 생략(콜 절약).
   const ykihoToId = new Map<string, string>();
-  let hospCount = 0;
-  for (const sido of SIDOS) {
-    const all = await pageAll((p) => fetchHospitals(sido, p));
-    const target = all.filter((h) => AESTHETIC.test(h.yadmNm) && REGION_KEYS.some((k) => h.addr.includes(k)));
-    for (const h of target) {
+  const seen = new Set<string>();
+  for (const region of REGIONS) {
+    const near = await pageAll((p) => fetchHospitalsNear(region.lng, region.lat, RADIUS_M, p));
+    let regionCount = 0;
+    for (const h of near) {
+      if (!h.ykiho || seen.has(h.ykiho)) continue;
       const lat = Number(h.YPos), lng = Number(h.XPos);
-      if (!h.ykiho || !lat || !lng) continue;
+      if (!lat || !lng) continue;
+      let isAes = AESTHETIC.test(h.yadmNm);
+      if (!isAes) {
+        try {
+          const depts = await fetchDepartments(h.ykiho);
+          isAes = depts.includes(DEPT_DERMATOLOGY) || depts.includes(DEPT_PLASTIC);
+        } catch { /* 상세 실패 시 이름 기준만 */ }
+        await new Promise((r) => setTimeout(r, 30)); // 레이트리밋 배려
+      }
+      if (!isAes) continue;
+      seen.add(h.ykiho);
       const { data, error } = await db.from("hospitals").upsert({
-        ykiho: h.ykiho, name: h.yadmNm, region: sido === "110000" ? "서울" : "경기",
+        ykiho: h.ykiho, name: h.yadmNm, region: region.label,
         district: h.sgguCdNm || null, address: h.addr || null, lat, lng,
         phone: h.telno || null, is_aesthetic: true, status: "active", fetched_at: nowIso,
       }, { onConflict: "ykiho" }).select("id").single();
       if (error) { console.warn("hospital upsert:", error.message); continue; }
       ykihoToId.set(h.ykiho, data!.id);
-      hospCount++;
+      regionCount++;
     }
+    console.log(`  ${region.label}: 피부/성형 ${regionCount}곳`);
   }
-  console.log(`  병원 ${hospCount}곳`);
+  console.log(`  병원 총 ${ykihoToId.size}곳`);
 
   // 2) 비급여 항목명 → 시술 매핑(procedure_nonpay_map)
   const items = await pageAll((p) => fetchNonPayItems(p));
