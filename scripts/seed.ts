@@ -64,7 +64,8 @@ async function main() {
 
   // 7) 레슨 + 카드 (clean-slate 후 재적재). §56 트리거 없음(리터러시 인용 보호).
   const lessons = Object.values(LESSON_SEED);
-  must(await db.from("lesson_cards").delete().neq("id", -1), "clear lesson_cards");
+  // 전체 삭제 — lesson_cards.id는 uuid라 숫자 비교(-1) 불가. procedure_id(text)로 전 행 매칭.
+  must(await db.from("lesson_cards").delete().neq("procedure_id", "__none__"), "clear lesson_cards");
   must(await db.from("lessons").delete().neq("procedure_id", "__none__"), "clear lessons");
   for (const l of lessons) {
     must(await db.from("lessons").insert({ procedure_id: l.procedureId, name_ko: l.nameKo }), `lesson ${l.procedureId}`);

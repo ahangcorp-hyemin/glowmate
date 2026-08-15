@@ -5,7 +5,16 @@ import Link from "next/link";
 import TabBar from "@/components/TabBar";
 import { REGIONS } from "@/lib/geo/region";
 import { loadLoc, saveLoc } from "@/lib/geo/loc";
-import { PROCEDURES } from "@/lib/catalog/procedures";
+// 4050 고민 기반 필터(브랜드명 대신) — docs/HOSPITAL_FILTER_IA.md. proc는 가격 렌즈용 대표 시술.
+const NEEDS = [
+  { id: "all", label: "전체", proc: "" },
+  { id: "lift", label: "탄력·처짐", proc: "ulthera" },
+  { id: "wrinkle", label: "주름", proc: "botox" },
+  { id: "volume", label: "볼륨·팔자", proc: "filler" },
+  { id: "pigment", label: "색소·기미", proc: "toning" },
+  { id: "pore", label: "모공·피부결", proc: "potenza" },
+  { id: "jowl", label: "이중턱·목", proc: "ulthera" },
+] as const;
 import type { NearbyHospital } from "@/lib/hospitals/types";
 import { fetchNearbyHospitals, fetchRegionLabel } from "../estimate/actions";
 import { searchHospitalsAction } from "./actions";
@@ -24,7 +33,8 @@ export default function HospitalsBrowse() {
   const [loc, setLoc] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [ready, setReady] = useState(false);      // 초기 위치 결정 완료
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [proc, setProc] = useState("ulthera");
+  const [need, setNeed] = useState("all");
+  const proc = NEEDS.find((n) => n.id === need)?.proc ?? "";
   const [rows, setRows] = useState<NearbyHospital[] | null>(null);
   const [q, setQ] = useState("");
   const [searchRows, setSearchRows] = useState<NearbyHospital[] | null>(null);
@@ -83,7 +93,7 @@ export default function HospitalsBrowse() {
     );
   };
 
-  const procName = PROCEDURES.find((p) => p.id === proc)?.nameKo ?? "";
+  const procName = NEEDS.find((n) => n.id === need)?.label ?? "";
 
   return (
     <main className="shell" style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
@@ -145,24 +155,28 @@ export default function HospitalsBrowse() {
       )}
 
       <div className="pad" style={{ flex: 1, display: searchRows !== null ? "none" : undefined }}>
-        {/* 시술 필터(보조, 한 줄) */}
-        <div style={{ display: "flex", gap: 7, overflowX: "auto", padding: "2px 0 10px", marginTop: 2 }}>
-          {PROCEDURES.map((p) => (
-            <button key={p.id} className={`chip${proc === p.id ? " on" : ""}`}
-              style={{ whiteSpace: "nowrap", flexShrink: 0, fontSize: 13.5, padding: "9px 13px" }}
-              onClick={() => setProc(p.id)}>{p.nameKo}</button>
+        {/* ① 고민 필터(4050 실어휘, 브랜드명 아님) */}
+        <div style={{ display: "flex", gap: 7, overflowX: "auto", padding: "2px 0 12px", marginTop: 2 }}>
+          {NEEDS.map((n) => (
+            <button key={n.id} className={`chip${need === n.id ? " on" : ""}`}
+              style={{ whiteSpace: "nowrap", flexShrink: 0, fontSize: 13.5, padding: "9px 14px" }}
+              onClick={() => setNeed(n.id)}>{n.label}</button>
           ))}
         </div>
 
-        {/* 목록/지도 토글 */}
-        {loc && (
-          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-            {(["list", "map"] as const).map((v) => (
-              <button key={v} onClick={() => setView(v)}
-                className={`chip${view === v ? " on" : ""}`} style={{ fontSize: 13.5, padding: "8px 14px" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Icon name={v === "list" ? "list" : "map"} size={14} /> {v === "list" ? "목록" : "지도"}</span>
-              </button>
-            ))}
+        {/* ② 결과 헤더: 개수(좌) + 뷰 세그먼트 컨트롤(우) — 필터칩과 다른 모양으로 위계 분리 */}
+        {loc && rows !== null && rows.length > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink2)" }}>
+              내 주변 <b style={{ color: "var(--key-deep)" }}>{rows.length}곳</b>
+            </span>
+            <div className="seg">
+              {(["list", "map"] as const).map((v) => (
+                <button key={v} className={view === v ? "on" : ""} onClick={() => setView(v)}>
+                  <Icon name={v === "list" ? "list" : "map"} size={14} /> {v === "list" ? "목록" : "지도"}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

@@ -40,6 +40,10 @@ body { background: var(--page); color: var(--ink); font-family: var(--sans); lin
 .chipwrap { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { font-size: 14.5px; font-weight: 600; padding: 10px 15px; border-radius: 999px; background: var(--chip); border: none; color: var(--ink2); cursor: pointer; font-family: inherit; letter-spacing: -0.02em; }
 .chip.on { background: var(--key-soft); color: var(--key-deep); font-weight: 700; }
+/* 세그먼트 컨트롤(뷰 전환) — 필터칩과 다른 모양: 회색 트랙 1개, 활성 반쪽만 흰 카드 */
+.seg { display: inline-flex; background: var(--chip); border-radius: 12px; padding: 3px; gap: 2px; }
+.seg button { border: none; background: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 700; color: var(--muted); padding: 7px 14px; border-radius: 9px; display: flex; align-items: center; gap: 5px; transition: background .12s, color .12s; }
+.seg button.on { background: var(--white); color: var(--key-deep); box-shadow: 0 1px 3px rgba(25,31,40,.12); }
 /* 카드 = 회색 면 섹션(보더·그림자 없음). 떠 있는 요소만 .card.elev */
 .card { background: var(--peach); border: none; border-radius: 20px; padding: 18px; box-shadow: none; }
 .card.elev { background: var(--white); box-shadow: 0 4px 14px rgba(25, 31, 40, .10), 0 0 1px rgba(25, 31, 40, .16); }
