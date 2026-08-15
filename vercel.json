@@ -1,5 +1,5 @@
 {
   "crons": [
-    { "path": "/api/cron/purge-quotes", "schedule": "0 * * * *" }
+    { "path": "/api/cron/purge-quotes", "schedule": "0 4 * * *" }
   ]
 }
