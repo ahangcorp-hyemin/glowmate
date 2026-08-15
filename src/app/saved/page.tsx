@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import TabBar from "@/components/TabBar";
 import HeartButton from "@/components/HeartButton";
-import { getSavedHospitalIds, getEstimateSnapshots, getVisitRecords, type EstimateSnapshot, type VisitRecord } from "@/lib/client/saved";
+import { getSavedHospitalIds, getEstimateSnapshots, getVisitRecords, getTreatments, removeTreatment, getQuoteRecords, type EstimateSnapshot, type VisitRecord, type TreatmentRecord, type QuoteRecord } from "@/lib/client/saved";
+import { renewalWeeksOf } from "@/lib/catalog/renewal";
+import { PROCEDURES } from "@/lib/catalog/procedures";
+import { track } from "@/lib/analytics";
 import { fetchHospitalsByIds } from "../hospitals/actions";
 import type { NearbyHospital } from "@/lib/hospitals/types";
 
@@ -15,10 +18,14 @@ export default function SavedPage() {
   const [hospitals, setHospitals] = useState<NearbyHospital[] | null>(null);
   const [estimates, setEstimates] = useState<EstimateSnapshot[]>([]);
   const [visits, setVisits] = useState<VisitRecord[]>([]);
+  const [treatments, setTreatments] = useState<TreatmentRecord[]>([]);
+  const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
 
   useEffect(() => {
     setEstimates(getEstimateSnapshots());
     setVisits(getVisitRecords());
+    setTreatments(getTreatments());
+    setQuotes(getQuoteRecords());
     const ids = getSavedHospitalIds();
     if (!ids.length) { setHospitals([]); return; }
     fetchHospitalsByIds(ids).then(setHospitals);
@@ -33,6 +40,66 @@ export default function SavedPage() {
         <p className="disc" style={{ marginBottom: 16, lineHeight: 1.55 }}>
           가입 없이 이 기기에만 저장돼요. 기기를 바꾸면 사라지니 중요한 건 캡처해두세요.
         </p>
+
+        {quotes.length > 0 && (
+          <>
+            <div className="kick" style={{ marginBottom: 8 }}>내 견적 요청</div>
+            <div className="card" style={{ padding: "4px 14px 8px", marginBottom: 18 }}>
+              {quotes.map((q, i) => (
+                <Link key={q.id} href={`/quote/${q.id}`} className="reset">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "11px 0", borderBottom: i < quotes.length - 1 ? "1px solid var(--line)" : "none" }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 14.5 }}>{q.label}</div>
+                      <div className="sub" style={{ marginTop: 3, fontSize: 12.5 }}>{new Date(q.at).toLocaleDateString("ko-KR")} 요청 · 받은 견적 보기</div>
+                    </div>
+                    <span style={{ color: "var(--key-deep)", fontWeight: 800 }}>›</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+
+        {treatments.length > 0 && (
+          <>
+            <div className="kick" style={{ marginBottom: 8 }}>시술 기록 · 다음 시기</div>
+            <div className="card" style={{ padding: "4px 14px 10px", marginBottom: 18 }}>
+              {treatments.map((t, i) => {
+                const p = PROCEDURES.find((x) => x.id === t.procedureId);
+                const rw = renewalWeeksOf(t.procedureId);
+                let dday: number | null = null;
+                if (rw != null) {
+                  const due = new Date(t.date); due.setDate(due.getDate() + rw * 7);
+                  dday = Math.ceil((due.getTime() - Date.now()) / 86400000);
+                }
+                return (
+                  <div key={`${t.procedureId}-${t.date}`} style={{ padding: "11px 0", borderBottom: i < treatments.length - 1 ? "1px solid var(--line)" : "none" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <span style={{ fontWeight: 800, fontSize: 14.5 }}>{p?.nameKo ?? t.procedureId}</span>
+                        <span className="sub" style={{ marginLeft: 8, fontSize: 12.5 }}>{t.date}</span>
+                      </div>
+                      <button onClick={() => { removeTreatment(t.procedureId, t.date); setTreatments(getTreatments()); }}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--faint)", fontSize: 12, fontFamily: "inherit" }}>삭제</button>
+                    </div>
+                    {dday != null && (
+                      <Link href="/estimate" className="reset" onClick={() => track("ledger_banner_click", { from: "saved" })}>
+                        <div className="sub" style={{ marginTop: 4, fontSize: 13 }}>
+                          {dday > 0
+                            ? <>다음 권장 시기까지 <b style={{ color: "var(--key-deep)" }}>D-{dday}</b></>
+                            : <><b style={{ color: "var(--key-deep)" }}>권장 시기가 지났어요</b> — 지금 견적 보기 ›</>}
+                        </div>
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
+              <p className="disc" style={{ margin: "8px 0 4px", lineHeight: 1.5 }}>
+                권장 주기는 일반적 기준이에요. 실제 시기는 병원 상담에서 확인하세요.
+              </p>
+            </div>
+          </>
+        )}
 
         {visits.length > 0 && (
           <>

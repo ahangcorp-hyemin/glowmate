@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import GlowGuide from "@/components/GlowGuide";
 import { submitReview } from "../actions";
+import { addTreatment } from "@/lib/client/saved";
+import { track } from "@/lib/analytics";
 
 // 4050 후기 폼 — 단일 페이지(멀티스텝 이탈 방지), 큰 글씨, 필수 5 + 선택 2.
 // 제출 = 검수 대기(hidden). 영수증은 선택이며 '실방문 인증' 배지 근거.
@@ -18,6 +20,17 @@ export default function ReviewForm({ procedures }: { procedures: { id: string; n
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [weeksAtSubmit, setWeeksAtSubmit] = useState<number | null>(null);
+  const [ledgerAdded, setLedgerAdded] = useState(false);
+
+  const addToLedger = () => {
+    if (!procedureId) return;
+    const d = new Date();
+    if (weeksAtSubmit != null) d.setDate(d.getDate() - weeksAtSubmit * 7); // 시술일 = 오늘 - 경과주
+    addTreatment({ procedureId, date: d.toISOString().slice(0, 10) });
+    track("ledger_add", { from: "review" });
+    setLedgerAdded(true);
+  };
 
   if (done) {
     return (
@@ -28,7 +41,15 @@ export default function ReviewForm({ procedures }: { procedures: { id: string; n
           <p className="sub" style={{ marginTop: 10, lineHeight: 1.6 }}>
             과장·홍보성 여부를 사람이 직접 검수한 뒤<br />익명으로 공개돼요(보통 2~3일).
           </p>
-          <Link href="/explore" className="reset"><button className="btn" style={{ marginTop: 18 }}>후기 탭으로 →</button></Link>
+          {procedureId && !ledgerAdded && (
+            <button className="btn" style={{ marginTop: 18 }} onClick={addToLedger}>
+              이 시술을 내 기록에 추가 — 다음 시기 알려드려요
+            </button>
+          )}
+          {ledgerAdded && (
+            <Link href="/saved" className="reset"><button className="btn" style={{ marginTop: 18 }}>기록됐어요 — 내 활동 보기</button></Link>
+          )}
+          <Link href="/explore" className="reset"><button className="btn ghost" style={{ marginTop: 10 }}>후기 탭으로</button></Link>
         </div>
       </main>
     );
@@ -42,6 +63,7 @@ export default function ReviewForm({ procedures }: { procedures: { id: string; n
     form.set("rating", String(rating));
     form.set("ageBand", ageBand);
     form.set("priceMatch", priceMatch);
+    const w = form.get("weeks"); setWeeksAtSubmit(w ? Number(w) : null);
     const res = await submitReview(form);
     setSending(false);
     if (res.ok) setDone(true);

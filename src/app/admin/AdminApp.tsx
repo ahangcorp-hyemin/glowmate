@@ -7,11 +7,15 @@ import {
   adminListInquiries, adminUpdateInquiry,
   type AdminVisit, type AdminReview, type AdminInquiry,
 } from "./actions";
+import {
+  adminListQuotes, adminStartCollecting, adminAddReply,
+  type AdminQuote, type AdminReplyInput,
+} from "../quote/actions";
 
 // 운영 어드민 v2 (v3 토스 디자인). 탭: 대시보드·후기검수·방문예약·파트너문의.
 // Mobbin 러닝: 큐는 상태 탭 분리 / 검수는 카드 1건=판단 1회 / 처리 즉시 제거+카운트 감소.
 
-type Tab = "dash" | "reviews" | "visits" | "inquiries";
+type Tab = "dash" | "reviews" | "quotes" | "visits" | "inquiries";
 const VISIT_LABEL: Record<string, string> = {
   requested: "🟡 접수", forwarded: "📨 병원전달", concierge: "📞 컨시어지",
   confirmed: "✅ 확정", declined: "⛔ 불가", canceled: "취소",
@@ -34,11 +38,11 @@ export default function AdminApp({ procNames }: { procNames: Record<string, stri
     if (t) setToken(t);
   }, []);
 
-  const [stats, setStats] = useState<{ pendingReviews: number; openVisits: number; newInquiries: number } | null>(null);
+  const [stats, setStats] = useState<{ pendingReviews: number; openVisits: number; newInquiries: number; openQuotes: number } | null>(null);
   const loadStats = useCallback(async (t: string) => {
     const r = await adminStats(t);
     if (!r.ok) { setAuthErr(r.error ?? "인증 실패"); setToken(""); sessionStorage.removeItem("glowmate.adminToken"); return false; }
-    setStats({ pendingReviews: r.pendingReviews!, openVisits: r.openVisits!, newInquiries: r.newInquiries! });
+    setStats({ pendingReviews: r.pendingReviews!, openVisits: r.openVisits!, newInquiries: r.newInquiries!, openQuotes: r.openQuotes ?? 0 });
     return true;
   }, []);
 
@@ -63,6 +67,7 @@ export default function AdminApp({ procNames }: { procNames: Record<string, stri
   const TABS: { id: Tab; label: string; badge?: number }[] = [
     { id: "dash", label: "대시보드" },
     { id: "reviews", label: "후기검수", badge: stats?.pendingReviews },
+    { id: "quotes", label: "견적요청", badge: stats?.openQuotes },
     { id: "visits", label: "방문예약", badge: stats?.openVisits },
     { id: "inquiries", label: "파트너문의", badge: stats?.newInquiries },
   ];
@@ -87,6 +92,7 @@ export default function AdminApp({ procNames }: { procNames: Record<string, stri
       <div className="pad">
         {tab === "dash" && stats && <Dashboard stats={stats} onJump={setTab} />}
         {tab === "reviews" && <ReviewsPane token={token} procNames={procNames} onChange={() => loadStats(token)} />}
+        {tab === "quotes" && <QuotesPane token={token} procNames={procNames} onChange={() => loadStats(token)} />}
         {tab === "visits" && <VisitsPane token={token} onChange={() => loadStats(token)} />}
         {tab === "inquiries" && <InquiriesPane token={token} onChange={() => loadStats(token)} />}
       </div>
@@ -94,8 +100,9 @@ export default function AdminApp({ procNames }: { procNames: Record<string, stri
   );
 }
 
-function Dashboard({ stats, onJump }: { stats: { pendingReviews: number; openVisits: number; newInquiries: number }; onJump: (t: Tab) => void }) {
+function Dashboard({ stats, onJump }: { stats: { pendingReviews: number; openVisits: number; newInquiries: number; openQuotes: number }; onJump: (t: Tab) => void }) {
   const cards: { k: Tab; n: number; l: string }[] = [
+    { k: "quotes", n: stats.openQuotes, l: "처리할 견적요청" },
     { k: "reviews", n: stats.pendingReviews, l: "검수 대기 후기" },
     { k: "visits", n: stats.openVisits, l: "진행 중 방문예약" },
     { k: "inquiries", n: stats.newInquiries, l: "미확인 파트너문의" },
@@ -277,3 +284,135 @@ function InquiriesPane({ token, onChange }: { token: string; onChange: () => voi
     </>
   );
 }
+
+// ── 견적요청 큐(#72 콜패킷) — 요청 상세 + 콜 스크립트 + 회신 입력 ──
+const PROC_LABEL_FALLBACK: Record<string, string> = {};
+function QuotesPane({ token, procNames, onChange }: { token: string; procNames: Record<string, string>; onChange: () => void }) {
+  const [rows, setRows] = useState<AdminQuote[] | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const load = useCallback(async () => { const r = await adminListQuotes(token); setRows(r.rows ?? []); }, [token]);
+  useEffect(() => { load(); }, [load]);
+  void PROC_LABEL_FALLBACK;
+
+  const DOWNTIME: Record<string, string> = { none: "쉬는날 X", weekend: "주말만", week: "1주OK", any: "상관없음" };
+
+  return (
+    <>
+      <p className="disc" style={{ marginBottom: 10, lineHeight: 1.5 }}>
+        각 요청을 눌러 병원 3곳에 전화 → 회신 입력. 통화하며 빈칸을 채우세요. 주 10건 캡.
+      </p>
+      {rows === null && <p className="sub">불러오는 중…</p>}
+      {rows?.length === 0 && <p className="sub">처리할 견적요청이 없어요.</p>}
+      {rows?.map((q) => {
+        const overdue = q.slaDueAt && new Date(q.slaDueAt) < new Date();
+        return (
+          <div key={q.id} className="card" style={{ padding: 14, marginBottom: 10 }}>
+            <button onClick={() => setOpenId(openId === q.id ? null : q.id)}
+              style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left", fontFamily: "inherit", padding: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontWeight: 800, fontSize: 15 }}>
+                  {q.procedureId ? (procNames[q.procedureId] ?? q.procedureId) : "시술 미지정"}
+                  {q.concerns.length > 0 && <span className="badge" style={{ marginLeft: 6 }}>{q.concerns.join("·")}</span>}
+                </div>
+                <span style={{ fontSize: 12.5, fontWeight: 800, color: overdue ? "var(--coral-strong)" : "var(--ink2)" }}>
+                  {q.replyCount}곳 회신{overdue ? " · 지연" : ""}
+                </span>
+              </div>
+              <div className="sub" style={{ marginTop: 4, fontSize: 12.5, lineHeight: 1.55 }}>
+                {q.regionLabel ?? "지역 미정"} · {DOWNTIME[q.downtime] ?? q.downtime}{q.budgetMax ? ` · 예산 ${q.budgetMax}만` : ""}
+                {q.slaDueAt ? ` · ~${new Date(q.slaDueAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "numeric" })}` : ""}
+                {q.note ? <><br />💬 {q.note}</> : ""}
+              </div>
+            </button>
+
+            {openId === q.id && (
+              <div style={{ marginTop: 12, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+                <div style={{ background: "var(--chip)", borderRadius: 12, padding: "11px 13px", fontSize: 13, lineHeight: 1.7, color: "var(--ink2)" }}>
+                  <b>콜 스크립트</b><br />
+                  “고객 의뢰로 시술 견적을 대신 문의드립니다.<br />
+                  {q.procedureId ? (procNames[q.procedureId] ?? q.procedureId) : "○○시술"} {q.concerns.join("·")} 기준으로 —<br />
+                  ① 총액(VAT 포함/별도?) ② 구성(샷수·마취·재생관리 포함?)<br />
+                  ③ 이벤트가면 조건·기간 ④ 이 가격 유효기간”
+                </div>
+                {q.status === "submitted" && (
+                  <button className="chip" style={{ marginTop: 10 }}
+                    onClick={async () => { await adminStartCollecting(token, q.id); load(); onChange(); }}>착수(전화 시작)</button>
+                )}
+                <ReplyForm token={token} requestId={q.id} onSaved={() => { load(); onChange(); }} />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function ReplyForm({ token, requestId, onSaved }: { token: string; requestId: string; onSaved: () => void }) {
+  const [f, setF] = useState<Partial<AdminReplyInput>>({ priceType: "fixed", conditions: [] });
+  const [refused, setRefused] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const set = (k: keyof AdminReplyInput, v: unknown) => setF((c) => ({ ...c, [k]: v }));
+  const toggleCond = (c: string) => setF((cur) => {
+    const arr = cur.conditions ?? [];
+    return { ...cur, conditions: arr.includes(c) ? arr.filter((x) => x !== c) : [...arr, c] };
+  });
+
+  const save = async () => {
+    if (!f.hospitalName?.trim()) { setMsg("병원명을 입력하세요"); return; }
+    setSaving(true);
+    const r = await adminAddReply(token, {
+      requestId, hospitalId: null, hospitalName: f.hospitalName.trim(),
+      totalPrice: f.totalPrice ? Number(f.totalPrice) : null,
+      priceType: (f.priceType as AdminReplyInput["priceType"]) ?? "fixed",
+      priceMax: f.priceMax ? Number(f.priceMax) : null,
+      skuSummary: f.skuSummary ?? "", conditions: f.conditions ?? [],
+      extraCosts: f.extraCosts ?? "", validUntil: f.validUntil || null,
+      refused, refuseReason: f.refuseReason ?? "", askedBack: f.askedBack ?? "",
+    });
+    setSaving(false);
+    if (r.ok) { setMsg(r.warning ? `저장됨 ⚠ ${r.warning}` : "저장됨"); setF({ priceType: "fixed", conditions: [] }); setRefused(false); onSaved(); }
+    else setMsg(r.error ?? "실패");
+  };
+
+  const COND = [["vat_included", "VAT포함"], ["vat_excluded", "VAT별도"], ["first_visit", "첫방문가"], ["event_price", "이벤트가"], ["anesthesia_included", "마취포함"]] as const;
+
+  return (
+    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div className="kick">회신 입력 (병원 1곳)</div>
+      <input placeholder="병원명 *" onChange={(e) => set("hospitalName", e.target.value)} value={f.hospitalName ?? ""} style={mini} />
+      <div style={{ display: "flex", gap: 6 }}>
+        <label style={{ fontSize: 12.5, display: "flex", alignItems: "center", gap: 4, fontWeight: 700, color: "var(--ink2)" }}>
+          <input type="checkbox" checked={refused} onChange={(e) => setRefused(e.target.checked)} /> 가격 비공개/거절
+        </label>
+      </div>
+      {refused ? (
+        <input placeholder="거절 사유(예: 내원 상담 후)" onChange={(e) => set("refuseReason", e.target.value)} style={mini} />
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input placeholder="총액(원) 예:620000" inputMode="numeric" onChange={(e) => set("totalPrice", e.target.value.replace(/[^0-9]/g, ""))} style={{ ...mini, flex: 2 }} />
+            <select value={f.priceType} onChange={(e) => set("priceType", e.target.value)} style={{ ...mini, flex: 1, appearance: "auto" }}>
+              <option value="fixed">정가</option><option value="from">부터~</option><option value="range">범위</option><option value="consult">상담</option>
+            </select>
+          </div>
+          {f.priceType === "range" && <input placeholder="최대(원)" inputMode="numeric" onChange={(e) => set("priceMax", e.target.value.replace(/[^0-9]/g, ""))} style={mini} />}
+          <input placeholder="구성 예: 울쎄라 300샷 풀페이스, 마취크림 포함" onChange={(e) => set("skuSummary", e.target.value)} style={mini} />
+          <input placeholder="부대비용 예: 검진비 9,500원" onChange={(e) => set("extraCosts", e.target.value)} style={mini} />
+          <div className="chipwrap">
+            {COND.map(([v, l]) => (
+              <button key={v} type="button" onClick={() => toggleCond(v)} className={`chip${(f.conditions ?? []).includes(v) ? " on" : ""}`} style={{ fontSize: 12, padding: "6px 10px" }}>{l}</button>
+            ))}
+          </div>
+          <input placeholder="유효기간 YYYY-MM-DD (선택)" onChange={(e) => set("validUntil", e.target.value)} style={mini} />
+        </>
+      )}
+      <input placeholder="병원이 되물은 질문(선택) — 다음 폼 필드 후보" onChange={(e) => set("askedBack", e.target.value)} style={mini} />
+      <button className="btn" disabled={saving} style={{ padding: 12, fontSize: 14 }} onClick={save}>{saving ? "저장 중…" : "이 회신 저장"}</button>
+      {msg && <p className="disc" style={{ color: msg.includes("⚠") ? "var(--coral-strong)" : "var(--key-deep)" }}>{msg}</p>}
+    </div>
+  );
+}
+
+const mini: React.CSSProperties = { padding: "10px 12px", borderRadius: 10, fontSize: 13.5, width: "100%" };
