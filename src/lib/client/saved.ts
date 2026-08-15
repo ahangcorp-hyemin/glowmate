@@ -63,3 +63,58 @@ export function getVisitRecords(): VisitRecord[] {
   if (typeof window === "undefined") return [];
   try { return JSON.parse(localStorage.getItem(V_KEY) ?? "[]"); } catch { return []; }
 }
+
+// ── 시술 원장(#71) — 무가입 localStorage. 이력 → 재시술 D-day의 근거 ──
+const T_KEY = "glowmate.treatments";
+
+export interface TreatmentRecord {
+  procedureId: string;
+  date: string;        // ISO date (시술일)
+  amount?: number;     // 만원 (선택)
+  at: string;          // 기록 시각
+}
+
+export function addTreatment(t: Omit<TreatmentRecord, "at">) {
+  if (typeof window === "undefined") return;
+  try {
+    const list: TreatmentRecord[] = JSON.parse(localStorage.getItem(T_KEY) ?? "[]");
+    // 같은 시술·같은 날 중복 방지
+    if (list.some((x) => x.procedureId === t.procedureId && x.date === t.date)) return;
+    localStorage.setItem(T_KEY, JSON.stringify([{ ...t, at: new Date().toISOString() }, ...list].slice(0, 50)));
+  } catch { /* ignore */ }
+}
+
+export function getTreatments(): TreatmentRecord[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem(T_KEY) ?? "[]"); } catch { return []; }
+}
+
+export function removeTreatment(procedureId: string, date: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const list: TreatmentRecord[] = JSON.parse(localStorage.getItem(T_KEY) ?? "[]");
+    localStorage.setItem(T_KEY, JSON.stringify(list.filter((x) => !(x.procedureId === procedureId && x.date === date))));
+  } catch { /* ignore */ }
+}
+
+// ── 견적 요청 내역(#72 역경매) — requestId가 결과 열람 토큰. 무가입이라 이 기기 사본으로 접근 ──
+const Q_KEY = "glowmate.quoteRequests";
+
+export interface QuoteRecord {
+  id: string;          // requestId (열람 토큰)
+  label: string;       // "울쎄라 · 탄력·처짐" 조건 요약
+  at: string;
+}
+
+export function saveQuoteRecord(q: QuoteRecord) {
+  if (typeof window === "undefined") return;
+  try {
+    const list: QuoteRecord[] = JSON.parse(localStorage.getItem(Q_KEY) ?? "[]");
+    localStorage.setItem(Q_KEY, JSON.stringify([q, ...list.filter((x) => x.id !== q.id)].slice(0, 20)));
+  } catch { /* ignore */ }
+}
+
+export function getQuoteRecords(): QuoteRecord[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem(Q_KEY) ?? "[]"); } catch { return []; }
+}

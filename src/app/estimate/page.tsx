@@ -8,7 +8,7 @@ import GlowHero from "@/components/GlowHero";
 import type { Concern } from "@/lib/catalog/rules";
 import type { NearbyHospital } from "@/lib/hospitals/types";
 import type { Estimate, EstimateItem, AgeBand, BudgetBand } from "@/lib/estimate/engine";
-import { fetchConcerns, runEstimate, fetchNearbyHospitals, fetchRegionLabel } from "./actions";
+import { fetchConcerns, runEstimate, fetchNearbyHospitals, fetchRegionLabel, fetchCohortDist } from "./actions";
 import { fetchLessonIds } from "../learn/actions";
 import Icon from "@/components/Icon";
 import { getEstimateSnapshots } from "@/lib/client/saved";
@@ -45,6 +45,8 @@ export default function EstimatePage() {
   const [started, setStarted] = useState(false);
   const [stage, setStage] = useState(0);
   const [hasPastEstimates, setHasPastEstimates] = useState(false);
+  // 코호트 실결제 분포(#73) — n>=5인 시술만 채워짐
+  const [dists, setDists] = useState<Record<string, { n: number; median: number; p25: number; p75: number; ageBand?: string }>>({});
   useEffect(() => { setHasPastEstimates(getEstimateSnapshots().length > 0); }, []);
   const [concerns, setConcerns] = useState<string[]>([]);
   const [age, setAge] = useState<AgeBand | null>(null);
@@ -118,6 +120,14 @@ export default function EstimatePage() {
     const int = setInterval(() => setMsgIdx((i) => Math.min(i + 1, ANALYZE_MSG.length - 1)), 700);
     const started = Date.now();
     runEstimate({ concerns, ageBand: age ?? "40대", budgetBand: budget ?? "상관없음" }).then((est) => {
+      // 실결제 분포 병렬 조회(비차단) — 연령 코호트 우선, 미달 시 시술 전체 폴백
+      if (!est.needsConsult) {
+        est.items.slice(0, 4).forEach((it) => {
+          fetchCohortDist(it.procedureId, age ?? undefined).then((d) => {
+            if (d) setDists((cur) => ({ ...cur, [it.procedureId]: d }));
+          }).catch(() => {});
+        });
+      }
       // 최소 2.6s 로더(노동 착시) 보장
       const wait = Math.max(0, 2600 - (Date.now() - started));
       setTimeout(() => {
@@ -571,6 +581,28 @@ export default function EstimatePage() {
                   </div>
                 )}
               </div>
+              {Object.keys(dists).length > 0 && (
+                <div className="card" style={{ marginTop: 12, padding: 16 }}>
+                  <div className="kick" style={{ marginBottom: 4 }}>또래가 실제로 낸 가격</div>
+                  {items.filter((it) => dists[it.procedureId]).map((it) => {
+                    const d = dists[it.procedureId];
+                    return (
+                      <div key={it.procedureId} style={{ padding: "9px 0", borderBottom: "1px solid var(--line)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                          <span style={{ fontWeight: 700, fontSize: 14 }}>{it.nameKo}{d.ageBand ? ` · ${d.ageBand}` : ""}</span>
+                          <span className="price" style={{ fontSize: 16 }}>중앙값 {d.median}만</span>
+                        </div>
+                        <div className="sub" style={{ marginTop: 2, fontSize: 12.5 }}>
+                          실결제 {d.n}건 · 절반이 {d.p25}만~{d.p75}만원 사이
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <p className="disc" style={{ marginTop: 8, lineHeight: 1.5 }}>
+                    글로우메이트에 남겨주신 후기의 실제 결제 금액이에요. 병원·조건에 따라 달라요.
+                  </p>
+                </div>
+              )}
               <div className="card answer" style={{ marginTop: 14 }}>
                 {result.answerBlocks.map((b, i) => <p key={i}>{b.text}{b.refs.map((n) => <sup className="ref" key={n}>[{n}]</sup>)}</p>)}
                 <div className="srcbox">
@@ -578,7 +610,11 @@ export default function EstimatePage() {
                   {result.sources.map((s) => <div className="si" key={s.n}><span className="num">[{s.n}]</span> {s.label}</div>)}
                 </div>
               </div>
-              <button className="btn ghost" style={{ marginTop: 14 }} onClick={() => setXi(0)}>시술 하나씩 다시 보기</button>
+              {/* 역경매 진입(#72) — 견적 결과 조건 프리필 */}
+              <Link href="/quote/new" className="reset">
+                <button className="btn" style={{ marginTop: 14 }}>이 조합, 실제 견적 받아보기 — 전화는 저희가</button>
+              </Link>
+              <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => setXi(0)}>시술 하나씩 다시 보기</button>
               <Link href="/" className="reset"><button className="btn ghost" style={{ marginTop: 10 }}>처음으로</button></Link>
               <div style={{ height: 24 }} />
             </div>

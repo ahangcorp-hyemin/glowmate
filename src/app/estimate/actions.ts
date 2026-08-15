@@ -26,3 +26,9 @@ export async function fetchNearbyHospitals(lat: number, lng: number, procedureId
 export async function fetchRegionLabel(lat: number, lng: number): Promise<string | null> {
   return regionLabel(lat, lng);
 }
+
+// 코호트 실결제 분포(#73) — n<5면 null(비노출 하드 룰)
+export async function fetchCohortDist(procedureId: string, ageBand?: string) {
+  const { getCohortDist } = await import("@/lib/reviews/stats");
+  return getCohortDist(procedureId, ageBand);
+}

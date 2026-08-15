@@ -60,16 +60,17 @@ export async function adminSetPartner(token: string, hospitalName: string, isPar
 }
 
 // ── 대시보드 ──────────────────────────────────────────────
-export async function adminStats(token: string): Promise<{ ok: boolean; pendingReviews?: number; openVisits?: number; newInquiries?: number; error?: string }> {
+export async function adminStats(token: string): Promise<{ ok: boolean; pendingReviews?: number; openVisits?: number; newInquiries?: number; openQuotes?: number; error?: string }> {
   if (!authed(token)) return { ok: false, error: "인증 실패" };
   const db = getServerClient();
   if (!db) return { ok: false, error: "DB 미설정" };
-  const [rev, vis, inq] = await Promise.all([
+  const [rev, vis, inq, quo] = await Promise.all([
     db.from("reviews").select("id", { count: "exact", head: true }).eq("status", "hidden"),
     db.from("visit_requests").select("id", { count: "exact", head: true }).in("status", ["requested", "forwarded", "concierge"]),
     db.from("partner_inquiries").select("id", { count: "exact", head: true }).eq("status", "new"),
+    db.from("quote_requests").select("id", { count: "exact", head: true }).in("status", ["submitted", "collecting", "quoted"]),
   ]);
-  return { ok: true, pendingReviews: rev.count ?? 0, openVisits: vis.count ?? 0, newInquiries: inq.count ?? 0 };
+  return { ok: true, pendingReviews: rev.count ?? 0, openVisits: vis.count ?? 0, newInquiries: inq.count ?? 0, openQuotes: quo.count ?? 0 };
 }
 
 // ── 후기 검수 ─────────────────────────────────────────────

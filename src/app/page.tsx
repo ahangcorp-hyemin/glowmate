@@ -7,6 +7,9 @@ import TabBar from "@/components/TabBar";
 import Icon from "@/components/Icon";
 import Logo from "@/components/Logo";
 import { track } from "@/lib/analytics";
+import { getTreatments } from "@/lib/client/saved";
+import { renewalWeeksOf } from "@/lib/catalog/renewal";
+import { PROCEDURES } from "@/lib/catalog/procedures";
 
 // 홈 = 전환 퍼널(이슈 #67 + docs/LANDING_UX.md). 모두닥 퍼널 + Toss/전환형 랜딩 문법.
 // 스티키 CTA는 scroll-reveal(히어로 CTA가 화면 밖일 때만) — 중복 방지.
@@ -22,6 +25,18 @@ export default function Home() {
   const router = useRouter();
   const heroBtnRef = useRef<HTMLButtonElement>(null);
   const [stickyOn, setStickyOn] = useState(false);
+  // 시술 원장 D-day 배너(#71) — 임박(30일 내)·경과 항목 중 가장 급한 것 1개
+  const [due, setDue] = useState<{ name: string; dday: number } | null>(null);
+  useEffect(() => {
+    const list = getTreatments().map((t) => {
+      const rw = renewalWeeksOf(t.procedureId);
+      if (rw == null) return null;
+      const d = new Date(t.date); d.setDate(d.getDate() + rw * 7);
+      return { name: PROCEDURES.find((p) => p.id === t.procedureId)?.nameKo ?? t.procedureId, dday: Math.ceil((d.getTime() - Date.now()) / 86400000) };
+    }).filter((x): x is { name: string; dday: number } => x != null && x.dday <= 30)
+      .sort((a, b) => a.dday - b.dday);
+    if (list.length) setDue(list[0]);
+  }, []);
 
   // scroll-reveal: 히어로 CTA가 뷰포트를 벗어나면 스티키 등장(둘이 동시에 안 보이게).
   // IntersectionObserver는 일부 웹뷰에서 콜백이 안 떠서, scroll 리스너 + rect로 직접 판정.
@@ -56,6 +71,16 @@ export default function Home() {
       </div>
 
       <div style={{ flex: 1 }}>
+        {due && (
+          <Link href="/estimate" className="reset" onClick={() => track("ledger_banner_click", { from: "home" })}>
+            <div style={{ margin: "4px 22px 0", background: "var(--key-soft)", borderRadius: 14, padding: "12px 15px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--key-deep)" }}>
+                {due.dday > 0 ? `${due.name} 다음 권장 시기까지 D-${due.dday}` : `${due.name} 권장 시기가 지났어요`}
+              </span>
+              <span style={{ color: "var(--key-deep)", fontWeight: 800 }}>견적 ›</span>
+            </div>
+          </Link>
+        )}
         {/* 히어로 — 첫 뷰포트에서 CTA까지 완결(above-the-fold) */}
         <div className="hero" style={{ padding: "14px 22px 0" }}>
           <div className="kick">병원 가기 전, 알고 가는 시술 정보 · 4050</div>
